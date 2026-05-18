@@ -69,9 +69,11 @@ Spec Guard can eventually adopt tooling and templates similar to Spec Kit, but i
 
 ## How do I use this with an AI coding agent?
 
-Give the agent `methodology.md` as its operating contract.
+For applying Spec Guard to a software project, give the agent `methodology.md` as its operating contract.
 
-For a new repository or project, give the agent `next-steps-agent-plan.md` to guide the first implementation pass.
+When this repository includes `agent-instructions.md`, prefer that as the paste-ready agent version.
+
+`next-steps-agent-plan.md` is not a general project-use instruction file. It is the internal implementation plan for evolving this repository into a complete methodology/template starter kit.
 
 The agent should follow the methodology before touching code.
 
