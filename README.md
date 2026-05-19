@@ -2,103 +2,184 @@
 
 Spec-first. Behavior-tested. Agent-safe.
 
-Spec Guard is a practical methodology for AI-assisted software development that turns specs into behavior tests, contract tests, and safe implementation workflows.
-
-## What is this?
-
-Spec Guard is a methodology and future starter kit for working with coding agents safely and predictably.
-
-It is designed around one core idea:
+Spec Guard is a practical methodology and starter kit for AI-assisted software development. It helps humans and coding agents turn specs into behavior tests, contract tests, browser tests, and safe implementation workflows.
 
 > Specs guide implementation, but tests validate running behavior and durable contracts — not prose.
 
-## Who is it for?
+## Why use it?
 
-Spec Guard is for teams or individuals using AI coding agents to build software and who want agents to:
-
-- identify the spec before implementation,
-- classify the type of work,
-- write the right tests before code,
-- validate behavior instead of documentation text,
-- avoid inventing UI,
-- avoid testing internal implementation details,
-- halt on unclear specs,
-- avoid silently absorbing scope creep.
-
-## What problem does it solve?
-
-AI coding agents can be useful, but they often drift into unsafe patterns:
+AI coding agents often drift into unsafe patterns:
 
 - implementing before requirements are clear,
-- creating documentation just to satisfy process,
-- testing that docs exist instead of testing code behavior,
-- inventing UI without mockups,
-- writing brittle unit tests against internals,
-- expanding scope silently,
+- inventing UI,
+- creating docs just to satisfy process,
+- testing documentation instead of behavior,
+- testing private internals instead of durable contracts,
+- silently expanding scope,
 - patching around bad or incomplete specs.
 
 Spec Guard exists to prevent those patterns.
 
-## How is this different from Spec Kit-style workflows?
+## How it works
 
-Spec Kit-style workflows are useful for structured specification, planning, and traceability.
-
-Spec Guard focuses more narrowly on **agentic implementation safety**:
-
-- tests should validate code behavior, API contracts, or user-visible behavior,
-- doc-content tests are only appropriate when the document itself is the deliverable,
-- reusable APIs get documented contracts and unit tests,
-- reusable UI is treated as an API,
-- one-off UI requires mockups/component-library docs and browser automation,
-- agents must halt on missing specs, bad specs, missing UI inputs, and scope creep.
-
-Spec Guard can eventually adopt tooling and templates similar to Spec Kit, but its first priority is enforceable agent behavior.
-
-## Minimum workflow
+Minimum workflow:
 
 ```text
-1. Identify the spec.
+1. Identify the governing spec.
 2. Classify the work.
-3. Decide whether docs/sub-specs are truly needed.
-4. Write the correct behavior/API/UI test.
+3. Add only the contract/template docs that are truly needed.
+4. Write the correct test or process check before implementation.
 5. Run it and observe failure.
-6. Implement.
-7. Run tests until passing.
-8. Update durable docs/context only if needed.
+6. Implement the smallest change.
+7. Run tests/checks until passing.
+8. Record blockers or scope discoveries instead of guessing.
 ```
 
-## How do I use this with an AI coding agent?
+Work is classified as one primary type:
 
-For applying Spec Guard to a software project, give the agent `methodology.md` as its operating contract.
+- reusable non-UI API,
+- REST/service API,
+- reusable UI component,
+- one-off application UI,
+- direct behavior with no new API or UI,
+- operational/document deliverable.
 
-When this repository includes `agent-instructions.md`, prefer that as the paste-ready agent version.
+Classification determines which documentation and tests/checks are required.
 
-`next-steps-agent-plan.md` is not a general project-use instruction file. It is the internal implementation plan for evolving this repository into a complete methodology/template starter kit.
+## Quick start
 
-The agent should follow the methodology before touching code.
+Read `quickstart.md`, then start with a spec:
 
-## What agents should never do
+```bash
+cp templates/spec.md specs/my-feature.md
+```
+
+Or use the CLI:
+
+```bash
+node bin/spec-guard.js new spec specs/my-feature.md
+node bin/spec-guard.js check specs/my-feature.md
+```
+
+For an AI coding agent, paste `agent-instructions.md` into the agent context. Use `methodology.md` as the canonical reference.
+
+For adopting Spec Guard in an existing project, see `adoption.md`.
+
+## CLI
+
+Spec Guard includes a small CLI for checking specs and creating methodology files from templates.
+
+From an installed package:
+
+```bash
+spec-guard check path/to/spec.md
+spec-guard init [directory]
+spec-guard new spec path/to/spec.md
+spec-guard classify path/to/spec.md
+spec-guard blocker path/to/blocker.md
+spec-guard scope-discovery path/to/scope-discovery.md
+spec-guard review path/to/review.md
+```
+
+From this repository, replace `spec-guard` with `node bin/spec-guard.js`.
+
+Example:
+
+```bash
+node bin/spec-guard.js check test/fixtures/valid-spec.md
+```
+
+See `cli.md` for command details, exit codes, and diagnostic format.
+
+## Templates and checklists
+
+Templates live in `templates/`:
+
+- `spec.md`
+- `task-plan.md`
+- `api-contract.md`
+- `rest-api-contract.md`
+- `reusable-ui-component.md`
+- `one-off-ui.md`
+- `operational-document.md`
+- `blocker.md`
+- `scope-discovery.md`
+- `implementation-review.md`
+
+Checklists live in `checklists/` and cover preflight, failure-first testing, API/UI/document readiness, browser tests, and implementation review.
+
+Examples live in `examples/`.
+
+## What agents must never do
 
 Agents must not:
 
 - implement before identifying the spec,
-- create documentation by default for every change,
+- skip work classification,
+- create documentation by default,
 - write doc-content tests as a substitute for behavior tests,
 - invent UI without mockups or design direction,
-- invent a UI component library when one is required but absent,
-- write unit tests for undocumented internals,
+- invent a UI component library,
+- test undocumented internals,
 - work around bad or incomplete specs,
 - absorb out-of-scope work silently,
-- skip failure-first testing without a concrete reason,
-- produce placeholder UI unless explicitly authorized by a human and marked as unreviewed.
+- skip failure-first testing/checking without a concrete reason.
 
-## Current files
+## Project map
 
-- `methodology.md` — canonical agent-facing methodology.
-- `next-steps-agent-plan.md` — plan for building this into a complete methodology/template repository.
+Core docs:
 
-## Project status
+- `methodology.md` — canonical operating contract.
+- `agent-instructions.md` — paste-ready agent instructions.
+- `work-classification.md` — classification guide.
+- `quickstart.md` — shortest usage path.
+- `adoption.md` — applying Spec Guard in an existing project.
+- `cli.md` — CLI contract.
+- `validation-rules.md` — validation rules for humans and tooling.
+- `PROJECT_CONTEXT.md` — preserved project context for future maintainers/agents.
 
-This repository is intentionally starting as documentation-first methodology work.
+Supporting docs:
 
-Do not build a CLI yet. First refine the methodology, templates, examples, and checklists until they are stable.
+- `principles.md`
+- `glossary.md`
+- `comparisons.md`
+- `CONTRIBUTING.md`
+- `CHANGELOG.md`
+- `cli-readiness.md`
+- `tooling-interface.md`
+- `next-steps-agent-plan.md`
+
+Implementation:
+
+- `bin/spec-guard.js`
+- `src/check.js`
+- `test/`
+- `.github/workflows/test.yml`
+
+## Development
+
+Run tests:
+
+```bash
+npm test
+```
+
+Run the CLI smoke check:
+
+```bash
+npm run check:example
+```
+
+Preview package contents:
+
+```bash
+npm pack --dry-run
+```
+
+## Current status
+
+This is a functional v0.1 baseline. The CLI intentionally remains small: it checks one spec at a time and creates files from templates. It does not crawl repositories, validate every contract, run project test suites, or act as a workflow engine.
+
+## License
+
+MIT. See `LICENSE`.

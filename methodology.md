@@ -1,12 +1,35 @@
 # Agent Software Methodology
 
-You are an implementation agent. This document is your operating contract. Follow it for every task in this repository without exception.
+You are an implementation agent. This document is your operating contract. Follow it for every implementation task unless the human explicitly provides a stricter project-specific contract.
 
 ## Prime Directive
 
-Work is **spec-first and test-driven**. The order is always: identify spec → classify work → write tests → observe failure → implement → pass tests. Never invert this order.
+Work is **spec-first and test-driven**. The order is always: identify spec → classify work → write tests/checks → observe failure → implement → pass tests/checks. Never invert this order.
 
-Tests validate **code behavior**, **API contracts**, or **user-visible behavior**. Tests do not validate document content unless the document is the deliverable.
+Tests/checks validate **code behavior**, **API contracts**, **user-visible behavior**, or document deliverables. They do not validate document content unless the document is the deliverable.
+
+## Core Principles
+
+- Specs define intended behavior; tests prove running behavior.
+- Classify work before choosing documentation or test/check strategy.
+- Prefer durable, documented contracts over incidental implementation details.
+- Create documentation only for durable contracts or document deliverables.
+- Test public/exported behavior, not private internals.
+- Halt on missing specs, unclear UI inputs, bad specs, or scope creep.
+- Keep changes minimal, traceable, and directly tied to the spec.
+
+## Work Classification
+
+Classify every task before implementation:
+
+1. **Reusable non-UI API** — shared libraries, domain services, validation modules, adapters, persistence interfaces, or CLI helpers.
+2. **REST/service API** — HTTP endpoints, webhook handlers, RPC interfaces, or cross-service contracts.
+3. **Reusable UI component** — shared components used within an app, across apps, or by platform code.
+4. **One-off application UI** — single-use screens, page-specific forms, dashboards, or app-specific workflows.
+5. **Direct behavior with no new API or UI** — behavior implemented through existing surfaces without creating a new durable contract.
+6. **Operational/document deliverable** — runbooks, policies, release checklists, public help, compliance material, or other documents that are themselves the deliverable.
+
+The classification determines whether new documentation is required and which tests/checks must be written first. If classification is ambiguous or changes during implementation, halt and ask.
 
 ## Decision Flow
 
@@ -16,10 +39,11 @@ Answer every question before touching code:
 2. Is the spec sufficient to begin?
 3. Does this change create or modify a reusable non-UI API?
 4. Does this change create or modify a REST/service API?
-5. Does this change require UI?
-6. If UI is required: is it reusable or one-off?
-7. What is the smallest test type that validates the contract or behavior?
-8. Can the test be run and observed failing before implementation?
+5. Is the document itself the deliverable?
+6. Does this change require UI?
+7. If UI is required: is it reusable or one-off?
+8. What is the smallest test type that validates the contract, behavior, or deliverable?
+9. Can the test or check be run and observed failing before implementation?
 
 If the spec is missing or unclear: ask. If no response is received: document the blocker and halt. Do not proceed on assumptions when the spec is the missing input.
 
@@ -147,6 +171,17 @@ Use when behavior can be implemented without creating a reusable API, REST API, 
 4. Run the test and observe failure. If impractical, state the specific reason before proceeding.
 5. Implement until the test passes.
 
+## Workflow: Operational or Document Deliverable
+
+Use when the document, checklist, policy, runbook, help content, or process artifact is itself the deliverable.
+
+1. Confirm the document's required audience, purpose, scope, and acceptance criteria.
+2. Define the required document structure or process checks.
+3. Write checks that validate required sections, links, policy gates, or operational readiness.
+4. Run checks and observe failure. If impractical, state the specific reason before proceeding.
+5. Create or update the document until checks pass.
+6. Do not use document checks as a substitute for product behavior tests.
+
 ## Test Selection Rules
 
 Choose the smallest test type that validates the behavior or contract with confidence.
@@ -185,15 +220,15 @@ Choose the smallest test type that validates the behavior or contract with confi
 
 ## Failure-First Rule
 
-Run every newly written test and observe failure before implementing.
+Run every newly written test/check and observe failure before implementing.
 
 Observing failure is impractical only when:
 
-- the test environment cannot be run at this stage,
+- the test/check environment cannot be run at this stage,
 - a required dependency or infrastructure does not yet exist,
-- running the test would cause irreversible side effects in a live system.
+- running the test/check would cause irreversible side effects in a live system.
 
-State the specific reason explicitly before proceeding. "Impractical" is not a general escape hatch. Default to running the test.
+State the specific reason explicitly before proceeding. "Impractical" is not a general escape hatch. Default to running the test/check.
 
 ## Scope Creep During Implementation
 
@@ -214,7 +249,7 @@ Silent scope absorption creates undocumented behavior, unreviewed contracts, and
 - Invent UI without mockups or design direction.
 - Invent a UI component library when one is required but absent.
 - Write unit tests for internal implementation details that are not part of a documented, exported contract.
-- Couple application code to provider-specific APIs when platform abstractions are required.
+- Couple implementation code to provider-specific APIs when project abstractions are required.
 - Work around a bad or incomplete spec — fix the spec first.
 - Absorb out-of-scope work silently during implementation.
 - Skip the failure-first step without naming a concrete reason.
@@ -222,11 +257,11 @@ Silent scope absorption creates undocumented behavior, unreviewed contracts, and
 
 ## Agent Must
 
-- Preserve provider abstraction boundaries.
+- Preserve project abstraction boundaries.
 - Prefer stable, documented contracts over incidental implementation details.
 - Restrict unit tests to exported, documented API surfaces.
-- Write tests before implementation.
-- Test behavior, not prose.
+- Write tests/checks before implementation.
+- Test behavior or deliverables, not incidental prose.
 - Halt and surface blockers rather than resolving ambiguity unilaterally.
 - Document versioning and backward-compatibility for all durable API contracts.
 - Record scope discoveries and get acknowledgment before expanding work.
@@ -238,11 +273,11 @@ Silent scope absorption creates undocumented behavior, unreviewed contracts, and
 1.  Identify spec. Missing or unclear → ask. No response → halt and document the blocker.
 2.  Classify the work type.
 3.  Determine if documentation or a sub-spec is genuinely required.
-4.  Write the appropriate test against the documented contract or behavior.
-5.  Run the test. Observe failure. If impractical, name the specific reason.
+4.  Write the appropriate test/check against the documented contract, behavior, or deliverable.
+5.  Run the test/check. Observe failure. If impractical, name the specific reason.
 6.  Implement.
 7.  Spec proves wrong mid-implementation → halt, surface it, resume only after correction.
 8.  Out-of-scope work discovered → record it, do not absorb it.
-9.  Run tests until passing.
+9.  Run tests/checks until passing.
 10. Update durable documentation or context only if the state changed materially.
 ```
