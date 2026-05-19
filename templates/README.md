@@ -6,6 +6,7 @@ Use these templates to make work implementation-ready without adding ceremony.
 
 - `spec.md` — define behavior, scope, classification, and required tests/checks.
 - `task-plan.md` — plan implementation phases and failure-first tests.
+- `compound-work.md` — decompose one request that spans multiple work classifications.
 - `implementation-review.md` — confirm implementation stayed traceable and test-backed.
 
 ## Contract Templates
@@ -20,6 +21,8 @@ Use these templates to make work implementation-ready without adding ceremony.
 
 - `blocker.md` — record missing/unclear inputs and halt state.
 - `scope-discovery.md` — record required or additive work discovered during implementation.
+- `spec-deviation.md` — record any proposed change, expansion, or contradiction to the governing spec before continuing.
+- `discovery-request.md` — record findings when a human explicitly asks what was missed or what risks remain.
 
 ## Usage Rule
 

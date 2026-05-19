@@ -1,6 +1,6 @@
 # Validation Rules
 
-These rules describe what future tooling may check. They are written for humans first and CLI implementation later.
+These rules describe what Spec Guard checks now and what future tooling may check later. They are written for humans first and tooling second.
 
 ## Severity Levels
 
@@ -8,7 +8,7 @@ These rules describe what future tooling may check. They are written for humans 
 - **Warning** — review before continuing, but work may proceed with justification.
 - **Info** — useful context, not a gate.
 
-Future CLI diagnostics should print severities as uppercase labels: `BLOCKER`, `WARNING`, or `INFO`.
+CLI diagnostics print severities as uppercase labels: `BLOCKER`, `WARNING`, or `INFO`.
 
 ## Usage Rules
 
@@ -78,6 +78,12 @@ Severity: Blocker
 
 If classification changes during implementation, the change must be recorded and acknowledged before continuing.
 
+### SG-CLASS-004: Compound work is split into classified slices
+
+Severity: Blocker when slice boundaries affect implementation or tests.
+
+Requests that span multiple classifications must be split into slices or clarified before implementation.
+
 ## Test Rules
 
 ### SG-TEST-001: Tests/checks identified before implementation
@@ -145,3 +151,43 @@ New work discovered during implementation must be recorded and classified as req
 Severity: Warning; Blocker if it creates new undocumented behavior.
 
 Additive work should be follow-up unless explicitly authorized.
+
+### SG-SCOPE-003: No unsolicited roadmap after implementation
+
+Severity: Blocker for agent behavior.
+
+After completing implementation, agents must not invent or propose new features unless the human explicitly asks for discovery or planning.
+
+## Spec Adherence Rules
+
+### SG-ADHERE-001: Changed files trace to the governing spec
+
+Severity: Blocker
+
+Every changed file must be required by the governing spec or an explicitly authorized deviation.
+
+### SG-ADHERE-002: No unrequested implementation
+
+Severity: Blocker
+
+Agents must not add unrequested features, optional enhancements, opportunistic refactors, dependency upgrades, architecture changes, UI redesigns, or nearby TODO implementations unless required by the spec.
+
+### SG-ADHERE-003: Spec deviations require separate authorization
+
+Severity: Blocker
+
+If implementation requires changing, expanding, relaxing, or contradicting the spec, the agent must record a spec deviation and halt until the human authorizes the deviation.
+
+## Discovery Rules
+
+### SG-DISCOVERY-001: Discovery requires explicit human request
+
+Severity: Blocker for agent behavior.
+
+Agents may identify security, legal, accessibility, reliability, product, test, or technical debt gaps only when the human explicitly asks for discovery.
+
+### SG-DISCOVERY-002: Discovery findings are not implementation authorization
+
+Severity: Blocker
+
+Discovery findings must become blockers, spec changes, or follow-up specs. They must not be implemented unless the human separately authorizes implementation.

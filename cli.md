@@ -14,6 +14,8 @@ spec-guard classify path/to/spec.md
 spec-guard blocker path/to/blocker.md
 spec-guard scope-discovery path/to/scope-discovery.md
 spec-guard review path/to/review.md
+spec-guard discovery path/to/discovery.md
+spec-guard deviation path/to/deviation.md
 ```
 
 ## `check`
@@ -107,6 +109,22 @@ The command refuses to overwrite an existing file.
 ## `review`
 
 Creates an implementation review file from `templates/implementation-review.md`.
+
+The command refuses to overwrite an existing file.
+
+## `discovery`
+
+Creates a discovery request file from `templates/discovery-request.md`.
+
+Use only when the human explicitly asks what was missed, what risks remain, or what features/gaps should be considered. Discovery does not authorize implementation.
+
+The command refuses to overwrite an existing file.
+
+## `deviation`
+
+Creates a spec deviation request from `templates/spec-deviation.md`.
+
+Use when implementation would require changing, expanding, relaxing, or contradicting the governing spec. A deviation request does not authorize implementation.
 
 The command refuses to overwrite an existing file.
 

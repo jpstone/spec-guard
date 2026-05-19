@@ -44,24 +44,36 @@ Work is classified as one primary type:
 - direct behavior with no new API or UI,
 - operational/document deliverable.
 
-Classification determines which documentation and tests/checks are required.
+Classification determines which documentation and tests/checks are required. If one request spans multiple classifications, split it into slices and validate each slice separately.
+
+## Installation
+
+Use directly from this repository during development:
+
+```bash
+node bin/spec-guard.js check path/to/spec.md
+```
+
+After publishing or installing as a package, use:
+
+```bash
+npm install --save-dev spec-guard
+npx spec-guard check path/to/spec.md
+```
 
 ## Quick start
 
-Read `quickstart.md`, then start with a spec:
+Read `quickstart.md`, then initialize a project and create a spec:
 
 ```bash
-cp templates/spec.md specs/my-feature.md
-```
-
-Or use the CLI:
-
-```bash
+node bin/spec-guard.js init
 node bin/spec-guard.js new spec specs/my-feature.md
 node bin/spec-guard.js check specs/my-feature.md
 ```
 
-For an AI coding agent, paste `agent-instructions.md` into the agent context. Use `methodology.md` as the canonical reference.
+If you are not using the CLI, copy `templates/spec.md` into a project `specs/` directory.
+
+For an AI coding agent, paste `agent-instructions.md` into the agent context. Use `methodology.md` as the canonical human-readable methodology.
 
 For adopting Spec Guard in an existing project, see `adoption.md`.
 
@@ -72,16 +84,18 @@ Spec Guard includes a small CLI for checking specs and creating methodology file
 From an installed package:
 
 ```bash
-spec-guard check path/to/spec.md
-spec-guard init [directory]
-spec-guard new spec path/to/spec.md
-spec-guard classify path/to/spec.md
-spec-guard blocker path/to/blocker.md
-spec-guard scope-discovery path/to/scope-discovery.md
-spec-guard review path/to/review.md
+npx spec-guard check path/to/spec.md
+npx spec-guard init [directory]
+npx spec-guard new spec path/to/spec.md
+npx spec-guard classify path/to/spec.md
+npx spec-guard blocker path/to/blocker.md
+npx spec-guard scope-discovery path/to/scope-discovery.md
+npx spec-guard review path/to/review.md
+npx spec-guard discovery path/to/discovery.md
+npx spec-guard deviation path/to/deviation.md
 ```
 
-From this repository, replace `spec-guard` with `node bin/spec-guard.js`.
+From this repository, use `node bin/spec-guard.js` instead of `npx spec-guard`.
 
 Example:
 
@@ -99,6 +113,7 @@ Templates live in `templates/`:
 
 - `spec.md`
 - `task-plan.md`
+- `compound-work.md`
 - `api-contract.md`
 - `rest-api-contract.md`
 - `reusable-ui-component.md`
@@ -106,9 +121,11 @@ Templates live in `templates/`:
 - `operational-document.md`
 - `blocker.md`
 - `scope-discovery.md`
+- `spec-deviation.md`
+- `discovery-request.md`
 - `implementation-review.md`
 
-Checklists live in `checklists/` and cover preflight, failure-first testing, API/UI/document readiness, browser tests, and implementation review.
+Checklists live in `checklists/` and cover preflight, spec adherence, failure-first testing, API/UI/document readiness, browser tests, explicit discovery requests, and implementation review.
 
 Examples live in `examples/`.
 
@@ -125,14 +142,23 @@ Agents must not:
 - test undocumented internals,
 - work around bad or incomplete specs,
 - absorb out-of-scope work silently,
+- add unrequested features or optional enhancements,
+- opportunistically refactor unrelated code,
+- upgrade dependencies or change architecture unless required by the spec,
+- redesign UI beyond provided direction,
+- implement nearby TODOs unless required by the spec,
+- propose unsolicited feature roadmaps,
+- treat "what's next?" as permission to invent features,
+- perform discovery unless explicitly asked,
+- implement discovery findings without separate authorization,
 - skip failure-first testing/checking without a concrete reason.
 
 ## Project map
 
 Core docs:
 
-- `methodology.md` — canonical operating contract.
-- `agent-instructions.md` — paste-ready agent instructions.
+- `methodology.md` — canonical human-readable methodology.
+- `agent-instructions.md` — paste-ready operating contract for agents.
 - `work-classification.md` — classification guide.
 - `quickstart.md` — shortest usage path.
 - `adoption.md` — applying Spec Guard in an existing project.

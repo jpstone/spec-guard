@@ -32,8 +32,8 @@ The repository is a functional v0.1 baseline containing:
 
 ## Canonical Documents
 
-- `methodology.md` — canonical operating contract.
-- `agent-instructions.md` — concise paste-ready agent context.
+- `methodology.md` — canonical human-readable methodology.
+- `agent-instructions.md` — paste-ready agent operating contract with the implementation-critical rules from the methodology.
 - `work-classification.md` — classification decision guide.
 - `quickstart.md` — fastest path for a user to apply Spec Guard.
 - `cli.md` — current CLI contract.
@@ -53,6 +53,10 @@ Agents must not:
 - test undocumented internals as a substitute for contract tests,
 - patch around bad specs,
 - silently absorb scope creep,
+- propose unsolicited feature roadmaps,
+- treat "what's next?" as permission to invent features,
+- perform discovery unless explicitly asked,
+- implement discovery findings without separate authorization,
 - skip failure-first testing/checking without a concrete reason,
 - produce placeholder UI unless explicitly authorized by a human and marked as unreviewed.
 
@@ -78,6 +82,12 @@ Every task should be classified as one primary type:
 
 Classification determines required documentation and test/check strategy.
 
+Broad requests may span multiple classifications. Future agents should split compound requests into classified slices instead of forcing them into one category. The todo app simulation in `examples/todo-app-agent-simulation.md` captures this decision.
+
+Discovery is separate from implementation. Agents should not suggest new features after a normal "what's next?" prompt. They may identify security, legal, accessibility, reliability, product, test, or technical debt gaps only when the human explicitly asks for discovery, and findings are not implementation authorization.
+
+Spec deviation is also separate from implementation. If the agent believes the spec must change, expand, relax, or be contradicted, it should record a deviation and halt until the human authorizes the deviation.
+
 ## CLI State
 
 The CLI exists and currently supports:
@@ -90,6 +100,8 @@ spec-guard classify path/to/spec.md
 spec-guard blocker path/to/blocker.md
 spec-guard scope-discovery path/to/scope-discovery.md
 spec-guard review path/to/review.md
+spec-guard discovery path/to/discovery.md
+spec-guard deviation path/to/deviation.md
 ```
 
 From this repository, run commands as:

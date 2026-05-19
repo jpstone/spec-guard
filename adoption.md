@@ -7,7 +7,7 @@ Use this guide to apply Spec Guard in an existing software project.
 1. Copy or link `agent-instructions.md` into your coding-agent context.
 2. Keep `methodology.md` available as the canonical reference.
 3. Put new specs in a predictable project location, such as `specs/`.
-4. Use `templates/spec.md` for new work.
+4. Use `templates/spec.md` or `spec-guard new spec` for new work.
 5. Require agents to identify the governing spec before implementation.
 
 ## Recommended Project Layout
@@ -17,7 +17,7 @@ Use this guide to apply Spec Guard in an existing software project.
   feature-name.md
 /contracts/
   api-name.md
-/spec-guard/
+/.spec-guard/
   blockers/
   scope-discoveries/
   reviews/
@@ -40,7 +40,7 @@ Follow Spec Guard. Before implementation, identify the governing spec, classify 
 5. Write the tests/checks first.
 6. Observe failure.
 7. Implement the smallest change.
-8. Run tests until passing.
+8. Run tests/checks until passing.
 9. Complete an implementation review for non-trivial changes.
 
 ## Team Policy Options

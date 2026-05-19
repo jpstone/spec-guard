@@ -15,6 +15,14 @@ Use checklists as operational gates. They should reinforce the methodology witho
 
 - `failure-first.md` — confirm newly written tests/checks fail for the expected reason.
 
+## Discovery
+
+- `discovery-readiness.md` — use only when the human explicitly asks for risk/gap/feature discovery.
+
+## During Implementation and Review
+
+- `spec-adherence.md` — confirm work stayed inside the governing spec and did not drift.
+
 ## Before Completion
 
 - `implementation-review.md` — confirm the change stayed spec-bound, tested, and minimal.

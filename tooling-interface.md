@@ -2,7 +2,7 @@
 
 This document defines the current minimal CLI surface and possible future tooling.
 
-Do not expand tooling beyond the current read-only check until the methodology, templates, checklists, and examples are stable.
+Do not expand tooling beyond spec checking and template-based file creation until the methodology, templates, checklists, and examples are stable.
 
 ## Goals
 
@@ -22,6 +22,8 @@ spec-guard classify path/to/spec.md
 spec-guard blocker path/to/blocker.md
 spec-guard scope-discovery path/to/scope-discovery.md
 spec-guard review path/to/review.md
+spec-guard discovery path/to/discovery.md
+spec-guard deviation path/to/deviation.md
 ```
 
 These commands check one spec file or create files from existing templates. Do not add repository crawling or workflow-engine behavior yet.
@@ -30,7 +32,7 @@ These commands check one spec file or create files from existing templates. Do n
 
 ### `spec-guard check`
 
-Read one spec-like Markdown file. Report missing required headings, missing or multiple classifications, and missing required tests/checks without modifying files. Use the required headings from `cli-readiness.md`.
+Read one spec-like Markdown file. Report missing required headings, empty required sections, missing or multiple classifications, and missing required tests/checks without modifying files. Use the required headings from `cli-readiness.md`.
 
 ### `spec-guard init`
 
@@ -56,6 +58,14 @@ Create a scope discovery record from `templates/scope-discovery.md`.
 
 Create an implementation review using `templates/implementation-review.md`.
 
+### `spec-guard discovery`
+
+Create a discovery request using `templates/discovery-request.md`. This records explicitly requested risk/gap/feature discovery and does not authorize implementation.
+
+### `spec-guard deviation`
+
+Create a spec deviation request using `templates/spec-deviation.md`. This records any required change, expansion, relaxation, or contradiction of the governing spec and does not authorize implementation.
+
 ## `check` Command Contract
 
 The `check` command supports this shape:
@@ -70,6 +80,7 @@ Behavior:
 - does not modify files,
 - accepts LF or CRLF line endings,
 - checks exact required headings documented in `cli-readiness.md`,
+- checks required sections for concrete content,
 - checks that exactly one work classification checkbox is selected,
 - checks that required tests/checks are identified,
 - prints plain-text diagnostics.
@@ -92,12 +103,13 @@ Example:
 [BLOCKER] SG-CLASS-001 specs/login.md: exactly one work classification must be selected
 ```
 
-## Possible Validations
+## Current and Possible Validations
 
-The first check may validate that:
+Current `check` validation covers:
 
 - a spec file exists,
 - required spec headings are present,
+- required sections contain concrete content,
 - exactly one work classification is selected,
 - required tests/checks are identified.
 

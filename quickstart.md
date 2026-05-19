@@ -4,7 +4,7 @@ Use Spec Guard to make an AI coding-agent task safer in about 10 minutes.
 
 ## 1. Give the Agent the Rules
 
-Paste `agent-instructions.md` into the agent context, or link `methodology.md` as the canonical operating contract.
+Paste `agent-instructions.md` into the agent context. Keep `methodology.md` available as the canonical human-readable reference.
 
 ## 2. Identify the Spec
 

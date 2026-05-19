@@ -120,3 +120,19 @@ test('review creates an implementation review from the template', () => {
   assert.equal(result.status, 0);
   assert.match(readFileSync(output, 'utf8'), /^# Implementation Review/);
 });
+
+test('discovery creates a discovery request from the template', () => {
+  const output = join(tempDir(), 'discovery.md');
+  const result = runCli(['discovery', output]);
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(output, 'utf8'), /^# Discovery Request/);
+});
+
+test('deviation creates a spec deviation request from the template', () => {
+  const output = join(tempDir(), 'deviation.md');
+  const result = runCli(['deviation', output]);
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(output, 'utf8'), /^# Spec Deviation Request/);
+});

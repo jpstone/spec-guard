@@ -6,7 +6,7 @@ The CLI should automate stable Spec Guard checks. It should not define the metho
 
 ## Required Before CLI Expansion
 
-- [ ] `methodology.md` is stable enough to be the canonical operating contract.
+- [ ] `methodology.md` is stable enough to be the canonical human-readable methodology.
 - [ ] `agent-instructions.md` accurately summarizes the methodology.
 - [ ] Work classifications are stable and documented in `work-classification.md`.
 - [ ] Templates exist for each classification that needs structured input.
@@ -16,18 +16,19 @@ The CLI should automate stable Spec Guard checks. It should not define the metho
 - [ ] Validation rules are documented before implementation.
 - [ ] Minimum `spec-guard check` behavior is defined narrowly enough to implement without inventing policy.
 
-## First CLI Must Validate
+## Current `check` Validation Scope
 
-The first CLI validates only one spec-like Markdown file.
+The `check` command validates one spec-like Markdown file.
 
-It should check:
+It checks:
 
 - the input file exists and is readable,
 - required spec headings are present,
+- required sections contain concrete content,
 - exactly one work classification is selected,
 - required tests/checks are identified.
 
-It should not validate repositories, contracts, UI inputs, blockers, scope discoveries, or implementation reviews yet.
+It does not validate repositories, contracts, UI inputs, blockers, scope discoveries, or implementation reviews yet.
 
 ## CLI Must Not Decide
 
@@ -53,15 +54,18 @@ spec-guard classify path/to/spec.md
 spec-guard blocker path/to/blocker.md
 spec-guard scope-discovery path/to/scope-discovery.md
 spec-guard review path/to/review.md
+spec-guard discovery path/to/discovery.md
+spec-guard deviation path/to/deviation.md
 ```
 
 `check` reads one spec-like Markdown file and reports whether:
 
 - required headings are present,
+- required sections contain concrete content,
 - exactly one work classification is selected,
 - required tests/checks are identified.
 
-For the first CLI, required headings are:
+Required headings are:
 
 - `Problem / Goal`
 - `In Scope`

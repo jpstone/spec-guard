@@ -19,3 +19,4 @@ Examples:
 - `reusable-ui-component/` — shared component contract.
 - `one-off-application-ui/` — single-use settings screen.
 - `operational-document-deliverable/` — document deliverable where process/doc checks are appropriate.
+- `todo-app-agent-simulation.md` — simulated developer request showing when an agent should halt and ask for missing spec/UI inputs.

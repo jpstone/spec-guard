@@ -68,7 +68,17 @@ Required evidence when a spec problem is discovered:
 
 Agents must not patch around a bad spec.
 
-## Gate 7: Scope Discoveries Are Recorded
+## Gate 7: Spec Adherence Is Preserved
+
+Required evidence:
+
+- every changed file traces to the governing spec or an explicitly authorized deviation,
+- no unrequested features or optional enhancements were added,
+- no unrelated refactor, dependency upgrade, architecture change, or UI redesign was included,
+- no nearby TODO was implemented unless required by the spec,
+- any required deviation was recorded and separately authorized.
+
+## Gate 8: Scope Discoveries Are Recorded
 
 Required evidence:
 
@@ -76,7 +86,18 @@ Required evidence:
 - required vs additive is stated,
 - additive work is not silently implemented in the current change.
 
-## Gate 8: Implementation Review Confirms Traceability
+## Gate 9: Discovery Is Explicitly Requested
+
+Required evidence before gap/risk/feature discovery:
+
+- human explicitly asked for discovery,
+- discovery scope is clear,
+- findings distinguish required gaps from optional enhancements,
+- no implementation is performed without separate authorization.
+
+A generic "what's next?" after implementation is not permission to invent a roadmap.
+
+## Gate 10: Implementation Review Confirms Traceability
 
 Required evidence:
 
@@ -96,4 +117,8 @@ Spec Guard is stronger than a generic spec/template workflow when it can answer 
 - Was failure observed before implementation?
 - Did UI work halt without design inputs?
 - Were bad specs and scope creep recorded instead of absorbed?
+- Did every change trace to the spec or an authorized deviation?
+- Did the agent avoid unrequested features, optional enhancements, and opportunistic refactors?
+- Did the agent avoid unsolicited roadmap generation?
+- Were discovery findings only produced after explicit human request?
 - Were product features tested through behavior rather than prose?

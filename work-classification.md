@@ -16,10 +16,26 @@ Classify every task before implementation. The classification determines require
 ## Classification Rules
 
 - Choose one primary classification before implementation.
-- If multiple classifications apply, split the work or identify the primary deliverable first.
+- If multiple classifications apply, split the work into slices or identify the primary deliverable first.
 - If classification changes during implementation, stop and surface the change.
 - Do not create contract documentation for one-off work unless a reusable surface emerges.
 - Do not use document checks for product features.
+
+## Compound Requests
+
+A broad product request may span multiple classifications. Do not implement all of it as one undifferentiated task.
+
+Example: "Build a todo app" may include:
+
+| Slice | Likely classification |
+| --- | --- |
+| Todo screen and workflow | One-off application UI |
+| Local state transition logic | Reusable non-UI API, if exported/reused; otherwise direct behavior |
+| REST persistence routes | REST/service API |
+| Shared task item component | Reusable UI component, only if intended for reuse |
+| Help/runbook/policy docs | Operational/document deliverable, only if the document is the deliverable |
+
+For compound requests, create a compound work plan or split the request into separate specs.
 
 ## Ambiguous Cases
 

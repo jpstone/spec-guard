@@ -47,6 +47,14 @@ async function run(args) {
     return copyTemplateCommand(rest, 'templates/implementation-review.md', 'review', 'implementation review');
   }
 
+  if (command === 'discovery') {
+    return copyTemplateCommand(rest, 'templates/discovery-request.md', 'discovery', 'discovery request');
+  }
+
+  if (command === 'deviation') {
+    return copyTemplateCommand(rest, 'templates/spec-deviation.md', 'deviation', 'spec deviation request');
+  }
+
   printUsage();
   return 2;
 }
@@ -81,15 +89,15 @@ async function initCommand(args) {
   }
 
   const directories = [
-    'specs',
-    'contracts',
-    '.spec-guard/blockers',
-    '.spec-guard/scope-discoveries',
-    '.spec-guard/reviews',
+    ['specs'],
+    ['contracts'],
+    ['.spec-guard', 'blockers'],
+    ['.spec-guard', 'scope-discoveries'],
+    ['.spec-guard', 'reviews'],
   ];
 
-  for (const directory of directories) {
-    await mkdir(resolve(targetDir, directory), { recursive: true });
+  for (const directoryParts of directories) {
+    await mkdir(resolve(targetDir, ...directoryParts), { recursive: true });
   }
 
   console.log(`Initialized Spec Guard directories in ${targetDir}`);
@@ -177,5 +185,7 @@ function printUsage() {
   spec-guard classify path/to/spec.md
   spec-guard blocker path/to/blocker.md
   spec-guard scope-discovery path/to/scope-discovery.md
-  spec-guard review path/to/review.md`);
+  spec-guard review path/to/review.md
+  spec-guard discovery path/to/discovery.md
+  spec-guard deviation path/to/deviation.md`);
 }

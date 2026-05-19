@@ -375,7 +375,7 @@ Future validations could check:
 When continuing this repo:
 
 1. Refine `README.md` if needed.
-2. Keep `methodology.md` as the canonical operating contract.
+2. Keep `methodology.md` as the canonical human-readable methodology and `agent-instructions.md` as the paste-ready agent operating contract.
 3. Create `agent-instructions.md` as a concise paste-ready variant if needed.
 4. Create templates.
 5. Create checklists.

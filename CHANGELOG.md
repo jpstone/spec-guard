@@ -13,6 +13,8 @@ Includes:
 - Examples for reusable APIs, REST APIs, reusable UI, one-off UI, and document deliverables.
 - CLI command: `spec-guard check path/to/spec.md`.
 - CLI validation for required spec headings, concrete required-section content, exactly one selected classification, and required tests/checks.
-- Template/scaffolding commands: `init`, `new spec`, `classify`, `blocker`, `scope-discovery`, and `review`.
+- Template/scaffolding commands: `init`, `new spec`, `classify`, `blocker`, `scope-discovery`, `review`, `discovery`, and `deviation`.
 - Objective quality gates and Spec Kit-style workflow comparison.
+- Explicit discovery mode to prevent unsolicited feature roadmaps and separate risk/gap discovery from implementation.
+- Explicit spec deviation flow to prevent agents from changing, expanding, relaxing, or contradicting specs without authorization.
 - Cross-platform Node test workflow.
