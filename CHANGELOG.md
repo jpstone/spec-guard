@@ -12,6 +12,7 @@ Includes:
 - Operational checklists.
 - Examples for reusable APIs, REST APIs, reusable UI, one-off UI, and document deliverables.
 - CLI command: `spec-guard check path/to/spec.md`.
-- CLI validation for required spec headings, exactly one selected classification, and required tests/checks.
+- CLI validation for required spec headings, concrete required-section content, exactly one selected classification, and required tests/checks.
 - Template/scaffolding commands: `init`, `new spec`, `classify`, `blocker`, `scope-discovery`, and `review`.
+- Objective quality gates and Spec Kit-style workflow comparison.
 - Cross-platform Node test workflow.

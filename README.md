@@ -89,6 +89,8 @@ Example:
 node bin/spec-guard.js check test/fixtures/valid-spec.md
 ```
 
+`check` validates one Markdown spec for required headings, concrete required-section content, exactly one selected work classification, and identified tests/checks.
+
 See `cli.md` for command details, exit codes, and diagnostic format.
 
 ## Templates and checklists
@@ -136,6 +138,8 @@ Core docs:
 - `adoption.md` — applying Spec Guard in an existing project.
 - `cli.md` — CLI contract.
 - `validation-rules.md` — validation rules for humans and tooling.
+- `quality-gates.md` — objective readiness gates for safer agent implementation.
+- `spec-kit-comparison.md` — objective comparison with Spec Kit-style workflows.
 - `PROJECT_CONTEXT.md` — preserved project context for future maintainers/agents.
 
 Supporting docs:

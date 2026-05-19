@@ -48,6 +48,11 @@ test('reports missing required headings', () => {
   assert(diagnostics.some((diagnostic) => diagnostic.message.includes('In Scope')));
 });
 
+test('reports empty required sections', () => {
+  const diagnostics = checkSpecText(validSpec.replace('## Problem / Goal\n\nGoal.', '## Problem / Goal\n\n<!-- Describe the goal. -->\n\n- '), 'empty-section.md');
+  assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-SPEC-004']);
+});
+
 test('reports no selected classification', () => {
   const diagnostics = checkSpecText(validSpec.replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI'), 'none.md');
   assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-CLASS-001']);

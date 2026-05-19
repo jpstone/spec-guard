@@ -21,6 +21,7 @@ spec-guard review path/to/review.md
 Checks one Markdown spec for:
 
 - required headings,
+- concrete content in required sections,
 - exactly one selected work classification,
 - identified required tests/checks.
 

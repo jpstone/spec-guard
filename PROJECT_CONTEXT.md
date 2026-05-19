@@ -119,6 +119,7 @@ Current CLI does not:
 `check` validates:
 
 - required headings exist,
+- required sections contain concrete content,
 - exactly one classification checkbox is selected,
 - required tests/checks are identified.
 

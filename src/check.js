@@ -22,6 +22,7 @@ export function checkSpecText(text, path = '<input>') {
   const diagnostics = [];
 
   diagnostics.push(...checkRequiredHeadings(normalized, path));
+  diagnostics.push(...checkRequiredSectionContent(normalized, path));
   diagnostics.push(...checkClassification(normalized, path));
   diagnostics.push(...checkRequiredTests(normalized, path));
 
@@ -57,6 +58,18 @@ function checkRequiredHeadings(text, path) {
     }));
 }
 
+function checkRequiredSectionContent(text, path) {
+  return REQUIRED_HEADINGS
+    .filter((heading) => heading !== 'Work Classification' && heading !== 'Required Tests / Checks')
+    .filter((heading) => hasHeading(text, heading) && !hasSubstantiveContent(getSection(text, heading)))
+    .map((heading) => ({
+      severity: 'BLOCKER',
+      ruleId: 'SG-SPEC-004',
+      path,
+      message: `required section must identify concrete content: ${heading}`,
+    }));
+}
+
 function checkClassification(text, path) {
   if (!hasHeading(text, 'Work Classification')) {
     return [];
@@ -84,7 +97,20 @@ function checkRequiredTests(text, path) {
   }
 
   const section = getSection(text, 'Required Tests / Checks');
-  const content = section
+  if (hasSubstantiveContent(section)) {
+    return [];
+  }
+
+  return [{
+    severity: 'BLOCKER',
+    ruleId: 'SG-TEST-001',
+    path,
+    message: 'required tests/checks must be identified',
+  }];
+}
+
+function hasSubstantiveContent(section) {
+  return section
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => {
@@ -95,18 +121,8 @@ function checkRequiredTests(text, path) {
       return true;
     })
     .join('\n')
-    .trim();
-
-  if (content.length > 0) {
-    return [];
-  }
-
-  return [{
-    severity: 'BLOCKER',
-    ruleId: 'SG-TEST-001',
-    path,
-    message: 'required tests/checks must be identified',
-  }];
+    .trim()
+    .length > 0;
 }
 
 function hasHeading(text, heading) {

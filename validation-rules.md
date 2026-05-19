@@ -46,6 +46,12 @@ Severity: Blocker when questions affect implementation behavior.
 
 Unresolved questions that affect behavior, UI, contracts, or scope must produce a blocker.
 
+### SG-SPEC-004: Required sections contain concrete content
+
+Severity: Blocker
+
+Required spec sections must contain substantive content, not only placeholders, comments, or empty bullets.
+
 ## Classification Rules
 
 ### SG-CLASS-001: Classification selected
