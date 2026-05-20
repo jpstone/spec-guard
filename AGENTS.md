@@ -174,8 +174,8 @@ Stop immediately and surface the issue when any of these are true:
 - Skip work classification
 - Create documentation by default
 - Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
-- Invent UI without mockups or design direction
-- Invent a component library
+- Invent UI — do not implement UI work until both a mockup/design direction and a component library reference are in the spec, or the human has explicitly confirmed each is not needed
+- Assume a component library — if none is referenced, ask the human before proceeding
 - Test private/undocumented internals instead of contract surfaces
 - Silently absorb out-of-scope work
 - Add unrequested features, optional enhancements, or opportunistic refactors
