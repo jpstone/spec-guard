@@ -168,9 +168,7 @@ WORKFLOW.md
 | [Validation Rules](docs/validation-rules.md) | Every rule ID with severity and description |
 | [Quality Gates](docs/quality-gates.md) | Gate-by-gate breakdown and pass conditions |
 | [Work Classification](docs/work-classification.md) | How to choose the right classification |
-| [Methodology](docs/methodology.md) | Core principles and design rationale |
-| [Adoption Guide](docs/adoption.md) | Applying Spec Guard to an existing project |
-| [Comparisons](docs/comparisons.md) | How Spec Guard differs from other tools |
+| [Philosophy](docs/philosophy.md) | Design philosophy, innovations, and problems Spec Guard solves |
 | [Principles](docs/principles.md) | Foundational rules the methodology is built on |
 | [Glossary](docs/glossary.md) | Term definitions |
 | [MCP Reference](mcp/README.md) | MCP server setup, tool list, and usage examples |

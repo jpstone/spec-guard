@@ -36,6 +36,10 @@ Why this is stricter than generic spec workflows: the same implementation reques
 
 ## Gate 3: Failure Confirmed
 
+```bash
+spec-guard confirm-gate <name> 3 --evidence="<what failed and why>"
+```
+
 Required evidence — one of:
 
 - New tests/checks were run before implementation and fail for the expected reason.
@@ -52,6 +56,10 @@ Disallowed evidence:
 
 ## Gate 4: Tests Pass
 
+```bash
+spec-guard confirm-gate <name> 4
+```
+
 Required evidence:
 
 - All tests pass.
@@ -64,8 +72,9 @@ Required evidence:
 ## Gate 5: Review Complete
 
 ```bash
-spec-guard review .spec-guard/reviews/<name>.md
-spec-guard analyze path/to/spec.md   # must exit 0
+spec-guard review <name>
+spec-guard analyze <name>   # must exit 0
+spec-guard confirm-gate <name> 5
 ```
 
 Required evidence:

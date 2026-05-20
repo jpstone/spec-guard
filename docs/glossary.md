@@ -32,6 +32,34 @@ A screen, form, dashboard, or workflow built for a specific application use case
 
 A document that is itself the product, such as a runbook, release checklist, policy, compliance artifact, or public help page.
 
+## Direct Behavior, No New API/UI
+
+A change that alters observable behavior without introducing a new API surface or UI. Tests are derived from the acceptance criteria using whatever mechanism verifies the behavioral change.
+
+## Gate
+
+A hard checkpoint in the workflow. Each gate has a specific pass condition enforced by `spec-guard` tooling. Gates are not advisory — execution does not proceed past a gate until it passes.
+
+## Contract
+
+A document defining the durable interface or behavior of a reusable API or component. Stored in `.spec-guard/contracts/`. Required before Gate 2 for reusable non-UI APIs, REST/service APIs, and reusable UI components.
+
+## Brownfield Spec
+
+A spec for modifying existing behavior. Records both the current behavior (as-is) and the behavior delta (what changes). Anything not in the delta must be preserved exactly.
+
+## Deviation
+
+A recorded divergence between the spec and what implementation requires. Created with `spec-guard deviation` when implementation reveals the spec is wrong, incomplete, or contradictory. Requires human resolution before work continues.
+
+## Discovery
+
+A structured gap or risk analysis entered only when the human explicitly requests it. Distinct from implementation — findings do not authorize implementation. Tracked with `spec-guard discovery`.
+
+## Run State
+
+The persisted gate confirmation data for a spec, stored in `.spec-guard/runs/<name>-run.json`. Records which gates have passed, failure-first evidence, and confirmation timestamps for gates 3–5.
+
 ## Failure-First Testing
 
 The practice of running a newly written test before implementation and observing it fail for the expected reason.

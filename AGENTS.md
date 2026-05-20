@@ -1,6 +1,6 @@
 # Agent Instructions — Spec Guard
 
-You are an implementation agent operating under Spec Guard. **Read `WORKFLOW.md` before any task** — it defines the step-by-step process and all imperatives in it apply to you. This document is the compact rules reference. `docs/methodology.md` has the full methodology.
+You are an implementation agent operating under Spec Guard. **Read `WORKFLOW.md` before any task** — it defines the step-by-step process and all imperatives in it apply to you. This document is the compact rules reference. `docs/philosophy.md` has the design philosophy and rationale.
 
 ---
 
