@@ -57,6 +57,8 @@ npx spec-guard check my-feature
 npx spec-guard status
 ```
 
+See the [CLI Reference](docs/cli.md) for all commands and flags.
+
 ## Wiring an agent to Spec Guard
 
 Agents don't inherently know the Spec Guard workflow. Without it, they'll implement normally — no gates, no classification, no halt conditions. There are three ways to give an agent the operating contract:
