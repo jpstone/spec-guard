@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { constants } from 'node:fs';
 import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   checkSpecText,
@@ -11,7 +11,7 @@ import {
   getSpecStatus,
   getSpecTitle,
 } from '../src/check.js';
-import { runInteractive, runCheck, PHASES } from '../src/run.js';
+import { runInteractive, runCheck, PHASES, gate1, gate2, TEST_GUIDANCE } from '../src/run.js';
 import { discoverInteractive } from '../src/discover.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
@@ -101,6 +101,9 @@ async function run(args) {
   if (command === 'classify')        return classifyCommand(rest);
   if (command === 'status')          return statusCommand(rest);
   if (command === 'watch')           return watchCommand(rest);
+  if (command === 'gate-status')     return gateStatusCommand(rest);
+  if (command === 'confirm-gate')    return confirmGateCommand(rest);
+  if (command === 'next')            return nextCommand(rest);
   if (command === 'blocker')         return copyTemplateCommand(rest, 'templates/blocker.md', 'blocker', 'blocker', SG.blockers);
   if (command === 'scope-discovery') return copyTemplateCommand(rest, 'templates/scope-discovery.md', 'scope-discovery', 'scope discovery', SG.scopeDiscoveries);
   if (command === 'review')          return copyTemplateCommand(rest, 'templates/implementation-review.md', 'review', 'implementation review', SG.reviews);
@@ -503,10 +506,13 @@ async function classifyCommand(args) {
     const selected = getSelectedClassifications(text);
 
     if (selected.length === 1) {
+      const classification = selected[0];
+      const guidance = TEST_GUIDANCE[classification] || null;
       if (flags.json) {
-        console.log(JSON.stringify({ path: inputPath, classification: selected[0] }));
+        console.log(JSON.stringify({ path: inputPath, classification, test_guidance: guidance }));
       } else {
-        console.log(selected[0]);
+        console.log(classification);
+        if (guidance) console.log(`\n  Test guidance: ${guidance}`);
       }
       return 0;
     }
@@ -530,6 +536,284 @@ async function classifyCommand(args) {
     console.error(`[BLOCKER] SG-USAGE-001 ${inputPath}: ${error.message}`);
     return 2;
   }
+}
+
+// ─── gate-status ─────────────────────────────────────────────────────────────
+
+async function gateStatusCommand(args) {
+  const flags = parseFlags(args);
+
+  if (!flags.positional[0] || flags.positional.length > 1) {
+    console.error('Usage: spec-guard gate-status [--json] <spec>');
+    return 2;
+  }
+
+  const inputPath = withDefaultDir(flags.positional[0], SG.specs);
+
+  let text;
+  try {
+    text = await readFile(resolve(inputPath), 'utf8');
+  } catch (err) {
+    console.error(`[BLOCKER] SG-USAGE-001 ${inputPath}: ${err.message}`);
+    return 2;
+  }
+
+  const g1 = await gate1(inputPath);
+  const g2 = g1.passed ? await gate2(inputPath) : null;
+  const classifications = getSelectedClassifications(text);
+  const classification = classifications.length === 1 ? classifications[0] : null;
+
+  // Load saved run state for gates 3–5
+  const name = basename(inputPath).replace('.md', '');
+  const runFile = join(resolve(SG.runs), `${name}-run.json`);
+  let runState = { gatesPassed: [] };
+  try {
+    runState = JSON.parse(await readFile(runFile, 'utf8'));
+  } catch { /* no run state yet */ }
+
+  const g3passed = runState.gatesPassed?.includes('gate3') ?? false;
+  const g4passed = runState.gatesPassed?.includes('gate4') ?? false;
+  const g5passed = runState.gatesPassed?.includes('gate5') ?? false;
+
+  if (flags.json) {
+    console.log(JSON.stringify({
+      spec_path: inputPath,
+      gate1: { passed: g1.passed, label: 'Spec valid',         blockers: g1.blockers.map(d => formatDiagnostic(d)) },
+      gate2: g2
+        ? { passed: g2.passed, label: 'Contracts present',     blockers: g2.blockers.map(d => formatDiagnostic(d)) }
+        : { passed: false,     label: 'Contracts present', skipped: true, reason: 'Gate 1 must pass first' },
+      gate3: { passed: g3passed, label: 'Failure confirmed', manual: true },
+      gate4: { passed: g4passed, label: 'Tests pass',        manual: true },
+      gate5: { passed: g5passed, label: 'Review complete',   manual: true },
+      classification,
+      test_guidance: classification ? TEST_GUIDANCE[classification] : null,
+      ready_to_implement: g1.passed && (g2?.passed ?? false),
+    }));
+    return 0;
+  }
+
+  const mark = (passed) => passed ? '✓' : '✗';
+  const skip = (reason) => `— ${reason}`;
+
+  console.log(`\nSpec: ${inputPath}`);
+  if (classification) console.log(`Classification: ${classification}`);
+  console.log('');
+  console.log(`  Gate 1 [${mark(g1.passed)}] Spec valid`);
+  if (!g1.passed) g1.blockers.forEach(d => console.log(`         ${formatDiagnostic(d)}`));
+
+  if (g2) {
+    console.log(`  Gate 2 [${mark(g2.passed)}] Contracts present`);
+    if (!g2.passed) g2.blockers.forEach(d => console.log(`         ${formatDiagnostic(d)}`));
+  } else {
+    console.log(`  Gate 2 [${skip('Gate 1 must pass first')}]`);
+  }
+
+  console.log(`  Gate 3 [${mark(g3passed)}] Failure confirmed  (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log(`  Gate 4 [${mark(g4passed)}] Tests pass         (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log(`  Gate 5 [${mark(g5passed)}] Review complete    (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log('');
+
+  return 0;
+}
+
+// ─── confirm-gate ─────────────────────────────────────────────────────────────
+
+async function confirmGateCommand(args) {
+  const flags = parseFlags(args);
+
+  // Usage: confirm-gate <spec> <gate-number> [--evidence="..."] [--no-confirm]
+  if (flags.positional.length < 2) {
+    console.error('Usage: spec-guard confirm-gate <spec> <gate> [--evidence=<text>] [--no-confirm]');
+    console.error('  <gate>: 3, 4, or 5');
+    console.error('  --evidence: required for gate 3; describe what failed and why');
+    console.error('  --no-confirm: record gate as not-confirmed (problem encountered)');
+    return 2;
+  }
+
+  const inputPath = withDefaultDir(flags.positional[0], SG.specs);
+  const gate = parseInt(flags.positional[1], 10);
+  const confirmed = flags['confirm'] !== false;
+  const evidence = flags.evidence ?? null;
+
+  if (![3, 4, 5].includes(gate)) {
+    console.error(`Gate must be 3, 4, or 5 (gates 1 and 2 are automated). Got: ${gate}`);
+    return 2;
+  }
+
+  if (gate === 3 && confirmed && !evidence) {
+    console.error('Gate 3 confirmation requires --evidence describing what failed and why.');
+    console.error('  Example: spec-guard confirm-gate <spec> 3 --evidence="test auth.test.js fails: 401 returned instead of 403"');
+    return 2;
+  }
+
+  const runDir = resolve(SG.runs);
+  await mkdir(runDir, { recursive: true });
+
+  const name = basename(inputPath).replace('.md', '');
+  const runFile = join(runDir, `${name}-run.json`);
+
+  let runState = { specPath: inputPath, gatesPassed: [], startedAt: new Date().toISOString() };
+  try {
+    runState = JSON.parse(await readFile(runFile, 'utf8'));
+  } catch { /* no existing run state — start fresh */ }
+
+  const gateKey = `gate${gate}`;
+
+  if (confirmed) {
+    if (!runState.gatesPassed.includes(gateKey)) runState.gatesPassed.push(gateKey);
+    if (gate === 3) {
+      runState.failureFirstConfirmed = true;
+      runState.failureFirstReason = evidence;
+    }
+  }
+
+  runState[`gate${gate}_confirmed`] = confirmed;
+  runState[`gate${gate}_evidence`] = evidence ?? null;
+  runState[`gate${gate}_confirmedAt`] = new Date().toISOString();
+
+  await writeFile(runFile, JSON.stringify(runState, null, 2));
+
+  if (flags.json) {
+    console.log(JSON.stringify({
+      success: true,
+      gate,
+      confirmed,
+      gates_passed: runState.gatesPassed,
+      message: confirmed
+        ? `Gate ${gate} confirmed and recorded.`
+        : `Gate ${gate} not confirmed. Record the reason and address it before proceeding.`,
+    }));
+  } else {
+    console.log(confirmed
+      ? `  Gate ${gate} confirmed and recorded.`
+      : `  Gate ${gate} not confirmed — address the issue before proceeding.`);
+    console.log(`  Gates passed: ${runState.gatesPassed.join(', ') || 'none'}`);
+  }
+
+  return 0;
+}
+
+// ─── next ─────────────────────────────────────────────────────────────────────
+
+async function nextCommand(args) {
+  const flags = parseFlags(args);
+
+  if (!flags.positional[0] || flags.positional.length > 1) {
+    console.error('Usage: spec-guard next [--json] <spec>');
+    return 2;
+  }
+
+  const inputPath = withDefaultDir(flags.positional[0], SG.specs);
+
+  let text;
+  try {
+    text = await readFile(resolve(inputPath), 'utf8');
+  } catch {
+    const msg = {
+      next_action: 'create_spec',
+      instruction: `Spec file not found: ${inputPath}. Create it with: spec-guard new spec <name>`,
+      gate_target: 'gate1',
+    };
+    if (flags.json) { console.log(JSON.stringify(msg)); } else { console.log(msg.instruction); }
+    return 1;
+  }
+
+  // Load saved run state for gates 3–5
+  const name = basename(inputPath).replace('.md', '');
+  const runFile = join(resolve(SG.runs), `${name}-run.json`);
+  let runState = { gatesPassed: [] };
+  try {
+    runState = JSON.parse(await readFile(runFile, 'utf8'));
+  } catch { /* no run state */ }
+
+  const gatesPassed = runState.gatesPassed ?? [];
+
+  let result;
+
+  if (!gatesPassed.includes('gate1')) {
+    const g1 = await gate1(inputPath);
+    if (!g1.passed) {
+      result = {
+        next_action: 'fix_spec',
+        instruction: 'Gate 1 is blocked. Fix the spec issues listed below.',
+        gate_target: 'gate1',
+        blockers: g1.blockers.map(d => formatDiagnostic(d)),
+      };
+    } else {
+      result = {
+        next_action: 'confirm_gate1',
+        instruction: 'Spec passes all checks. Run: spec-guard confirm-gate <spec> 1 (or confirm via gate1 in the orchestrated run)',
+        gate_target: 'gate1',
+      };
+    }
+  } else if (!gatesPassed.includes('gate2')) {
+    const classifications = getSelectedClassifications(text);
+    const classification = classifications[0];
+    const g2 = await gate2(inputPath);
+    if (!g2.passed) {
+      result = {
+        next_action: 'create_contract',
+        instruction: `Gate 2 is blocked. Classification: "${classification}". Create the required contract artifact and reference it in the spec's Dependencies section.`,
+        gate_target: 'gate2',
+        classification,
+        test_guidance: TEST_GUIDANCE[classification],
+        blockers: g2.blockers.map(d => formatDiagnostic(d)),
+      };
+    } else {
+      result = {
+        next_action: 'confirm_gate2',
+        instruction: 'Gate 2 checks pass. Record via: spec-guard confirm-gate <spec> 2, then proceed to Phase 3 (write failing tests).',
+        gate_target: 'gate2',
+        classification,
+        test_guidance: TEST_GUIDANCE[classification],
+      };
+    }
+  } else if (!gatesPassed.includes('gate3')) {
+    const classifications = getSelectedClassifications(text);
+    result = {
+      next_action: 'write_failing_tests',
+      instruction: 'Write tests that verify every acceptance criterion. Run them before implementing. Confirm they fail for the expected reason. Then: spec-guard confirm-gate <spec> 3 --evidence="<what failed and why>"',
+      gate_target: 'gate3',
+      test_guidance: TEST_GUIDANCE[classifications[0]],
+    };
+  } else if (!gatesPassed.includes('gate4')) {
+    result = {
+      next_action: 'implement',
+      instruction: 'Implement the smallest change that makes the failing tests pass. Follow the spec strictly. When all tests pass: spec-guard confirm-gate <spec> 4',
+      gate_target: 'gate4',
+    };
+  } else if (!gatesPassed.includes('gate5')) {
+    result = {
+      next_action: 'complete_review',
+      instruction: `Create an implementation review: spec-guard review <name>. Complete all checklist items. Then: spec-guard confirm-gate <spec> 5`,
+      gate_target: 'gate5',
+      suggested_review_path: `.spec-guard/reviews/${name}.md`,
+    };
+  } else {
+    result = {
+      next_action: 'complete',
+      instruction: 'All 5 gates passed. Implementation is complete.',
+      gate_target: null,
+      complete: true,
+    };
+  }
+
+  if (flags.json) {
+    console.log(JSON.stringify(result));
+  } else {
+    console.log(`\n  Next: ${result.next_action} (${result.gate_target ?? 'done'})`);
+    console.log(`  ${result.instruction}`);
+    if (result.blockers?.length) {
+      console.log('');
+      result.blockers.forEach(b => console.log(`  ${b}`));
+    }
+    if (result.test_guidance) {
+      console.log(`\n  Test guidance: ${result.test_guidance}`);
+    }
+    console.log('');
+  }
+
+  return result.complete ? 0 : 1;
 }
 
 // ─── status ──────────────────────────────────────────────────────────────────
@@ -761,7 +1045,20 @@ function parseFlags(args) {
     else if (arg === '--check-only') flags['check-only'] = true;
     else if (arg === '--contract') flags.contract = args[++i] || null;
     else if (arg === '--review') flags.review = args[++i] || null;
-    else if (!arg.startsWith('--')) flags.positional.push(arg);
+    else if (arg.startsWith('--')) {
+      // Handle --key=value and --no-key boolean flags
+      const eqIdx = arg.indexOf('=');
+      if (eqIdx !== -1) {
+        const key = arg.slice(2, eqIdx);
+        flags[key] = arg.slice(eqIdx + 1);
+      } else if (arg.startsWith('--no-')) {
+        flags[arg.slice(5)] = false;
+      } else {
+        flags[arg.slice(2)] = true;
+      }
+    } else {
+      flags.positional.push(arg);
+    }
   }
   return flags;
 }

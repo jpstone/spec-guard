@@ -252,9 +252,16 @@ spec-guard analyze <name>            # cross-artifact alignment (Gate 4→5)
 
 # Monitoring
 spec-guard watch <name>              # live feedback while editing
-spec-guard classify <name>           # confirm classification
+spec-guard classify <name>           # confirm classification + test guidance
 spec-guard validate                  # check all specs
 spec-guard status                    # overview table
+
+# Gate management
+spec-guard gate-status <name>        # show all 5 gate pass/fail states
+spec-guard confirm-gate <name> <n>   # record gate 3/4/5 as confirmed
+  --evidence="<what failed and why>" # required for gate 3
+  --no-confirm                       # record gate as not yet confirmed
+spec-guard next <name>               # what to do next given current gate state
 ```
 
 ## MCP Tool Quick Reference

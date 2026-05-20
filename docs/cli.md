@@ -70,7 +70,7 @@ Does not modify files.
 spec-guard classify [--json] <spec>
 ```
 
-Prints the selected work classification, or reports a blocker if zero or multiple are selected.
+Prints the selected work classification and the corresponding test guidance, or reports a blocker if zero or multiple are selected. With `--json`, returns `{ classification, test_guidance }`.
 
 ---
 
@@ -223,6 +223,44 @@ spec-guard watch <spec>
 ```
 
 Watches a single spec file and re-runs `check` on every save. Clears the terminal on each run. Useful while writing a spec.
+
+---
+
+### `gate-status`
+
+```bash
+spec-guard gate-status [--json] <spec>
+```
+
+Shows the pass/fail state of all five gates for a spec. Gates 1 and 2 are checked live; gates 3–5 are read from the saved run state (`.spec-guard/runs/<name>-run.json`).
+
+---
+
+### `confirm-gate`
+
+```bash
+spec-guard confirm-gate <spec> <gate> [--evidence=<text>] [--no-confirm]
+```
+
+Records an agent-confirmed gate (3, 4, or 5) to the run state file. Gates 1 and 2 are automated — use `check` for those.
+
+- `--evidence`: required for gate 3; describe what test failed and why.
+- `--no-confirm`: record that the gate is not yet confirmed (problem encountered).
+
+Example:
+```bash
+spec-guard confirm-gate auth-flow 3 --evidence="test auth.test.js:42 fails — returns 401, expected 403"
+```
+
+---
+
+### `next`
+
+```bash
+spec-guard next [--json] <spec>
+```
+
+Prints the next action required given the current gate state. Reads saved run state to determine which gates have been confirmed, then checks gates 1 and 2 live. Exits 0 only when all 5 gates are complete.
 
 ---
 

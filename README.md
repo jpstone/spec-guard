@@ -84,6 +84,9 @@ spec-guard status [--json]
 spec-guard watch <name>
 spec-guard init
 spec-guard classify [--json] <name>
+spec-guard gate-status [--json] <name>          # show all 5 gate states
+spec-guard confirm-gate <name> <n> [--evidence] # record gate 3/4/5 as confirmed
+spec-guard next [--json] <name>                 # next step given current gate state
 
 # Create artifacts
 spec-guard new spec|brownfield-spec|api-contract|rest-api-contract|component-contract|
@@ -230,7 +233,7 @@ WORKFLOW.md
 ## Development
 
 ```bash
-npm test                        # 143 tests across check, run, MCP, CLI, discover, analyze, and suggest
+npm test                        # 154 tests across check, run, MCP, CLI, discover, analyze, and suggest
 npm run check:example           # gate 1 smoke check
 npm run run:example             # gate 1+2 non-interactive check
 ```

@@ -178,7 +178,14 @@ test('classify prints selected classification', () => {
   const result = runCli(['classify', 'test/fixtures/valid-spec.md']);
 
   assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), 'Direct behavior with no new API or UI');
+  assert.match(result.stdout, /^Direct behavior with no new API or UI/);
+});
+
+test('classify includes test guidance in output', () => {
+  const result = runCli(['classify', 'test/fixtures/valid-spec.md']);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Test guidance:/);
 });
 
 test('classify reports invalid classification selection', () => {
@@ -235,6 +242,100 @@ test('deviation creates a spec deviation request from the template', () => {
   assert.equal(result.status, 0);
   assert.match(readFileSync(join(directory, '.spec-guard', 'deviations', 'my-deviation.md'), 'utf8'), /^# Spec Deviation Request/);
 });
+
+// ─── gate-status ─────────────────────────────────────────────────────────────
+
+test('gate-status prints gate pass/fail for a valid spec', () => {
+  const result = runCli(['gate-status', 'test/fixtures/valid-spec.md']);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Gate 1/);
+  assert.match(result.stdout, /Gate 2/);
+  assert.match(result.stdout, /Gate 3/);
+});
+
+test('gate-status --json returns structured gate data', () => {
+  const result = runCli(['gate-status', '--json', 'test/fixtures/valid-spec.md']);
+
+  assert.equal(result.status, 0);
+  const data = JSON.parse(result.stdout);
+  assert.ok('gate1' in data);
+  assert.ok('gate2' in data);
+  assert.ok('gate3' in data);
+  assert.ok('gate4' in data);
+  assert.ok('gate5' in data);
+});
+
+test('gate-status exits 2 with no args', () => {
+  const result = runCli(['gate-status']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: spec-guard gate-status/);
+});
+
+// ─── confirm-gate ─────────────────────────────────────────────────────────────
+
+test('confirm-gate records gate 3 with evidence', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+  const result = runCli(
+    ['confirm-gate', 'my-spec', '3', '--evidence=test auth.test.js fails: 401 not 403'],
+    { cwd: directory },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Gate 3 confirmed/);
+  const runFile = join(directory, '.spec-guard', 'runs', 'my-spec-run.json');
+  const state = JSON.parse(readFileSync(runFile, 'utf8'));
+  assert.ok(state.gatesPassed.includes('gate3'));
+  assert.equal(state.failureFirstReason, 'test auth.test.js fails: 401 not 403');
+});
+
+test('confirm-gate exits 2 when gate 3 confirmed without evidence', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+  const result = runCli(['confirm-gate', 'my-spec', '3'], { cwd: directory });
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /evidence/);
+});
+
+test('confirm-gate exits 2 with no args', () => {
+  const result = runCli(['confirm-gate']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: spec-guard confirm-gate/);
+});
+
+// ─── next ─────────────────────────────────────────────────────────────────────
+
+test('next prints the current next step for a valid spec', () => {
+  const result = runCli(['next', 'test/fixtures/valid-spec.md']);
+
+  // gate1 passes but no gates confirmed yet — should say fix_spec or confirm_gate1
+  assert.ok(result.status === 0 || result.status === 1);
+  assert.match(result.stdout, /Next:/);
+});
+
+test('next --json returns structured result', () => {
+  const result = runCli(['next', '--json', 'test/fixtures/valid-spec.md']);
+
+  assert.ok(result.status === 0 || result.status === 1);
+  const data = JSON.parse(result.stdout);
+  assert.ok('next_action' in data);
+  assert.ok('instruction' in data);
+  assert.ok('gate_target' in data);
+});
+
+test('next exits 2 with no args', () => {
+  const result = runCli(['next']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: spec-guard next/);
+});
+
+// ─── draft ───────────────────────────────────────────────────────────────────
 
 test('draft exits 2 when no output path given', () => {
   const result = runCli(['draft']);
