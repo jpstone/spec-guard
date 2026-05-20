@@ -14,7 +14,7 @@ Diagnostic format:
 [SEVERITY] RULE_ID path: message
 ```
 
-Pass `--warnings` to include WARNING and INFO diagnostics. By default, only BLOCKERs are shown.
+By default, BLOCKERs and WARNINGs are shown. Pass `--warnings` to also include INFO diagnostics.
 
 ---
 
@@ -113,7 +113,7 @@ Checked by `spec-guard analyze`. When a spec is edited after gate confirmations 
 
 **Severity:** WARNING
 
-Checked by `spec-guard analyze`. Every acceptance criterion from the spec must appear in the implementation review's "Behavior / Contract Validated" section.
+Checked by `spec-guard analyze`. Every acceptance criterion from the spec must appear somewhere in the implementation review.
 
 ### SG-ALIGN-002: Required tests covered in review
 

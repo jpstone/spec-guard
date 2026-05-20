@@ -11,7 +11,8 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object -ExpandProperty FullName | Sort-Object)",
       "Bash(node -e ' *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -First 50)"
+      "Bash(Select-Object -First 50)",
+      "Bash(npm test *)"
     ]
   }
 }

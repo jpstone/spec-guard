@@ -158,6 +158,62 @@ test('new api-contract creates in .spec-guard/contracts/', () => {
   assert.equal(existsSync(join(directory, '.spec-guard', 'contracts', 'my-api.md')), true);
 });
 
+test('new brownfield-spec creates in .spec-guard/specs/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'brownfield-spec', 'my-change'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'specs', 'my-change.md'), 'utf8'), /^# Spec/);
+});
+
+test('new rest-api-contract creates in .spec-guard/contracts/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'rest-api-contract', 'my-api'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'contracts', 'my-api.md'), 'utf8'), /^# REST \/ Service API Contract/);
+});
+
+test('new component-contract creates in .spec-guard/contracts/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'component-contract', 'my-component'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'contracts', 'my-component.md'), 'utf8'), /^# Reusable UI Component Contract/);
+});
+
+test('new one-off-ui creates in .spec-guard/specs/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'one-off-ui', 'my-screen'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'specs', 'my-screen.md'), 'utf8'), /^# One-Off Application UI Spec/);
+});
+
+test('new operational-document creates in .spec-guard/specs/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'operational-document', 'my-runbook'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'specs', 'my-runbook.md'), 'utf8'), /^# Operational \/ Document Deliverable/);
+});
+
+test('new task-plan creates in .spec-guard/specs/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'task-plan', 'my-plan'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'specs', 'my-plan.md'), 'utf8'), /^# Task Plan/);
+});
+
+test('new compound-work creates in .spec-guard/specs/', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'compound-work', 'my-compound'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'specs', 'my-compound.md'), 'utf8'), /^# Compound Work Plan/);
+});
+
 test('new spec refuses to overwrite existing files', () => {
   const directory = tempDir();
   assert.equal(runCli(['new', 'spec', 'my-feature'], { cwd: directory }).status, 0);
