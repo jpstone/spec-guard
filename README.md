@@ -200,16 +200,24 @@ WORKFLOW.md
 
 ## What agents must never do
 
-- Implement before Gate 1 passes
+- Implement before Gates 1 and 2 pass and Gate 3 is confirmed — the spec must be valid, contracts must be present, and a failing test must exist before any implementation begins
 - Skip work classification
 - Create documentation by default
 - Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
-- Invent UI without design direction
+- Invent UI — do not implement UI work until both a mockup/design direction and a component library reference are in the spec, or the human has explicitly confirmed each is not needed
+- Assume a component library — if none is referenced, ask the human before proceeding
+- Test private/undocumented internals instead of contract surfaces
 - Silently absorb out-of-scope work
+- Add unrequested features, optional enhancements, or opportunistic refactors
+- Upgrade dependencies or change architecture unless the spec requires it
+- Redesign UI beyond provided direction
+- Implement nearby TODOs unless the spec requires them
+- Propose unsolicited feature roadmaps after completing a task
+- Treat "what's next?" as permission to invent features
+- Perform discovery unless the human explicitly asks
+- Implement discovery findings without separate authorization
 - Skip Gate 3 (failure-first) without recording a concrete reason
 - Close Gate 5 without running `spec-guard analyze`
-- Propose unsolicited feature roadmaps
-- Perform discovery unless the human explicitly asks
 
 ---
 
