@@ -176,10 +176,10 @@ See `mcp/README.md` for full setup and usage.
 ## What `init` creates
 
 ```
-specs/
-  example.md
-contracts/
 .spec-guard/
+  specs/
+    example.md
+  contracts/
   blockers/
   scope-discoveries/
   reviews/
