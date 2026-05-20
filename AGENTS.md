@@ -18,8 +18,8 @@ Every gate is a `spec-guard` command. Gates are not advisory. You do not proceed
 
 Run this checklist. If you cannot check every item, halt at the first failure.
 
-- [ ] I have identified the governing spec (file path: __________)
-- [ ] `spec-guard check <spec>` exits 0
+- [ ] I have identified the governing spec (`.spec-guard/specs/__________.md`)
+- [ ] `spec-guard check <name>` exits 0
 - [ ] I have confirmed exactly one work classification: __________
 - [ ] I have read every acceptance criterion and know what behavior each one requires
 - [ ] I will write tests that verify those criteria before writing any implementation code
