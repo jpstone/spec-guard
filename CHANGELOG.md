@@ -1,5 +1,104 @@
 # Changelog
 
+## 0.5.0
+
+### Cross-artifact analysis
+
+- `spec-guard analyze` — compares spec against its contract and implementation review; checks contract structure, review coverage of all acceptance criteria and required tests, and unchecked review items
+- `spec_guard_analyze` MCP tool — same check callable by agents
+- Gate 5 now requires `spec-guard analyze` to be clean before review is considered complete
+- SG-ALIGN-001/002/003/004 rules detect acceptance criteria not covered in review, required tests not covered in review, contract file issues, and unchecked review items
+
+### Actionable feedback
+
+- `spec-guard suggest` — runs `check` and annotates each diagnostic with a concrete, multi-line fix instruction with before/after examples
+- `spec_guard_suggest` MCP tool — same for agents
+- Every rule ID now has a mapped fix instruction in `src/suggest.js`
+
+### AI-assisted spec authoring
+
+- `spec_guard_interview_questions` MCP tool — returns a structured question list and authoring protocol that agents use to guide spec authoring conversations; classification-specific follow-up questions
+- `spec_guard_draft_spec` MCP tool — turns structured interview answers into a valid spec that passes Gate 1
+- `spec-guard discover` enhanced with context about AI-assisted path
+
+### Brownfield support
+
+- `templates/brownfield-spec.md` — spec template for changes to existing systems; adds `Existing Behavior` (as-is baseline) and `Behavior Delta` (BEFORE → AFTER format) sections
+- `spec-guard new brownfield-spec` creates from this template
+
+### New quality rules
+
+- **SG-SPEC-007** (INFO) — flags vague qualifiers in acceptance criteria ("correctly", "fast", "properly", etc.)
+- **SG-SPEC-008** (INFO) — flags scope items with ≤2 words as too brief to prevent misinterpretation
+
+### AGENTS.md rewrite
+
+- Documents three spec authoring paths: AI-assisted (interview_questions → draft_spec), guided wizard (discover), brownfield
+- Full MCP Tool Quick Reference covering all 13 tools
+- Adds "What You Must Never Do" including: close Gate 5 without running `spec-guard analyze`
+
+---
+
+## 0.4.0
+
+### Guided spec authoring
+
+- `spec-guard discover path/to/spec.md` — interactive 8-step wizard that asks questions and writes a valid spec; loops on required fields until they are filled; refuses to overwrite existing files
+- `spec_guard_draft_spec` MCP tool — accepts structured answers and returns a spec that passes Gate 1; optionally writes to a file
+- `buildSpecFromAnswers()` in `src/discover.js` — pure function that generates spec text from named fields
+
+---
+
+## 0.3.0
+
+### Orchestrated workflow
+
+- `spec-guard run [--check-only] path/to/spec.md` — 5-phase interactive workflow runner; blocks on gate failures; records gate confirmations to `.spec-guard/runs/`
+- `PHASES` export from `src/run.js` for programmatic use
+- `runCheck()` utility function
+
+### MCP server (9 tools)
+
+- `spec_guard_check`, `spec_guard_gate_status`, `spec_guard_classify`, `spec_guard_test_guidance`, `spec_guard_confirm_gate`, `spec_guard_create_artifact`, `spec_guard_validate_directory`, `spec_guard_status`, `spec_guard_workflow_next_step`
+- `spec_guard_workflow_next_step` is the primary tool for agents: given a list of passed gates, returns a structured `next_action` + `instruction`
+
+### Supporting documents
+
+- `WORKFLOW.md` — full process flow with gates, phases, and decision points
+- `AGENTS.md` — compact, table-driven agent instructions
+
+---
+
+## 0.2.0
+
+### New CLI commands
+
+- `validate [dir]` — runs `check` across an entire specs directory, prints a summary
+- `status [dir]` — prints a table of all specs with status, classification, and issue count
+- `watch <path>` — re-runs `check` on every file save; clears terminal between runs
+
+### New CLI flags
+
+- `--json` on `check`, `validate`, `classify`, `status` — NDJSON/JSON output for CI pipelines
+- `--warnings` on `check` and `validate` — includes WARNING and INFO diagnostics (default: BLOCKERs only)
+
+### New validations in `check`
+
+- **SG-SPEC-003** (WARNING) — warns on unresolved items in `Open Questions`
+- **SG-SPEC-005** (WARNING) — warns when Acceptance Criteria use plain bullets instead of checkbox format
+- **SG-SPEC-006** (INFO) — notes non-standard `Status` values
+- **SG-CLASS-002** (WARNING) — warns when API/component classification has no contract reference
+- **SG-UI-001** (BLOCKER) — blocks UI work with no mockup, wireframe, or design direction reference
+- **SG-UI-002** (WARNING) — warns on UI work with no component library reference
+
+### `init` improvements
+
+- Creates a starter `specs/example.md` from the spec template
+- Creates `AGENTS.md` at the project root
+- Creates `.spec-guard/deviations/` directory
+
+---
+
 ## 0.1.0
 
 Initial functional baseline.
@@ -12,9 +111,9 @@ Includes:
 - Operational checklists.
 - Examples for reusable APIs, REST APIs, reusable UI, one-off UI, and document deliverables.
 - CLI command: `spec-guard check path/to/spec.md`.
-- CLI validation for required spec headings, concrete required-section content, exactly one selected classification, and required tests/checks.
+- CLI validation for required spec headings (SG-SPEC-002), concrete required-section content (SG-SPEC-004), exactly one selected classification (SG-CLASS-001), and required tests/checks (SG-TEST-001).
 - Template/scaffolding commands: `init`, `new spec`, `classify`, `blocker`, `scope-discovery`, `review`, `discovery`, and `deviation`.
-- Objective quality gates and Spec Kit-style workflow comparison.
-- Explicit discovery mode to prevent unsolicited feature roadmaps and separate risk/gap discovery from implementation.
-- Explicit spec deviation flow to prevent agents from changing, expanding, relaxing, or contradicting specs without authorization.
+- Objective quality gates and workflow comparison.
+- Explicit discovery mode to prevent unsolicited feature roadmaps.
+- Explicit spec deviation flow to prevent agents from silently changing specs.
 - Cross-platform Node test workflow.

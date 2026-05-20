@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -135,4 +135,24 @@ test('deviation creates a spec deviation request from the template', () => {
 
   assert.equal(result.status, 0);
   assert.match(readFileSync(output, 'utf8'), /^# Spec Deviation Request/);
+});
+
+test('discover exits 2 when no output path given', () => {
+  const result = runCli(['discover']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: spec-guard discover/);
+});
+
+test('discover exits 2 when too many arguments given', () => {
+  const result = runCli(['discover', 'a.md', 'b.md']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: spec-guard discover/);
+});
+
+test('discover exits 1 when output file already exists', () => {
+  const output = join(tempDir(), 'spec.md');
+  writeFileSync(output, 'existing');
+  const result = runCli(['discover', output]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /SG-USAGE-002/);
 });

@@ -17,24 +17,52 @@ export const CLASSIFICATIONS = [
   'Operational/document deliverable',
 ];
 
+// Classifications that require a contract document
+const CONTRACT_REQUIRED_CLASSIFICATIONS = [
+  'Reusable non-UI API',
+  'REST/service API',
+  'Reusable UI component',
+];
+
+// Classifications that require UI inputs
+const UI_CLASSIFICATIONS = [
+  'One-off application UI',
+  'Reusable UI component',
+];
+
 export function checkSpecText(text, path = '<input>') {
-  const normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  const normalized = normalize(text);
   const diagnostics = [];
 
   diagnostics.push(...checkRequiredHeadings(normalized, path));
   diagnostics.push(...checkRequiredSectionContent(normalized, path));
   diagnostics.push(...checkClassification(normalized, path));
   diagnostics.push(...checkRequiredTests(normalized, path));
+  diagnostics.push(...checkOpenQuestions(normalized, path));
+  diagnostics.push(...checkAcceptanceCriteriaFormat(normalized, path));
+  diagnostics.push(...checkVagueCriteria(normalized, path));
+  diagnostics.push(...checkBriefScopeItems(normalized, path));
+  diagnostics.push(...checkStatus(normalized, path));
+  diagnostics.push(...checkContractRequirement(normalized, path));
+  diagnostics.push(...checkUIInputs(normalized, path));
 
   return diagnostics;
+}
+
+export function checkSpecTextStrict(text, path = '<input>') {
+  return checkSpecText(text, path);
 }
 
 export function formatDiagnostic(diagnostic) {
   return `[${diagnostic.severity}] ${diagnostic.ruleId} ${diagnostic.path}: ${diagnostic.message}`;
 }
 
+export function formatDiagnosticJson(diagnostic) {
+  return JSON.stringify(diagnostic);
+}
+
 export function getSelectedClassifications(text) {
-  const normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  const normalized = normalize(text);
   if (!hasHeading(normalized, 'Work Classification')) {
     return [];
   }
@@ -46,6 +74,30 @@ export function getSelectedClassifications(text) {
     return pattern.test(section);
   });
 }
+
+export function getSpecStatus(text) {
+  const normalized = normalize(text);
+  const statusSection = getSection(normalized, 'Status');
+  if (!statusSection) return null;
+
+  const line = statusSection.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('<!--'));
+  return line || null;
+}
+
+export function getSpecTitle(text) {
+  const normalized = normalize(text);
+  // Try ## Title section first
+  if (hasHeading(normalized, 'Title')) {
+    const section = getSection(normalized, 'Title');
+    const line = section.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('<!--'));
+    if (line) return line;
+  }
+  // Fall back to first # heading
+  const match = /^#\s+(.+)$/m.exec(normalized);
+  return match ? match[1].trim() : null;
+}
+
+// ─── Rule implementations ────────────────────────────────────────────────────
 
 function checkRequiredHeadings(text, path) {
   return REQUIRED_HEADINGS
@@ -60,8 +112,8 @@ function checkRequiredHeadings(text, path) {
 
 function checkRequiredSectionContent(text, path) {
   return REQUIRED_HEADINGS
-    .filter((heading) => heading !== 'Work Classification' && heading !== 'Required Tests / Checks')
-    .filter((heading) => hasHeading(text, heading) && !hasSubstantiveContent(getSection(text, heading)))
+    .filter((h) => h !== 'Work Classification' && h !== 'Required Tests / Checks')
+    .filter((h) => hasHeading(text, h) && !hasSubstantiveContent(getSection(text, h)))
     .map((heading) => ({
       severity: 'BLOCKER',
       ruleId: 'SG-SPEC-004',
@@ -71,15 +123,11 @@ function checkRequiredSectionContent(text, path) {
 }
 
 function checkClassification(text, path) {
-  if (!hasHeading(text, 'Work Classification')) {
-    return [];
-  }
+  if (!hasHeading(text, 'Work Classification')) return [];
 
   const selected = getSelectedClassifications(text);
 
-  if (selected.length === 1) {
-    return [];
-  }
+  if (selected.length === 1) return [];
 
   return [{
     severity: 'BLOCKER',
@@ -92,21 +140,192 @@ function checkClassification(text, path) {
 }
 
 function checkRequiredTests(text, path) {
-  if (!hasHeading(text, 'Required Tests / Checks')) {
-    return [];
-  }
+  if (!hasHeading(text, 'Required Tests / Checks')) return [];
 
   const section = getSection(text, 'Required Tests / Checks');
-  if (hasSubstantiveContent(section)) {
-    return [];
-  }
+  if (hasSubstantiveContent(section)) return [];
 
   return [{
     severity: 'BLOCKER',
     ruleId: 'SG-TEST-001',
     path,
-    message: 'required tests/checks must be identified',
+    message: 'required tests/checks must be identified before implementation',
   }];
+}
+
+function checkOpenQuestions(text, path) {
+  if (!hasHeading(text, 'Open Questions')) return [];
+
+  const section = getSection(text, 'Open Questions');
+  // Detect unanswered open questions: lines starting with - or * that aren't
+  // a placeholder or explicitly marked resolved
+  const lines = section.split('\n').map(l => l.trim()).filter(l => l);
+  const unresolved = lines.filter(l => {
+    if (l.startsWith('<!--') && l.endsWith('-->')) return false;
+    if (/^[-*+]\s*$/.test(l)) return false; // empty bullet
+    if (/^[-*+]\s+\[[ xX]\]\s*$/.test(l)) return false; // empty checkbox
+    if (/resolved|answered|n\/a|none|N\/A/i.test(l)) return false;
+    return /^[-*+]\s+\S/.test(l); // non-empty bullet
+  });
+
+  if (unresolved.length === 0) return [];
+
+  return [{
+    severity: 'WARNING',
+    ruleId: 'SG-SPEC-003',
+    path,
+    message: `${unresolved.length} open question(s) may affect implementation — resolve or mark N/A before proceeding`,
+  }];
+}
+
+function checkAcceptanceCriteriaFormat(text, path) {
+  if (!hasHeading(text, 'Acceptance Criteria')) return [];
+
+  const section = getSection(text, 'Acceptance Criteria');
+  const lines = section.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('<!--'));
+
+  // Must have at least one checkbox item
+  const hasCheckbox = lines.some(l => /^-\s+\[[ xX]\]\s+\S/.test(l));
+  if (!hasCheckbox && lines.some(l => /^-/.test(l))) {
+    return [{
+      severity: 'WARNING',
+      ruleId: 'SG-SPEC-005',
+      path,
+      message: 'acceptance criteria should use checkbox format (- [ ] criterion) for mechanical verification',
+    }];
+  }
+
+  return [];
+}
+
+function checkStatus(text, path) {
+  if (!hasHeading(text, 'Status')) return [];
+
+  const section = getSection(text, 'Status');
+  const lines = section.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('<!--'));
+  const statusLine = lines[0];
+
+  if (!statusLine) return []; // optional section, no content is fine
+
+  const validStatuses = ['Draft', 'Ready', 'Blocked', 'Implemented'];
+  const isValid = validStatuses.some(s => statusLine.toLowerCase().includes(s.toLowerCase()));
+
+  if (!isValid) {
+    return [{
+      severity: 'INFO',
+      ruleId: 'SG-SPEC-006',
+      path,
+      message: `status "${statusLine}" is not a standard value; expected one of: ${validStatuses.join(', ')}`,
+    }];
+  }
+
+  return [];
+}
+
+function checkContractRequirement(text, path) {
+  const selected = getSelectedClassifications(text);
+  if (selected.length !== 1) return []; // classification errors handled elsewhere
+
+  const classification = selected[0];
+  if (!CONTRACT_REQUIRED_CLASSIFICATIONS.includes(classification)) return [];
+
+  // Check for a contract reference in Dependencies, or a "Contract" heading
+  const hasContractHeading = /^##\s+(API Contract|Contract|Component Contract|Service Contract|REST API Contract)\s*$/m.test(text);
+  const deps = hasHeading(text, 'Dependencies') ? getSection(text, 'Dependencies') : '';
+  const hasContractRef = /contract/i.test(deps);
+
+  if (!hasContractHeading && !hasContractRef) {
+    return [{
+      severity: 'WARNING',
+      ruleId: 'SG-CLASS-002',
+      path,
+      message: `classification "${classification}" typically requires a contract document — add a contract reference to Dependencies or include a Contract heading`,
+    }];
+  }
+
+  return [];
+}
+
+function checkUIInputs(text, path) {
+  const selected = getSelectedClassifications(text);
+  if (selected.length !== 1) return [];
+
+  const classification = selected[0];
+  if (!UI_CLASSIFICATIONS.includes(classification)) return [];
+
+  const allText = text.toLowerCase();
+  const hasMockup = /mockup|wireframe|figma|design.{0,20}direction|sketch|prototype/i.test(allText);
+  const hasComponentLib = /component.{0,20}library|design.{0,20}system|ui.{0,20}kit/i.test(allText);
+
+  const diagnostics = [];
+
+  if (!hasMockup) {
+    diagnostics.push({
+      severity: 'BLOCKER',
+      ruleId: 'SG-UI-001',
+      path,
+      message: `UI work requires mockup, wireframe, or explicit design direction — add a reference before implementation`,
+    });
+  }
+
+  if (!hasComponentLib) {
+    diagnostics.push({
+      severity: 'WARNING',
+      ruleId: 'SG-UI-002',
+      path,
+      message: `UI work should reference a component library or explicitly state that none exists`,
+    });
+  }
+
+  return diagnostics;
+}
+
+function checkVagueCriteria(text, path) {
+  if (!hasHeading(text, 'Acceptance Criteria')) return [];
+
+  const VAGUE = /\b(correctly|properly|well|good|fast|efficient|easy|simple|nice|smooth|seamlessly|cleanly|appropriately|adequately|reasonably|suitably)\b/i;
+  const section = getSection(text, 'Acceptance Criteria');
+  const lines = section.split('\n').map(l => l.trim()).filter(l => /^-/.test(l) && !l.startsWith('<!--'));
+
+  return lines
+    .filter(l => VAGUE.test(l))
+    .map(l => ({
+      severity: 'INFO',
+      ruleId: 'SG-SPEC-007',
+      path,
+      message: `acceptance criterion uses a vague qualifier — replace with a measurable condition: "${l.replace(/^-\s*(\[[ xX]\]\s*)?/, '').trim()}"`,
+    }));
+}
+
+function checkBriefScopeItems(text, path) {
+  const diagnostics = [];
+
+  for (const heading of ['In Scope', 'Out of Scope']) {
+    if (!hasHeading(text, heading)) continue;
+    const section = getSection(text, heading);
+    const lines = section.split('\n').map(l => l.trim()).filter(l => /^-\s+\S/.test(l) && !l.startsWith('<!--'));
+
+    for (const line of lines) {
+      const content = line.replace(/^-\s+/, '').trim();
+      const wordCount = content.split(/\s+/).length;
+      if (wordCount <= 2 && content.length > 0) {
+        diagnostics.push({
+          severity: 'INFO',
+          ruleId: 'SG-SPEC-008',
+          path,
+          message: `scope item is too brief to prevent misinterpretation — describe the specific boundary: "${content}"`,
+        });
+      }
+    }
+  }
+
+  return diagnostics;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function normalize(text) {
+  return text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 }
 
 function hasSubstantiveContent(section) {

@@ -1,31 +1,23 @@
 {
   "name": "spec-guard",
-  "version": "0.1.0",
-  "description": "Spec-first, behavior-tested, agent-safe methodology and starter kit.",
+  "version": "0.5.0",
+  "description": "Spec-first, behavior-tested, agent-safe methodology, workflow runner, and MCP server.",
   "type": "module",
   "bin": {
-    "spec-guard": "./bin/spec-guard.js"
+    "spec-guard": "./bin/spec-guard.js",
+    "spec-guard-mcp": "./mcp/server.js"
   },
   "files": [
     "README.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
-    "methodology.md",
-    "agent-instructions.md",
-    "work-classification.md",
-    "quickstart.md",
-    "adoption.md",
-    "cli.md",
-    "validation-rules.md",
-    "quality-gates.md",
-    "spec-kit-comparison.md",
-    "comparisons.md",
-    "principles.md",
-    "glossary.md",
-    "cli-readiness.md",
-    "tooling-interface.md",
+    "AGENTS.md",
+    "WORKFLOW.md",
+    "docs/",
     "bin/",
     "src/",
+    "mcp/",
+    "templates/brownfield-spec.md",
     "templates/",
     "checklists/",
     "examples/",
@@ -33,25 +25,16 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check:example": "node bin/spec-guard.js check test/fixtures/valid-spec.md"
+    "check:example": "node bin/spec-guard.js check test/fixtures/valid-spec.md",
+    "run:example": "node bin/spec-guard.js run --check-only test/fixtures/valid-spec.md"
   },
   "keywords": [
-    "spec-first",
-    "tdd",
-    "ai-agents",
-    "methodology",
-    "contracts"
+    "spec-first", "tdd", "ai-agents", "methodology", "contracts", "agent-safe", "mcp"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jpstone/spec-guard.git"
   },
-  "bugs": {
-    "url": "https://github.com/jpstone/spec-guard/issues"
-  },
-  "homepage": "https://github.com/jpstone/spec-guard#readme",
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=20" },
   "license": "MIT"
 }

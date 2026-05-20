@@ -4,8 +4,8 @@ Use this guide to apply Spec Guard in an existing software project.
 
 ## Minimal Adoption
 
-1. Copy or link `agent-instructions.md` into your coding-agent context.
-2. Keep `methodology.md` available as the canonical reference.
+1. Copy or link `AGENTS.md` (created by `spec-guard init`) into your coding-agent context.
+2. Keep `WORKFLOW.md` available as the canonical process reference.
 3. Put new specs in a predictable project location, such as `specs/`.
 4. Use `templates/spec.md` or `spec-guard new spec` for new work.
 5. Require agents to identify the governing spec before implementation.
@@ -34,7 +34,7 @@ Follow Spec Guard. Before implementation, identify the governing spec, classify 
 ## Per-Task Workflow
 
 1. Link the governing spec.
-2. Classify the work using `work-classification.md`.
+2. Classify the work using `docs/work-classification.md`.
 3. Fill only the required template.
 4. Run the relevant checklist.
 5. Write the tests/checks first.

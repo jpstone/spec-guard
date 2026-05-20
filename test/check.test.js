@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkSpecText, formatDiagnostic } from '../src/check.js';
+import { checkSpecText, formatDiagnostic, getSelectedClassifications, getSpecStatus, getSpecTitle } from '../src/check.js';
+
+// ─── Shared fixtures ──────────────────────────────────────────────────────────
 
 const validSpec = `# Spec
 
@@ -22,7 +24,7 @@ Behavior.
 
 ## Acceptance Criteria
 
-- [ ] Criteria.
+- [x] Criteria.
 
 ## Work Classification
 
@@ -38,47 +40,265 @@ Behavior.
 - Test it.
 `;
 
-test('valid spec has no diagnostics', () => {
-  assert.deepEqual(checkSpecText(validSpec, 'valid.md'), []);
+const uiSpec = `# Spec
+
+## Problem / Goal
+
+Build a login screen.
+
+## In Scope
+
+- Login form
+
+## Out of Scope
+
+- Password reset
+
+## Expected Behavior
+
+User can log in. See Figma mockup at /designs/login.fig. Uses the design system component library.
+
+## Acceptance Criteria
+
+- [ ] Login form renders.
+
+## Work Classification
+
+- [ ] Reusable non-UI API
+- [ ] REST/service API
+- [ ] Reusable UI component
+- [x] One-off application UI
+- [ ] Direct behavior with no new API or UI
+- [ ] Operational/document deliverable
+
+## Required Tests / Checks
+
+- Browser automation: login flow.
+`;
+
+// ─── SG-SPEC-002: Required headings ──────────────────────────────────────────
+
+test('valid spec has no blockers', () => {
+  const diagnostics = checkSpecText(validSpec, 'valid.md');
+  const blockers = diagnostics.filter(d => d.severity === 'BLOCKER');
+  assert.deepEqual(blockers, []);
 });
 
 test('reports missing required headings', () => {
   const diagnostics = checkSpecText('# Spec\n\n## Problem / Goal\n\nGoal.\n', 'missing.md');
-  assert(diagnostics.some((diagnostic) => diagnostic.ruleId === 'SG-SPEC-002'));
-  assert(diagnostics.some((diagnostic) => diagnostic.message.includes('In Scope')));
+  assert(diagnostics.some((d) => d.ruleId === 'SG-SPEC-002'));
+  assert(diagnostics.some((d) => d.message.includes('In Scope')));
 });
+
+// ─── SG-SPEC-004: Required section content ───────────────────────────────────
 
 test('reports empty required sections', () => {
-  const diagnostics = checkSpecText(validSpec.replace('## Problem / Goal\n\nGoal.', '## Problem / Goal\n\n<!-- Describe the goal. -->\n\n- '), 'empty-section.md');
-  assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-SPEC-004']);
+  const text = validSpec.replace('## Problem / Goal\n\nGoal.', '## Problem / Goal\n\n<!-- Describe the goal. -->\n\n- ');
+  const diagnostics = checkSpecText(text, 'empty-section.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-SPEC-004'));
 });
 
+// ─── SG-SPEC-003: Open questions ─────────────────────────────────────────────
+
+test('warns on unresolved open questions', () => {
+  const text = validSpec + '\n## Open Questions\n\n- What about edge case X?\n';
+  const diagnostics = checkSpecText(text, 'open.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-SPEC-003' && d.severity === 'WARNING'));
+});
+
+test('no warning when open questions are empty', () => {
+  const text = validSpec + '\n## Open Questions\n\n- \n';
+  const diagnostics = checkSpecText(text, 'no-open.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-SPEC-003'));
+});
+
+test('no warning when open questions are marked N/A', () => {
+  const text = validSpec + '\n## Open Questions\n\n- N/A\n';
+  const diagnostics = checkSpecText(text, 'na.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-SPEC-003'));
+});
+
+// ─── SG-SPEC-005: Acceptance criteria format ─────────────────────────────────
+
+test('warns when acceptance criteria use plain bullets instead of checkboxes', () => {
+  const text = validSpec.replace('- [x] Criteria.', '- Criteria without checkbox.');
+  const diagnostics = checkSpecText(text, 'no-checkbox.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-SPEC-005' && d.severity === 'WARNING'));
+});
+
+test('no warning when acceptance criteria use checkbox format', () => {
+  const diagnostics = checkSpecText(validSpec, 'valid.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-SPEC-005'));
+});
+
+// ─── SG-CLASS-001: Classification ────────────────────────────────────────────
+
 test('reports no selected classification', () => {
-  const diagnostics = checkSpecText(validSpec.replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI'), 'none.md');
-  assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-CLASS-001']);
+  const text = validSpec.replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI');
+  const diagnostics = checkSpecText(text, 'none.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-CLASS-001'));
 });
 
 test('reports multiple selected classifications', () => {
-  const diagnostics = checkSpecText(validSpec.replace('- [ ] REST/service API', '- [x] REST/service API'), 'multiple.md');
-  assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-CLASS-001']);
+  const text = validSpec.replace('- [ ] REST/service API', '- [x] REST/service API');
+  const diagnostics = checkSpecText(text, 'multiple.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-CLASS-001'));
 });
 
+test('uppercase X is a valid classification selection', () => {
+  const text = validSpec.replace('- [x] Direct behavior', '- [X] Direct behavior');
+  const blockers = checkSpecText(text, 'uppercase.md').filter(d => d.severity === 'BLOCKER');
+  assert.deepEqual(blockers, []);
+});
+
+// ─── SG-TEST-001: Required tests ─────────────────────────────────────────────
+
 test('reports missing required tests/checks', () => {
-  const diagnostics = checkSpecText(validSpec.replace('## Required Tests / Checks\n\n- Test it.', '## Required Tests / Checks\n\n'), 'tests.md');
-  assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-TEST-001']);
+  const text = validSpec.replace('## Required Tests / Checks\n\n- Test it.', '## Required Tests / Checks\n\n');
+  const diagnostics = checkSpecText(text, 'tests.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-TEST-001'));
 });
 
 test('empty bullets do not count as identified tests/checks', () => {
-  const diagnostics = checkSpecText(validSpec.replace('## Required Tests / Checks\n\n- Test it.', '## Required Tests / Checks\n\n<!-- Identify tests. -->\n\n- '), 'empty-bullet.md');
-  assert.deepEqual(diagnostics.map((diagnostic) => diagnostic.ruleId), ['SG-TEST-001']);
+  const text = validSpec.replace('## Required Tests / Checks\n\n- Test it.', '## Required Tests / Checks\n\n<!-- Identify tests. -->\n\n- ');
+  const diagnostics = checkSpecText(text, 'empty-bullet.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-TEST-001'));
 });
+
+// ─── SG-CLASS-002: Contract requirement ──────────────────────────────────────
+
+test('warns when API classification has no contract reference', () => {
+  const text = validSpec
+    .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
+    .replace('- [ ] Reusable non-UI API', '- [x] Reusable non-UI API');
+  const diagnostics = checkSpecText(text, 'api-no-contract.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-CLASS-002' && d.severity === 'WARNING'));
+});
+
+test('no contract warning when contract is referenced in dependencies', () => {
+  const text = validSpec
+    .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
+    .replace('- [ ] Reusable non-UI API', '- [x] Reusable non-UI API') +
+    '\n## Dependencies\n\n- See contracts/api-contract.md\n';
+  const diagnostics = checkSpecText(text, 'api-with-contract.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-CLASS-002'));
+});
+
+// ─── SG-UI-001 / SG-UI-002: UI inputs ────────────────────────────────────────
+
+test('no UI blockers for a spec with design direction and component library', () => {
+  const diagnostics = checkSpecText(uiSpec, 'ui-valid.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-002'));
+});
+
+test('blocks UI work without mockup or design direction', () => {
+  const text = uiSpec.replace('See Figma mockup at /designs/login.fig. Uses the design system component library.', 'User can log in.');
+  const diagnostics = checkSpecText(text, 'ui-no-mockup.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-UI-001' && d.severity === 'BLOCKER'));
+});
+
+test('warns on UI work without component library reference', () => {
+  const text = uiSpec.replace('Uses the design system component library.', '');
+  const diagnostics = checkSpecText(text, 'ui-no-lib.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-UI-002' && d.severity === 'WARNING'));
+});
+
+test('non-UI work does not trigger UI rules', () => {
+  const diagnostics = checkSpecText(validSpec, 'non-ui.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-002'));
+});
+
+// ─── getSelectedClassifications ──────────────────────────────────────────────
+
+test('getSelectedClassifications returns selected items', () => {
+  const selected = getSelectedClassifications(validSpec);
+  assert.deepEqual(selected, ['Direct behavior with no new API or UI']);
+});
+
+test('getSelectedClassifications returns empty array when section is missing', () => {
+  assert.deepEqual(getSelectedClassifications('# No classification here'), []);
+});
+
+// ─── getSpecStatus / getSpecTitle ─────────────────────────────────────────────
+
+test('getSpecStatus returns status value', () => {
+  const text = validSpec + '\n## Status\n\nReady\n';
+  assert.equal(getSpecStatus(text), 'Ready');
+});
+
+test('getSpecStatus returns null when section is absent', () => {
+  assert.equal(getSpecStatus(validSpec), null);
+});
+
+test('getSpecTitle returns title from heading', () => {
+  const title = getSpecTitle(validSpec);
+  assert.equal(title, 'Spec');
+});
+
+// ─── CRLF ─────────────────────────────────────────────────────────────────────
 
 test('supports CRLF line endings', () => {
   const crlf = validSpec.replaceAll('\n', '\r\n');
-  assert.deepEqual(checkSpecText(crlf, 'crlf.md'), []);
+  const blockers = checkSpecText(crlf, 'crlf.md').filter(d => d.severity === 'BLOCKER');
+  assert.deepEqual(blockers, []);
 });
 
-test('formats diagnostics as plain text contract', () => {
+// ─── formatDiagnostic ────────────────────────────────────────────────────────
+
+// ─── SG-SPEC-007: vague acceptance criteria ───────────────────────────────────
+
+test('SG-SPEC-007 flags vague criteria (INFO)', () => {
+  const spec = validSpec.replace(
+    '- [x] Criteria.',
+    '- [ ] The feature works correctly\n- [ ] Performance is fast and efficient'
+  );
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-007');
+  assert.ok(diags.length >= 2, `Expected at least 2 SG-SPEC-007 diagnostics, got ${diags.length}`);
+  assert.equal(diags[0].severity, 'INFO');
+});
+
+test('SG-SPEC-007 does not flag specific criteria', () => {
+  const spec = validSpec.replace(
+    '- [x] Criteria.',
+    '- [ ] Returns HTTP 200 with the created resource\n- [ ] Shows error message when email is missing'
+  );
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-007');
+  assert.equal(diags.length, 0);
+});
+
+// ─── SG-SPEC-008: brief scope items ─────────────────────────────────────────
+
+test('SG-SPEC-008 flags single-word scope items (INFO)', () => {
+  const spec = validSpec
+    .replace('- A\n', '- API\n')
+    .replace('- B\n', '- Frontend\n');
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-008');
+  assert.ok(diags.length >= 2, `Expected at least 2 SG-SPEC-008 diagnostics, got ${diags.length}`);
+  assert.equal(diags[0].severity, 'INFO');
+});
+
+test('SG-SPEC-008 does not flag descriptive scope items', () => {
+  const spec = validSpec
+    .replace('- A\n', '- User authentication via email and password\n')
+    .replace('- B\n', '- Password reset and email verification flows\n');
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-008');
+  assert.equal(diags.length, 0);
+});
+
+test('SG-SPEC-008 does not flag two-word items', () => {
+  const spec = validSpec
+    .replace('- A\n', '- Login form\n')
+    .replace('- B\n', '- Password reset\n');
+  // Two-word items (word count == 2) should warn
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-008');
+  assert.ok(diags.length >= 1);
+});
+
+// ─── formatDiagnostic ────────────────────────────────────────────────────────
+
+test('formats diagnostics as plain text', () => {
   const text = formatDiagnostic({
     severity: 'BLOCKER',
     ruleId: 'SG-CLASS-001',
