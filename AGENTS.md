@@ -169,8 +169,7 @@ Stop immediately and surface the issue when any of these are true:
 - Implement before Gate 1 passes
 - Skip work classification
 - Create documentation by default
-- Test prose instead of behavior for product features
-- Test whether workflow artifacts (specs, contracts, reviews) exist or contain expected content — these are implementation records, not deliverables
+- Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
 - Invent UI without mockups or design direction
 - Invent a component library
 - Test private/undocumented internals instead of contract surfaces
