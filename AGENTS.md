@@ -171,6 +171,7 @@ Stop immediately and surface the issue when any of these are true:
 - Skip work classification
 - Create documentation by default
 - Test prose instead of behavior for product features
+- Test whether workflow artifacts (specs, contracts, reviews) exist or contain expected content — these are implementation records, not deliverables
 - Invent UI without mockups or design direction
 - Invent a component library
 - Test private/undocumented internals instead of contract surfaces

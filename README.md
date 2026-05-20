@@ -26,12 +26,12 @@ Each layer enforces the same 5 gates. Pick the one that fits your agent's capabi
 DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → TEST FIRST → [Gate 3] → IMPLEMENT → [Gate 4] → REVIEW → [Gate 5]
 ```
 
-| Gate | Check | CLI |
+| Gate | Check | How it's confirmed |
 |---|---|---|
-| 1 | Spec valid (required headings, content, classification, tests named) | `spec-guard check` — must exit 0 |
+| 1 | Spec valid (required headings, content, classification) | `spec-guard check` — must exit 0 |
 | 2 | Contracts present (API/UI inputs exist and are referenced) | `spec-guard check --warnings` |
-| 3 | Failure-first confirmed (test runs and fails for expected reason) | Manual confirmation |
-| 4 | Tests pass (no scope silently absorbed) | Manual confirmation |
+| 3 | Failure-first confirmed (test runs and fails for expected reason) | Agent runs tests, records failure, calls `spec_guard_confirm_gate` |
+| 4 | Tests pass (no scope silently absorbed) | Agent runs tests until passing, calls `spec_guard_confirm_gate` |
 | 5 | Review complete + cross-artifact analysis clean | `spec-guard analyze` then `spec-guard review` |
 
 ---

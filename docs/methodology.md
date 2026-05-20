@@ -99,7 +99,9 @@ Do not create documentation merely to satisfy process when the existing spec alr
 
 Do not write tests that check whether docs exist or contain specific phrases for ordinary product features.
 
-Doc-content or process checks are appropriate only when the document itself is the deliverable, such as:
+Workflow artifacts produced during implementation — specs, API contracts, component contracts, implementation reviews — are not document deliverables. They are inputs to and records of the implementation process. Never test their existence or content.
+
+Doc-content or process checks are appropriate only when the human's request is the document itself, such as:
 
 - release checklists,
 - operational runbooks,
@@ -301,6 +303,7 @@ Agents must not:
 - implement before identifying the spec,
 - create documentation by default,
 - test prose instead of behavior for product features,
+- test whether workflow artifacts (specs, contracts, reviews) exist or contain expected content,
 - invent UI,
 - test undocumented internals as a substitute for contract tests,
 - work around bad specs,
