@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0
+
+### CLI invocation guidance
+
+- `AGENTS.md` — added note that `npx spec-guard` should be used when `spec-guard` is not on PATH; fixes agents in projects where the package is a local dev dependency
+
+### MCP documentation
+
+- `mcp/README.md` — added `spec_guard_initiative_questions` and `spec_guard_save_initiative` entries with example payloads; added initiative decomposition workflow to Typical Agent Workflow section; updated `spec_guard_analyze` description to include SG-ALIGN-005 and SG-ALIGN-006
+
+### CLI documentation
+
+- `docs/cli.md` — added `interview-questions` entry; added `--from-json` flag documentation to `draft` and `initiative` entries with example JSON payloads
+
+---
+
 ## 0.8.0
 
 ### CLI/MCP parity for non-interactive agents
