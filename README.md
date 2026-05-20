@@ -12,7 +12,7 @@ Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven 
 
 | Layer | What it is | Who uses it |
 |---|---|---|
-| **`WORKFLOW.md` + [`AGENTS.md`](AGENTS.md)** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
+| **[`WORKFLOW.md`](WORKFLOW.md) + [`AGENTS.md`](AGENTS.md)** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
 | **`spec-guard run`** | Interactive CLI that walks a spec through all 5 gates | Agents executing CLI commands |
 | **MCP server** | Structured tool calls for all Spec Guard operations | MCP-compatible agents (Claude Code, Cursor, etc.) |
 
@@ -69,7 +69,7 @@ Agents don't inherently know the Spec Guard workflow. Without it, they'll implem
 
 **Manual paste** — For agents without MCP support or automatic file ingestion, paste the contents of [`AGENTS.md`](AGENTS.md) at the start of a session. The agent then operates under the full Spec Guard contract for that session.
 
-`WORKFLOW.md` has the full phase-by-phase process flow. [`AGENTS.md`](AGENTS.md) is the compact operating contract an agent needs to execute it.
+[`WORKFLOW.md`](WORKFLOW.md) has the full phase-by-phase process flow. [`AGENTS.md`](AGENTS.md) is the compact operating contract an agent needs to execute it.
 
 ---
 
@@ -110,7 +110,7 @@ Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
 
 `spec_guard_workflow_next_step` is the key tool for agents: call it after each action and it returns a structured `next_action` + `instruction` so the agent always knows what step comes next without reading docs.
 
-See `mcp/README.md` for full setup and usage.
+See the [MCP Reference](mcp/README.md) for full setup and usage.
 
 ---
 
@@ -127,7 +127,7 @@ See `mcp/README.md` for full setup and usage.
   deviations/
   discoveries/
   runs/
-[AGENTS.md](AGENTS.md)
+AGENTS.md
 WORKFLOW.md
 .github/
   workflows/
