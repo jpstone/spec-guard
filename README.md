@@ -173,6 +173,7 @@ WORKFLOW.md
 | [Comparisons](docs/comparisons.md) | How Spec Guard differs from other tools |
 | [Principles](docs/principles.md) | Foundational rules the methodology is built on |
 | [Glossary](docs/glossary.md) | Term definitions |
+| [MCP Reference](mcp/README.md) | MCP server setup, tool list, and usage examples |
 
 ---
 
