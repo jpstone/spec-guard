@@ -13,6 +13,7 @@ import {
 } from '../src/check.js';
 import { runInteractive, runCheck, PHASES, gate1, gate2, TEST_GUIDANCE } from '../src/run.js';
 import { discoverInteractive } from '../src/discover.js';
+import { initiativeQuestions, saveInitiative, initiativeInteractive } from '../src/initiative.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
 
@@ -31,6 +32,7 @@ const SG = Object.freeze({
   deviations:       '.spec-guard/deviations',
   discoveries:      '.spec-guard/discoveries',
   runs:             '.spec-guard/runs',
+  initiatives:      '.spec-guard/initiatives',
 });
 
 const NEW_DEFAULT_DIRS = Object.freeze({
@@ -104,6 +106,8 @@ async function run(args) {
   if (command === 'gate-status')     return gateStatusCommand(rest);
   if (command === 'confirm-gate')    return confirmGateCommand(rest);
   if (command === 'next')            return nextCommand(rest);
+  if (command === 'initiative-questions') return initiativeQuestionsCommand(rest);
+  if (command === 'initiative')           return initiativeCommand(rest);
   if (command === 'blocker')         return copyTemplateCommand(rest, 'templates/blocker.md', 'blocker', 'blocker', SG.blockers);
   if (command === 'scope-discovery') return copyTemplateCommand(rest, 'templates/scope-discovery.md', 'scope-discovery', 'scope discovery', SG.scopeDiscoveries);
   if (command === 'review')          return copyTemplateCommand(rest, 'templates/implementation-review.md', 'review', 'implementation review', SG.reviews);
@@ -411,6 +415,7 @@ async function initCommand(args) {
     ['.spec-guard', 'deviations'],
     ['.spec-guard', 'discoveries'],
     ['.spec-guard', 'runs'],
+    ['.spec-guard', 'initiatives'],
   ];
 
   for (const parts of directories) {
@@ -816,6 +821,74 @@ async function nextCommand(args) {
   return result.complete ? 0 : 1;
 }
 
+// ─── initiative-questions ─────────────────────────────────────────────────────
+
+async function initiativeQuestionsCommand(args) {
+  const flags = parseFlags(args);
+  const questions = initiativeQuestions();
+
+  if (flags.json) {
+    console.log(JSON.stringify(questions));
+    return 0;
+  }
+
+  console.log('\n  Required questions:\n');
+  for (const q of questions.required) {
+    console.log(`  [${q.id}] ${q.question}`);
+    console.log(`    ${q.notes}`);
+    console.log();
+  }
+  console.log('  Optional questions:\n');
+  for (const q of questions.optional) {
+    console.log(`  [${q.id}] ${q.question}`);
+    console.log(`    ${q.notes}`);
+    console.log();
+  }
+  return 0;
+}
+
+// ─── initiative ───────────────────────────────────────────────────────────────
+
+async function initiativeCommand(args) {
+  const [rawName, ...extra] = args;
+
+  if (!rawName || extra.length > 0) {
+    console.error('Usage: spec-guard initiative <name>');
+    return 2;
+  }
+
+  const outputPath = resolve(SG.initiatives, `${rawName}.md`);
+  try {
+    await access(outputPath, constants.F_OK);
+    console.error(`[BLOCKER] SG-USAGE-002 ${outputPath}: file already exists`);
+    return 1;
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error(`[BLOCKER] SG-USAGE-001 ${outputPath}: ${err.message}`);
+      return 2;
+    }
+  }
+
+  const answers = await initiativeInteractive();
+  if (answers.error) {
+    console.error(`[BLOCKER] SG-USAGE-001: ${answers.error}`);
+    return 1;
+  }
+
+  const result = await saveInitiative({ ...answers });
+  if (result.error) {
+    console.error(`[BLOCKER] SG-USAGE-001: ${result.error}`);
+    return 1;
+  }
+
+  console.log();
+  console.log(`  Created: ${result.path}`);
+  console.log(`  Slices:  ${result.slices.map(s => s.name).join(', ')}`);
+  console.log();
+  console.log('  Next: run  spec-guard draft <slice-name>  for each slice.');
+  return 0;
+}
+
 // ─── status ──────────────────────────────────────────────────────────────────
 
 async function statusCommand(args) {
@@ -1084,6 +1157,8 @@ function printUsage() {
   spec-guard review <name>
   spec-guard discovery <name>
   spec-guard deviation <name>
+  spec-guard initiative-questions [--json]           list initiative decomposition questions
+  spec-guard initiative <name>                       interactive wizard — decompose app into slices
 
   Bare names default to .spec-guard/ subdirectories. Pass a full path to override.`);
 }

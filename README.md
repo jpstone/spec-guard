@@ -178,7 +178,7 @@ WORKFLOW.md
 ## Development
 
 ```bash
-npm test                        # 161 tests across check, run, MCP, CLI, discover, analyze, and suggest
+npm test                        # 177 tests across check, run, MCP, CLI, discover, analyze, suggest, and initiative
 npm run check:example           # gate 1 smoke check
 npm run run:example             # gate 1+2 non-interactive check
 ```

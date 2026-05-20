@@ -31,6 +31,45 @@ If the spec doesn't exist: author one (see below). Do not guess.
 
 ---
 
+## Initiative Decomposition — When to Use It
+
+Use the initiative flow when a developer describes a **multi-feature app or product** rather than a single capability. Signals include:
+
+- "I want to build an app that does X, Y, and Z"
+- "We're launching a new product with these features…"
+- "Here's the full scope of what this project needs to do"
+- The description implies more than two or three distinct user-facing capabilities
+
+Use the standard spec flow (below) when the request is a **single feature, change, or deliverable** — even a complex one.
+
+**If you are unsure:** ask — "Is this a single feature, or a larger initiative with multiple independent parts?"
+
+### Initiative flow:
+
+**Step 1 — Get the question list:**
+```
+spec_guard_initiative_questions()
+```
+
+**Step 2 — Ask the user the required questions**, then propose a slice breakdown (one slice per independently deliverable feature area). Present the breakdown for human review before saving.
+
+**Step 3 — Save the initiative:**
+```
+spec_guard_save_initiative({
+  name: "my-app",
+  title: "My App",
+  description: "...",
+  slices: [
+    { name: "user-auth", title: "User Authentication", description: "...", classification: "REST/service API" },
+    ...
+  ]
+})
+```
+
+**Step 4 — Proceed spec-by-spec.** For each slice returned, call `spec_guard_draft_spec` and follow the standard 5-gate workflow for that slice independently.
+
+---
+
 ## Authoring a Spec
 
 ### Path A: AI-Assisted (recommended when working with a user)
@@ -224,6 +263,7 @@ All Spec Guard artifacts live under `.spec-guard/` in the project root:
 .spec-guard/
   specs/           ← feature specs (Gate 1 source)
   contracts/       ← API and component contracts (Gate 2 source)
+  initiatives/     ← initiative decomposition artifacts
   blockers/        ← recorded blockers
   scope-discoveries/
   reviews/         ← implementation reviews (Gate 5 source)
@@ -241,6 +281,10 @@ Write commands (`new`, `draft`, `blocker`, `scope-discovery`, `review`, `discove
 ## CLI Quick Reference
 
 ```bash
+# Initiative decomposition
+spec-guard initiative-questions      # list questions for broad app decomposition
+spec-guard initiative <name>         # interactive wizard — decompose app into slices
+
 # Authoring
 spec-guard draft <name>              # guided wizard
 spec-guard new brownfield-spec <name> # brownfield template
@@ -268,7 +312,9 @@ spec-guard next <name>               # what to do next given current gate state
 ## MCP Tool Quick Reference
 
 ```
-spec_guard_interview_questions   → questions to ask user before drafting
+spec_guard_initiative_questions  → questions for broad app decomposition (use before spec_guard_save_initiative)
+spec_guard_save_initiative       → validate and save initiative; returns slice names for spec_guard_draft_spec
+spec_guard_interview_questions   → questions to ask user before drafting a single spec
 spec_guard_draft_spec            → build a valid spec from answers
 spec_guard_check                 → validate a spec (Gate 1)
 spec_guard_suggest               → validate + show fix instructions

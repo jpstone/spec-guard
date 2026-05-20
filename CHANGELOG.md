@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.0
+
+### Initiative decomposition
+
+- `spec_guard_initiative_questions` MCP tool — returns structured question list (required + optional) for gathering context before decomposing a broad app into feature slices
+- `spec_guard_save_initiative` MCP tool — validates and writes `.spec-guard/initiatives/<name>.md`; returns slice names and suggested spec paths for use with `spec_guard_draft_spec`
+- `spec-guard initiative-questions [--json]` CLI command — mirrors `spec_guard_initiative_questions`
+- `spec-guard initiative <name>` CLI command — interactive wizard; mirrors `spec_guard_save_initiative`; exits 1 (SG-USAGE-002) if file already exists
+- `spec-guard init` now creates `.spec-guard/initiatives/` directory
+- `templates/initiative.md` — initiative artifact template
+- `AGENTS.md` — added "Initiative Decomposition — When to Use It" section with agent signal guidance; updated directory structure and tool references
+
+Multiple initiatives coexist as separate named files in `.spec-guard/initiatives/`.
+
 ## 0.6.0
 
 ### New CLI commands — CLI/MCP parity complete

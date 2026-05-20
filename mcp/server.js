@@ -37,6 +37,7 @@ import { gate1, gate2, gate5, runCheck, TEST_GUIDANCE } from '../src/run.js';
 import { buildSpecFromAnswers } from '../src/discover.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics } from '../src/suggest.js';
+import { initiativeQuestions, saveInitiative } from '../src/initiative.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -244,6 +245,49 @@ const TOOLS = [
       required: ['spec_path'],
     },
   },
+  {
+    name: 'spec_guard_initiative_questions',
+    description: 'Return a structured list of questions for gathering context before decomposing a broad app or product idea into individual feature slices. Use this when a developer describes a multi-feature initiative rather than a single spec.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'spec_guard_save_initiative',
+    description: 'Validate and save an initiative decomposition artifact. Writes .spec-guard/initiatives/<name>.md and returns the list of slice names and suggested spec paths for use with spec_guard_draft_spec.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:        { type: 'string', description: 'URL-safe initiative identifier (lowercase letters, digits, hyphens)' },
+        title:       { type: 'string', description: 'Human-readable initiative title' },
+        description: { type: 'string', description: 'Brief summary of the initiative' },
+        slices: {
+          type: 'array',
+          description: 'Feature slices to decompose into individual specs',
+          items: {
+            type: 'object',
+            properties: {
+              name:           { type: 'string', description: 'URL-safe slice identifier' },
+              title:          { type: 'string', description: 'Human-readable slice title' },
+              description:    { type: 'string', description: 'What this slice delivers' },
+              classification: {
+                type: 'string',
+                enum: [
+                  'Reusable non-UI API', 'REST/service API', 'Reusable UI component',
+                  'One-off application UI', 'Direct behavior with no new API or UI',
+                  'Operational/document deliverable',
+                ],
+              },
+            },
+            required: ['name', 'title', 'description', 'classification'],
+          },
+        },
+        output_dir: { type: 'string', description: 'Directory to write the initiative artifact into (default: current directory)' },
+      },
+      required: ['name', 'title', 'description', 'slices'],
+    },
+  },
 ];
 
 // ─── Tool handlers ────────────────────────────────────────────────────────────
@@ -263,6 +307,8 @@ async function handleTool(name, input) {
     case 'spec_guard_interview_questions': return toolInterviewQuestions(input);
     case 'spec_guard_suggest':             return toolSuggest(input);
     case 'spec_guard_workflow_next_step':  return toolWorkflowNextStep(input);
+    case 'spec_guard_initiative_questions': return toolInitiativeQuestions(input);
+    case 'spec_guard_save_initiative':      return toolSaveInitiative(input);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -825,6 +871,14 @@ async function toolWorkflowNextStep({ spec_path, gates_passed = [] }) {
   };
 }
 
+async function toolInitiativeQuestions() {
+  return initiativeQuestions();
+}
+
+async function toolSaveInitiative({ name, title, description, slices, output_dir: dir = '.' }) {
+  return saveInitiative({ name, title, description, slices, dir });
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function collectMarkdownFiles(dir) {
@@ -885,7 +939,7 @@ async function dispatch(msg) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'spec-guard', version: '0.5.0' },
+        serverInfo: { name: 'spec-guard', version: '0.7.0' },
       },
     };
   }

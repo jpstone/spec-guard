@@ -14,7 +14,11 @@
       "Bash(Select-Object -First 50)",
       "Bash(npm test *)",
       "Bash(npm whoami *)",
-      "Bash(npm publish *)"
+      "Bash(npm publish *)",
+      "Bash(node bin/spec-guard.js check initiative-decomposition)",
+      "Bash(node bin/spec-guard.js check initiative-decomposition --warnings)",
+      "Bash(node --test test/initiative.test.js)",
+      "Bash(node bin/spec-guard.js confirm-gate initiative-decomposition 3 --evidence=\"All tests in test/initiative.test.js fail: Cannot find module '../src/initiative.js' — nothing is implemented yet\")"
     ]
   }
 }
