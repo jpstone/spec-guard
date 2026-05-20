@@ -156,7 +156,9 @@ Stop immediately and surface the issue when any of these are true:
 
 - Spec is missing, unclear, or insufficient → `spec-guard blocker`
 - Classification is ambiguous → ask; do not guess
-- UI work has no mockup or design direction → `spec-guard blocker`; do not invent UI
+- UI work has no mockup and no component library → `spec-guard blocker`; do not invent UI
+- UI work has no mockup but a component library is referenced → ask the user whether the component library is sufficient; do not assume; do not proceed until confirmed
+- UI work has no component library but a mockup is present → ask the user whether they are using an existing library or custom styling; do not assume; do not proceed until confirmed
 - A reusable API/component has no contract → `spec-guard blocker`
 - Spec contradicts existing behavior → `spec-guard deviation`
 - Implementation would expand scope → `spec-guard scope-discovery`
