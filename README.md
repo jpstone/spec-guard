@@ -12,7 +12,7 @@ Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven 
 
 | Layer | What it is | Who uses it |
 |---|---|---|
-| **`WORKFLOW.md` + `AGENTS.md`** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
+| **`WORKFLOW.md` + [`AGENTS.md`](AGENTS.md)** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
 | **`spec-guard run`** | Interactive CLI that walks a spec through all 5 gates | Agents executing CLI commands |
 | **MCP server** | Structured tool calls for all Spec Guard operations | MCP-compatible agents (Claude Code, Cursor, etc.) |
 
@@ -63,77 +63,13 @@ Agents don't inherently know the Spec Guard workflow. Without it, they'll implem
 
 **MCP server (preferred)** — Connect the MCP server and the agent receives structured guidance at each step via tool calls. No upfront loading required. `spec_guard_workflow_next_step` always tells the agent what to do next. Works with any MCP-compatible agent (Claude Code, Cursor, Copilot, etc.).
 
-**Project file context** — `spec-guard init` puts `AGENTS.md` in the project root. Agents that automatically ingest project-level instruction files (Claude Code's `CLAUDE.md` pattern, Cursor rules, etc.) will pick it up without any manual step. Point the agent at the project and it reads the contract on its own.
+**Project file context** — `spec-guard init` puts [`AGENTS.md`](AGENTS.md) in the project root. Agents that automatically ingest project-level instruction files (Claude Code's `CLAUDE.md` pattern, Cursor rules, etc.) will pick it up without any manual step. Point the agent at the project and it reads the contract on its own.
 
-**Manual paste** — For agents without MCP support or automatic file ingestion, paste the contents of `AGENTS.md` at the start of a session. The agent then operates under the full Spec Guard contract for that session.
+**Manual paste** — For agents without MCP support or automatic file ingestion, paste the contents of [`AGENTS.md`](AGENTS.md) at the start of a session. The agent then operates under the full Spec Guard contract for that session.
 
-`WORKFLOW.md` has the full phase-by-phase process flow. `AGENTS.md` is the compact operating contract an agent needs to execute it.
+`WORKFLOW.md` has the full phase-by-phase process flow. [`AGENTS.md`](AGENTS.md) is the compact operating contract an agent needs to execute it.
 
 ---
-
-## CLI
-
-```bash
-spec-guard draft <name>                          # guided spec wizard (interactive)
-spec-guard run [--check-only] <name>             # 5-phase orchestrated workflow
-spec-guard check [--json] [--warnings] <name>
-spec-guard suggest [--warnings] <name>           # check + actionable fix instructions
-spec-guard analyze [--contract path] [--review path] <name>  # cross-artifact check
-spec-guard validate [--json] [--warnings]
-spec-guard status [--json]
-spec-guard watch <name>
-spec-guard init
-spec-guard classify [--json] <name>
-spec-guard gate-status [--json] <name>          # show all 5 gate states
-spec-guard confirm-gate <name> <n> [--evidence] # record gate 3/4/5 as confirmed
-spec-guard next [--json] <name>                 # next step given current gate state
-
-# Create artifacts
-spec-guard new spec|brownfield-spec|api-contract|rest-api-contract|component-contract|
-              one-off-ui|operational-document|task-plan|compound-work <name>
-
-# Record problems
-spec-guard blocker <name>
-spec-guard scope-discovery <name>
-spec-guard deviation <name>
-spec-guard review <name>
-spec-guard discovery <name>
-```
-
-### `spec-guard draft`
-
-Guided wizard for writing a spec from scratch. Asks questions interactively and writes a valid spec file that passes Gate 1. Refuses to overwrite an existing file.
-
-### `spec-guard suggest`
-
-Runs `check` and returns each diagnostic annotated with a concrete, multi-line fix instruction. Use this instead of plain `check` when you want to know exactly what to change, not just that something is wrong.
-
-### `spec-guard analyze`
-
-Cross-artifact consistency check that compares the spec against its contract and implementation review:
-
-- Contract exists and contains actual interface definitions (not just a blank template)
-- Every acceptance criterion from the spec appears in the review
-- Every acceptance criterion from the spec appears in the review
-- No unchecked boxes remain in the review
-
-Required before Gate 5 can be considered complete.
-
-### `spec-guard run`
-
-The primary command. Walks a spec through all 5 phases interactively:
-
-- Checks Gate 1 automatically; blocks until spec is valid
-- Identifies classification and prints test guidance
-- Prompts for contract artifact if required by classification
-- Checks Gate 2 automatically
-- Guides failure-first confirmation with prompts
-- Records failure evidence
-- Guides implementation and scope control
-- Creates and validates the implementation review
-- Saves run state to `.spec-guard/runs/`
-
-With `--check-only`: non-interactive, reports gate 1 and 2 status only (useful for CI).
 
 ---
 
@@ -189,7 +125,7 @@ See `mcp/README.md` for full setup and usage.
   deviations/
   discoveries/
   runs/
-AGENTS.md
+[AGENTS.md](AGENTS.md)
 WORKFLOW.md
 .github/
   workflows/
