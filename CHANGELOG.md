@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+
+### Review completeness enforcement
+
+- `templates/implementation-review.md` — added `Linked Contract`, `Implementation Files`, `Test Files`, `Summary of Change`, and `Linked Documentation` sections; added Documentation Updates checkbox requiring all linked docs are confirmed updated
+- `templates/spec.md` — added `Prior Implementation Review` field for changes to existing features
+- `templates/brownfield-spec.md` — added `Previous Implementation Review` field
+- `AGENTS.md` — added "Before Starting Any Work on an Existing Feature" instruction to check the prior review
+- `SG-ALIGN-005` — WARNING when `Implementation Files` section is blank in a review (skipped for `Operational/document deliverable`)
+- `SG-ALIGN-006` — WARNING when `Test Files` section is blank in a review (skipped for `Operational/document deliverable`)
+
 ## 0.7.2
 
 ### Internal

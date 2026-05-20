@@ -7,6 +7,8 @@ import { getSelectedClassifications, getSpecTitle } from './check.js';
 // SG-ALIGN-002  required test not mentioned in implementation review
 // SG-ALIGN-003  contract file missing, empty, or structurally weak for its type
 // SG-ALIGN-004  unchecked items remain in implementation review (Gate 5 blocked)
+// SG-ALIGN-005  Implementation Files section blank in review
+// SG-ALIGN-006  Test Files section blank in review
 
 const CONTRACT_STRUCTURE = {
   'REST/service API': {
@@ -152,6 +154,26 @@ export async function analyzeArtifacts({
           message: `${unchecked} unchecked item(s) remain in implementation review — Gate 5 is blocked`,
         });
       }
+
+      // Check Implementation Files and Test Files are populated
+      if (classification !== 'Operational/document deliverable') {
+        if (!sectionHasContent(reviewText, 'Implementation Files')) {
+          diagnostics.push({
+            severity: 'WARNING',
+            ruleId: 'SG-ALIGN-005',
+            path: reviewPath,
+            message: 'Implementation Files section is blank — list the source files created or modified',
+          });
+        }
+        if (!sectionHasContent(reviewText, 'Test Files')) {
+          diagnostics.push({
+            severity: 'WARNING',
+            ruleId: 'SG-ALIGN-006',
+            path: reviewPath,
+            message: 'Test Files section is blank — list the test files written for this implementation',
+          });
+        }
+      }
     } catch {
       diagnostics.push({
         severity: 'INFO',
@@ -193,6 +215,12 @@ function extractBullets(text, heading) {
 
 function cleanBullet(line) {
   return line.replace(/^-\s*(\[[ xX]\]\s*)?/, '').trim();
+}
+
+function sectionHasContent(text, heading) {
+  const section = extractSection(text, heading);
+  if (!section) return false;
+  return section.split('\n').some(l => /^-\s+\S/.test(l.trim()) && !l.trim().startsWith('<!--'));
 }
 
 function extractSection(text, heading) {

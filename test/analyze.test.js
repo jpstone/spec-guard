@@ -61,9 +61,23 @@ const COMPLETE_REVIEW = `# Implementation Review
 
 specs/login.md
 
+## Linked Contract
+
 ## Classification
 
 Direct behavior with no new API or UI
+
+## Implementation Files
+
+- src/auth/login.js
+
+## Test Files
+
+- test/auth/login.test.js
+
+## Summary of Change
+
+- Added login form with email and password fields
 
 ## Tests Written First
 
@@ -82,6 +96,10 @@ Direct behavior with no new API or UI
 - [x] Invalid credentials show an error message
 - [x] Valid credentials redirect to dashboard
 
+## Linked Documentation
+
+-
+
 ## Scope Control
 
 - [x] No out-of-scope work was absorbed silently.
@@ -89,7 +107,8 @@ Direct behavior with no new API or UI
 
 ## Documentation Updates
 
-- [x] No documentation update was needed.
+- [x] All docs listed in Linked Documentation above updated, or confirmed not applicable.
+- [ ] No documentation update was needed.
 - [ ] Durable contract documentation was updated.
 - [ ] The document itself was the deliverable.
 
@@ -232,6 +251,47 @@ test('analyzeArtifacts — SG-ALIGN-004 when review has unchecked boxes', async 
   const unchecked = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-004');
   assert.ok(unchecked.length > 0);
   assert.ok(unchecked[0].message.includes('unchecked'));
+});
+
+test('analyzeArtifacts — SG-ALIGN-005 when Implementation Files section is blank', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(reviewPath, COMPLETE_REVIEW.replace('- src/auth/login.js', '-'));
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-005');
+  assert.ok(diags.length > 0);
+  assert.ok(diags[0].message.includes('Implementation Files'));
+});
+
+test('analyzeArtifacts — SG-ALIGN-006 when Test Files section is blank', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(reviewPath, COMPLETE_REVIEW.replace('- test/auth/login.test.js', '-'));
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-006');
+  assert.ok(diags.length > 0);
+  assert.ok(diags[0].message.includes('Test Files'));
+});
+
+test('analyzeArtifacts — no SG-ALIGN-005 or SG-ALIGN-006 for Operational/document deliverable', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  const opSpec = VALID_SPEC
+    .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
+    .replace('- [ ] Operational/document deliverable', '- [x] Operational/document deliverable');
+  writeFileSync(specPath, opSpec);
+  writeFileSync(reviewPath, COMPLETE_REVIEW.replace('- src/auth/login.js', '-').replace('- test/auth/login.test.js', '-'));
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => ['SG-ALIGN-005', 'SG-ALIGN-006'].includes(d.ruleId));
+  assert.equal(diags.length, 0);
 });
 
 test('analyzeArtifacts — INFO when review file does not exist yet', async () => {

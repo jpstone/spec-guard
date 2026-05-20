@@ -14,6 +14,19 @@ Every gate is a `spec-guard` command. Gates are not advisory. You do not proceed
 
 ---
 
+## Before Starting Any Work on an Existing Feature
+
+Check `.spec-guard/reviews/<feature-name>.md` before authoring a spec or writing any code. The review contains:
+
+- **Implementation Files** — source files to modify
+- **Test Files** — test files to update
+- **Linked Contract** — the contract to keep in sync
+- **Linked Documentation** — user-facing docs to update
+
+Reference the review in the spec's `Prior Implementation Review` field so the full context is carried forward.
+
+---
+
 ## Pre-Implementation Checklist
 
 Run before writing any implementation code. All items must be checked. If any cannot be checked, halt.
