@@ -231,6 +231,12 @@ async function discoverCommand(args) {
       classification: data.classification || null,
     });
   } else {
+    if (!process.stdin.isTTY) {
+      console.error('[BLOCKER] SG-USAGE-001: interactive mode requires a terminal. Use --from-json <path> to run non-interactively.');
+      console.error('  Example: spec-guard draft --from-json answers.json <name>');
+      console.error('  Run: npx spec-guard interview-questions --json  to get the question list and expected JSON shape.');
+      return 2;
+    }
     ({ specText } = await discoverInteractive());
   }
 
@@ -849,7 +855,7 @@ async function nextCommand(args) {
 
 async function interviewQuestionsCommand(args) {
   const flags = parseFlags(args);
-  const result = interviewQuestions();
+  const result = interviewQuestions(flags.classification || null);
 
   if (flags.json) {
     console.log(JSON.stringify(result));
@@ -931,6 +937,12 @@ async function initiativeCommand(args) {
     }
     answers = { name: rawName, title: data.title || '', description: data.description || '', slices: data.slices || [] };
   } else {
+    if (!process.stdin.isTTY) {
+      console.error('[BLOCKER] SG-USAGE-001: interactive mode requires a terminal. Use --from-json <path> to run non-interactively.');
+      console.error('  Example: spec-guard initiative --from-json init.json <name>');
+      console.error('  Run: npx spec-guard initiative-questions --json  to get the question list and expected JSON shape.');
+      return 2;
+    }
     answers = await initiativeInteractive();
     if (answers.error) {
       console.error(`[BLOCKER] SG-USAGE-001: ${answers.error}`);
@@ -1194,6 +1206,7 @@ function parseFlags(args) {
     else if (arg === '--contract') flags.contract = args[++i] || null;
     else if (arg === '--review') flags.review = args[++i] || null;
     else if (arg === '--from-json') flags['from-json'] = args[++i] || null;
+    else if (arg === '--classification') flags.classification = args[++i] || null;
     else if (arg.startsWith('--')) {
       // Handle --key=value and --no-key boolean flags
       const eqIdx = arg.indexOf('=');

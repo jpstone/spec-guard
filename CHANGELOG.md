@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1
+
+### Bug fixes
+
+- `spec-guard draft` and `spec-guard initiative` now exit 2 with a clear error when stdin is not a TTY, instead of crashing with exit code 13; message points to `--from-json` and the relevant `*-questions --json` command
+- `spec-guard interview-questions` now accepts `--classification <type>` and passes it to the question builder, returning classification-specific follow-up questions; previously the flag was silently ignored
+- `parseFlags` now handles `--classification <value>` as a space-separated pair
+
+---
+
 ## 0.9.0
 
 ### CLI invocation guidance

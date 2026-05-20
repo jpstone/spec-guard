@@ -241,10 +241,12 @@ With `--json`, outputs `{ required, optional }` as JSON.
 ### `interview-questions`
 
 ```bash
-spec-guard interview-questions [--json]
+spec-guard interview-questions [--classification <type>] [--json]
 ```
 
 Returns the structured question list for guiding a spec authoring conversation. Use this before calling `draft` — ask the user these questions, collect answers, then pass them to `draft --from-json`.
+
+Pass `--classification` to get classification-specific follow-up questions in addition to the base list.
 
 With `--json`, outputs `{ pre_classification, classification_specific, universal_optional, protocol, next_tool }` as JSON. `pre_classification` is the required question list; `universal_optional` contains optional questions (title, open questions).
 
