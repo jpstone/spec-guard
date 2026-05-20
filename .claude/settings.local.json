@@ -8,7 +8,8 @@
       "Bash(node bin/spec-guard.js)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse -Directory)",
       "Bash(Select-Object -First 20)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object -ExpandProperty FullName | Sort-Object)"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "Bash(node -e ' *)"
     ]
   }
 }

@@ -5,7 +5,7 @@
 ### `analyze`
 
 ```bash
-spec-guard analyze [--contract path] [--review path] [--json] path/to/spec.md
+spec-guard analyze [--contract path] [--review path] [--json] <spec>
 ```
 
 Cross-artifact consistency check. Compares the spec against its contract and implementation review:
@@ -33,7 +33,7 @@ If `--contract` or `--review` are not given, Spec Guard infers the paths from th
 ### `check`
 
 ```bash
-spec-guard check [--json] [--warnings] path/to/spec.md
+spec-guard check [--json] [--warnings] <spec>
 ```
 
 Validates one Markdown spec file. Reports:
@@ -67,7 +67,7 @@ Does not modify files.
 ### `classify`
 
 ```bash
-spec-guard classify [--json] path/to/spec.md
+spec-guard classify [--json] <spec>
 ```
 
 Prints the selected work classification, or reports a blocker if zero or multiple are selected.
@@ -77,10 +77,10 @@ Prints the selected work classification, or reports a blocker if zero or multipl
 ### `discovery`
 
 ```bash
-spec-guard discovery path/to/discovery-request.md
+spec-guard discovery <name>
 ```
 
-Creates a discovery-request artifact from the template. Use this **only** when a human explicitly asks for gap analysis, risk review, or "what did we miss?" — never speculatively.
+Creates a discovery-request artifact at `.spec-guard/discoveries/<name>.md`. Use this **only** when a human explicitly asks for gap analysis, risk review, or "what did we miss?" — never speculatively.
 
 Discovery mode is distinct from implementation. It produces findings; it does not authorize implementing them. Any work identified during discovery requires a separate spec before implementation can begin.
 
@@ -103,10 +103,12 @@ Typical triggers:
 ### `draft`
 
 ```bash
-spec-guard draft path/to/spec.md
+spec-guard draft <name>
 ```
 
 Interactive guided wizard for writing a spec from scratch. Asks questions (problem, scope, expected behavior, acceptance criteria, work classification, and optional fields), then writes a spec file that passes Gate 1. Loops on required fields until they are filled.
+
+Defaults to `.spec-guard/specs/<name>.md`. Pass a full path to write elsewhere.
 
 Refuses to overwrite an existing file.
 
@@ -114,23 +116,23 @@ Refuses to overwrite an existing file.
 
 - `0` — spec written successfully
 - `1` — output file already exists
-- `2` — usage error (no path given, too many arguments)
+- `2` — usage error (no name given, too many arguments)
 
 ---
 
 ### `init`
 
 ```bash
-spec-guard init [directory]
+spec-guard init
 ```
 
-Creates the recommended directory structure:
+Creates the recommended directory structure in the current directory:
 
 ```text
-specs/
-  example.md
-contracts/
 .spec-guard/
+  specs/
+    example.md
+  contracts/
   blockers/
   scope-discoveries/
   reviews/
@@ -144,41 +146,41 @@ WORKFLOW.md
     spec-guard.yml      ← ready-to-use CI workflow
 ```
 
-All files and directories are created only if they don't already exist. The CI workflow validates specs on every push and pull request that touches `specs/**`.
+All files and directories are created only if they don't already exist. `AGENTS.md` and `WORKFLOW.md` are placed at the project root so agents that auto-load project context files pick them up automatically.
 
 ---
 
 ### `new`
 
 ```bash
-spec-guard new <kind> path/to/file.md
+spec-guard new <kind> <name>
 ```
 
-Creates a new artifact from a template. Refuses to overwrite.
+Creates a new artifact from a template. Defaults to the appropriate `.spec-guard/` subdirectory for bare names. Pass a full path to write elsewhere. Refuses to overwrite.
 
 Available kinds:
 
-| Kind | Template | Use for |
+| Kind | Default location | Use for |
 |---|---|---|
-| `spec` | `templates/spec.md` | New feature or behavior spec |
-| `brownfield-spec` | `templates/brownfield-spec.md` | Changes to existing systems |
-| `api-contract` | `templates/api-contract.md` | Reusable non-UI API contract |
-| `rest-api-contract` | `templates/rest-api-contract.md` | REST/service API contract |
-| `component-contract` | `templates/component-contract.md` | Reusable UI component contract |
-| `one-off-ui` | `templates/one-off-ui.md` | One-off UI spec supplement |
-| `operational-document` | `templates/operational-document.md` | Operational deliverable |
-| `task-plan` | `templates/task-plan.md` | Implementation task plan |
-| `compound-work` | `templates/compound-work.md` | Multi-classification work plan |
+| `spec` | `.spec-guard/specs/` | New feature or behavior spec |
+| `brownfield-spec` | `.spec-guard/specs/` | Changes to existing systems |
+| `api-contract` | `.spec-guard/contracts/` | Reusable non-UI API contract |
+| `rest-api-contract` | `.spec-guard/contracts/` | REST/service API contract |
+| `component-contract` | `.spec-guard/contracts/` | Reusable UI component contract |
+| `one-off-ui` | `.spec-guard/specs/` | One-off UI spec supplement |
+| `operational-document` | `.spec-guard/specs/` | Operational deliverable |
+| `task-plan` | `.spec-guard/specs/` | Implementation task plan |
+| `compound-work` | `.spec-guard/specs/` | Multi-classification work plan |
 
 ---
 
 ### `status`
 
 ```bash
-spec-guard status [--json] [specs-directory]
+spec-guard status [--json]
 ```
 
-Prints a summary table of all specs in a directory. Columns: Status, Classification, Issues (blockers/warnings), Path.
+Prints a summary table of all specs in `.spec-guard/specs/`. Columns: Status, Classification, Issues (blockers/warnings), Path.
 
 With `--json`, outputs an array of objects.
 
@@ -187,7 +189,7 @@ With `--json`, outputs an array of objects.
 ### `suggest`
 
 ```bash
-spec-guard suggest [--json] path/to/spec.md
+spec-guard suggest [--json] <spec>
 ```
 
 Runs `check` and annotates every diagnostic with a concrete, multi-line fix instruction. Includes before/after examples for most rules.
@@ -205,10 +207,10 @@ Use this instead of `check` when you want to know exactly what to change, not ju
 ### `validate`
 
 ```bash
-spec-guard validate [--json] [--warnings] [specs-directory]
+spec-guard validate [--json] [--warnings]
 ```
 
-Runs `check` on every `.md` file (excluding README.md) in a directory, recursively. Defaults to `specs/`.
+Runs `check` on every `.md` file (excluding README.md) in `.spec-guard/specs/`, recursively.
 
 Prints a summary line: `Validated N spec(s): X clean, Y with issues (Z with blockers)`.
 
@@ -217,7 +219,7 @@ Prints a summary line: `Validated N spec(s): X clean, Y with issues (Z with bloc
 ### `watch`
 
 ```bash
-spec-guard watch path/to/spec.md
+spec-guard watch <spec>
 ```
 
 Watches a single spec file and re-runs `check` on every save. Clears the terminal on each run. Useful while writing a spec.
@@ -226,14 +228,16 @@ Watches a single spec file and re-runs `check` on every save. Clears the termina
 
 ### Artifact commands
 
-All artifact commands create a file from a template and refuse to overwrite existing files.
+All artifact commands create a file from a template and refuse to overwrite existing files. Bare names default to the appropriate `.spec-guard/` subdirectory.
 
 ```bash
-spec-guard blocker path/to/blocker.md
-spec-guard deviation path/to/deviation.md
-spec-guard review path/to/review.md
-spec-guard scope-discovery path/to/scope-discovery.md
+spec-guard blocker <name>           # → .spec-guard/blockers/<name>.md
+spec-guard deviation <name>         # → .spec-guard/deviations/<name>.md
+spec-guard review <name>            # → .spec-guard/reviews/<name>.md
+spec-guard scope-discovery <name>   # → .spec-guard/scope-discoveries/<name>.md
 ```
+
+Pass a full path to write elsewhere.
 
 ---
 
@@ -246,31 +250,31 @@ spec-guard scope-discovery path/to/scope-discovery.md
 Example:
 
 ```text
-[BLOCKER] SG-CLASS-001 specs/login.md: exactly one work classification must be selected; found none
-[WARNING] SG-SPEC-003 specs/login.md: 2 open question(s) may affect implementation — resolve or mark N/A before proceeding
-[INFO] SG-SPEC-007 specs/login.md: acceptance criterion uses a vague qualifier: "the feature works correctly"
+[BLOCKER] SG-CLASS-001 .spec-guard/specs/login.md: exactly one work classification must be selected; found none
+[WARNING] SG-SPEC-003 .spec-guard/specs/login.md: 2 open question(s) may affect implementation — resolve or mark N/A before proceeding
+[INFO] SG-SPEC-007 .spec-guard/specs/login.md: acceptance criterion uses a vague qualifier: "the feature works correctly"
 ```
 
 With `--json`:
 
 ```json
-{"severity":"BLOCKER","ruleId":"SG-CLASS-001","path":"specs/login.md","message":"exactly one work classification must be selected; found none"}
+{"severity":"BLOCKER","ruleId":"SG-CLASS-001","path":".spec-guard/specs/login.md","message":"exactly one work classification must be selected; found none"}
 ```
 
 `suggest` adds a `suggestion` field:
 
 ```json
-{"severity":"BLOCKER","ruleId":"SG-CLASS-001","path":"specs/login.md","message":"...","suggestion":"In the Work Classification section, check exactly one box..."}
+{"severity":"BLOCKER","ruleId":"SG-CLASS-001","path":".spec-guard/specs/login.md","message":"...","suggestion":"In the Work Classification section, check exactly one box..."}
 ```
 
 ## CI usage
 
 ```yaml
 - name: Validate specs
-  run: npx spec-guard validate specs/ --json
+  run: npx spec-guard validate --json
 
 - name: Cross-artifact check (before Gate 5)
-  run: npx spec-guard analyze specs/my-feature.md --json
+  run: npx spec-guard analyze my-feature --json
 ```
 
 Exit 1 fails the CI step when blockers are found.

@@ -12,21 +12,23 @@ npx spec-guard init
 # 3. Create a spec (two options)
 
 #   Option A: guided wizard
-npx spec-guard draft specs/my-feature.md
+npx spec-guard draft my-feature
 
 #   Option B: from template, then edit
-npx spec-guard new spec specs/my-feature.md
-# Use: npx spec-guard watch specs/my-feature.md
+npx spec-guard new spec my-feature
+# Use: npx spec-guard watch my-feature
 # to see live validation as you write
 
 # 4. Validate the spec
-npx spec-guard check specs/my-feature.md
+npx spec-guard check my-feature
 
 # 5. Get fix instructions if there are issues
-npx spec-guard suggest specs/my-feature.md
+npx spec-guard suggest my-feature
 
 # 6. When the spec is clean (exit 0), write tests, observe failure, implement
 ```
+
+Bare names resolve to `.spec-guard/specs/<name>.md`. Pass a full path to write elsewhere.
 
 ## For an AI coding agent
 
@@ -45,22 +47,22 @@ For MCP-compatible agents, the `spec_guard_interview_questions` → `spec_guard_
 A spec is ready to implement when `spec-guard check` exits 0 with no blockers:
 
 ```bash
-$ npx spec-guard check specs/my-feature.md
+$ npx spec-guard check my-feature
 # (no output, exit 0 = ready)
 ```
 
 With warnings shown:
 
 ```bash
-$ npx spec-guard check --warnings specs/my-feature.md
-[WARNING] SG-SPEC-003 specs/my-feature.md: 1 open question(s) may affect implementation
-[INFO] SG-SPEC-007 specs/my-feature.md: acceptance criterion uses a vague qualifier: "works correctly"
+$ npx spec-guard check --warnings my-feature
+[WARNING] SG-SPEC-003 .spec-guard/specs/my-feature.md: 1 open question(s) may affect implementation
+[INFO] SG-SPEC-007 .spec-guard/specs/my-feature.md: acceptance criterion uses a vague qualifier: "works correctly"
 ```
 
 ## Get actionable fix instructions
 
 ```bash
-npx spec-guard suggest specs/my-feature.md
+npx spec-guard suggest my-feature
 ```
 
 Each diagnostic includes a `suggestion` field with a concrete, multi-line fix.
@@ -68,7 +70,7 @@ Each diagnostic includes a `suggestion` field with a concrete, multi-line fix.
 ## Check all specs at once
 
 ```bash
-npx spec-guard validate specs/
+npx spec-guard validate
 ```
 
 ## See status of all specs
@@ -80,37 +82,37 @@ Spec Guard Status
 
 Status      Classification                        Issues    Path
 ──────────────────────────────────────────────────────────────────────
-Ready       Direct behavior with no new API or UI clean     specs/add-search.md
-Draft       REST/service API                      1B 0W     specs/auth-api.md
-Blocked     One-off application UI                2B 1W     specs/login-screen.md
+Ready       Direct behavior with no new API or UI clean     .spec-guard/specs/add-search.md
+Draft       REST/service API                      1B 0W     .spec-guard/specs/auth-api.md
+Blocked     One-off application UI                2B 1W     .spec-guard/specs/login-screen.md
 ```
 
 ## Cross-artifact check before Gate 5
 
 ```bash
-npx spec-guard analyze specs/my-feature.md
+npx spec-guard analyze my-feature
 ```
 
-Verifies that the contract is non-blank, every acceptance criterion and required test appears in the implementation review, and no review checkboxes remain unchecked.
+Verifies that the contract is non-blank, every acceptance criterion appears in the implementation review, and no review checkboxes remain unchecked.
 
 ## Record a blocker
 
 ```bash
-npx spec-guard blocker .spec-guard/blockers/missing-ui-direction.md
-# Edit the file to describe what's blocking
+npx spec-guard blocker missing-ui-direction
+# Edit .spec-guard/blockers/missing-ui-direction.md to describe what's blocking
 ```
 
 ## Record scope creep
 
 ```bash
-npx spec-guard scope-discovery .spec-guard/scope-discoveries/auth-refactor.md
+npx spec-guard scope-discovery auth-refactor
 ```
 
 ## CI usage
 
 ```yaml
 - name: Validate specs
-  run: npx spec-guard validate specs/ --json
+  run: npx spec-guard validate --json
 ```
 
 Exits 1 (fails the build) if any spec has a BLOCKER.

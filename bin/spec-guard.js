@@ -20,15 +20,40 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
 const args = process.argv.slice(2);
 
+// All spec-guard output lives under .spec-guard/ — hardcoded, no config needed.
+const SG = Object.freeze({
+  root:             '.spec-guard',
+  specs:            '.spec-guard/specs',
+  contracts:        '.spec-guard/contracts',
+  blockers:         '.spec-guard/blockers',
+  scopeDiscoveries: '.spec-guard/scope-discoveries',
+  reviews:          '.spec-guard/reviews',
+  deviations:       '.spec-guard/deviations',
+  discoveries:      '.spec-guard/discoveries',
+  runs:             '.spec-guard/runs',
+});
+
+const NEW_DEFAULT_DIRS = Object.freeze({
+  'spec':                 SG.specs,
+  'brownfield-spec':      SG.specs,
+  'api-contract':         SG.contracts,
+  'rest-api-contract':    SG.contracts,
+  'component-contract':   SG.contracts,
+  'one-off-ui':           SG.specs,
+  'operational-document': SG.specs,
+  'task-plan':            SG.specs,
+  'compound-work':        SG.specs,
+});
+
 const GITHUB_WORKFLOW = `name: Spec Guard
 
 on:
   push:
     paths:
-      - 'specs/**'
+      - '.spec-guard/specs/**'
   pull_request:
     paths:
-      - 'specs/**'
+      - '.spec-guard/specs/**'
 
 jobs:
   validate-specs:
@@ -40,7 +65,7 @@ jobs:
         with:
           node-version: '20'
       - run: npm install --save-dev spec-guard
-      - run: npx spec-guard validate specs/
+      - run: npx spec-guard validate
 `;
 
 const NEW_TEMPLATES = Object.freeze({
@@ -76,11 +101,11 @@ async function run(args) {
   if (command === 'classify')        return classifyCommand(rest);
   if (command === 'status')          return statusCommand(rest);
   if (command === 'watch')           return watchCommand(rest);
-  if (command === 'blocker')         return copyTemplateCommand(rest, 'templates/blocker.md', 'blocker', 'blocker');
-  if (command === 'scope-discovery') return copyTemplateCommand(rest, 'templates/scope-discovery.md', 'scope-discovery', 'scope discovery');
-  if (command === 'review')          return copyTemplateCommand(rest, 'templates/implementation-review.md', 'review', 'implementation review');
-  if (command === 'discovery')       return copyTemplateCommand(rest, 'templates/discovery-request.md', 'discovery', 'discovery request');
-  if (command === 'deviation')       return copyTemplateCommand(rest, 'templates/spec-deviation.md', 'deviation', 'spec deviation request');
+  if (command === 'blocker')         return copyTemplateCommand(rest, 'templates/blocker.md', 'blocker', 'blocker', SG.blockers);
+  if (command === 'scope-discovery') return copyTemplateCommand(rest, 'templates/scope-discovery.md', 'scope-discovery', 'scope discovery', SG.scopeDiscoveries);
+  if (command === 'review')          return copyTemplateCommand(rest, 'templates/implementation-review.md', 'review', 'implementation review', SG.reviews);
+  if (command === 'discovery')       return copyTemplateCommand(rest, 'templates/discovery-request.md', 'discovery', 'discovery request', SG.discoveries);
+  if (command === 'deviation')       return copyTemplateCommand(rest, 'templates/spec-deviation.md', 'deviation', 'spec deviation request', SG.deviations);
 
   printUsage();
   return 2;
@@ -90,15 +115,15 @@ async function run(args) {
 
 async function runCommand(args) {
   const flags = parseFlags(args);
-  const specPath = flags.positional[0];
 
-  if (!specPath) {
-    console.error('Usage: spec-guard run [--check-only] path/to/spec.md');
+  if (!flags.positional[0]) {
+    console.error('Usage: spec-guard run [--check-only] <spec>');
     return 2;
   }
 
+  const specPath = withDefaultDir(flags.positional[0], SG.specs);
+
   if (flags['check-only']) {
-    // Non-interactive: just report gate status
     const result = await runCheck(specPath);
     if (result.exitCode === 2) {
       console.error(`[BLOCKER] SG-USAGE-001 ${specPath}: ${result.error}`);
@@ -144,7 +169,6 @@ async function runCommand(args) {
     return allMechanicalGatesPassed ? 0 : 1;
   }
 
-  // Interactive run
   const { exitCode } = await runInteractive(specPath, flags);
   return exitCode;
 }
@@ -152,13 +176,18 @@ async function runCommand(args) {
 // ─── draft ───────────────────────────────────────────────────────────────────
 
 async function discoverCommand(args) {
-  const [outputPath, ...extra] = args;
+  const [rawPath, ...extra] = args;
 
-  if (!outputPath || extra.length > 0) {
-    console.error('Usage: spec-guard draft path/to/spec.md');
+  if (!rawPath || extra.length > 0) {
+    console.error('Usage: spec-guard draft <name>');
     return 2;
   }
 
+  const outputPath = resolveWritePath(rawPath, SG.specs);
+  if (!outputPath) {
+    console.error(`[BLOCKER] SG-USAGE-001 ${rawPath}: use a bare name — write commands always create files in .spec-guard/`);
+    return 2;
+  }
   const target = resolve(outputPath);
 
   try {
@@ -191,11 +220,11 @@ async function checkCommand(args) {
   const paths = flags.positional;
 
   if (paths.length !== 1) {
-    console.error('Usage: spec-guard check [--json] [--warnings] path/to/spec.md');
+    console.error('Usage: spec-guard check [--json] [--warnings] <spec>');
     return 2;
   }
 
-  const inputPath = paths[0];
+  const inputPath = withDefaultDir(paths[0], SG.specs);
 
   try {
     const text = await readFile(resolve(inputPath), 'utf8');
@@ -221,14 +250,13 @@ async function checkCommand(args) {
 
 async function analyzeCommand(args) {
   const flags = parseFlags(args);
-  const specPath = flags.positional[0];
 
-  if (!specPath) {
-    console.error('Usage: spec-guard analyze path/to/spec.md [--contract path/to/contract.md] [--review path/to/review.md]');
+  if (!flags.positional[0]) {
+    console.error('Usage: spec-guard analyze <spec> [--contract path] [--review path] [--json]');
     return 2;
   }
 
-  // Auto-discover contract and review if not specified
+  const specPath = withDefaultDir(flags.positional[0], SG.specs);
   const contractPath = flags.contract || await inferContractPath(specPath);
   const reviewPath = flags.review || inferReviewPath(specPath);
 
@@ -269,12 +297,13 @@ async function analyzeCommand(args) {
 
 async function suggestCommand(args) {
   const flags = parseFlags(args);
-  const inputPath = flags.positional[0];
 
-  if (!inputPath) {
-    console.error('Usage: spec-guard suggest [--warnings] path/to/spec.md');
+  if (!flags.positional[0]) {
+    console.error('Usage: spec-guard suggest [--warnings] <spec>');
     return 2;
   }
+
+  const inputPath = withDefaultDir(flags.positional[0], SG.specs);
 
   let text;
   try {
@@ -316,7 +345,7 @@ async function suggestCommand(args) {
 
 async function validateCommand(args) {
   const flags = parseFlags(args);
-  const dir = flags.positional[0] || 'specs';
+  const dir = flags.positional[0] || SG.specs;
 
   let files;
   try {
@@ -365,15 +394,14 @@ async function validateCommand(args) {
 // ─── init ────────────────────────────────────────────────────────────────────
 
 async function initCommand(args) {
-  const [targetDir = '.', ...extra] = args;
-  if (extra.length > 0) {
-    console.error('Usage: spec-guard init [directory]');
+  if (args.length > 0) {
+    console.error('Usage: spec-guard init');
     return 2;
   }
 
   const directories = [
-    ['specs'],
-    ['contracts'],
+    ['.spec-guard', 'specs'],
+    ['.spec-guard', 'contracts'],
     ['.spec-guard', 'blockers'],
     ['.spec-guard', 'scope-discoveries'],
     ['.spec-guard', 'reviews'],
@@ -383,43 +411,41 @@ async function initCommand(args) {
   ];
 
   for (const parts of directories) {
-    await mkdir(resolve(targetDir, ...parts), { recursive: true });
+    await mkdir(resolve('.', ...parts), { recursive: true });
   }
 
   // Starter spec
-  const starterSpec = resolve(targetDir, 'specs', 'example.md');
+  const starterSpec = resolve('.spec-guard', 'specs', 'example.md');
   try {
     await access(starterSpec, constants.F_OK);
   } catch {
     const template = await readFile(join(rootDir, 'templates', 'spec.md'), 'utf8');
     await writeFile(starterSpec, template, { flag: 'wx' });
-    console.log(`  Created starter spec: specs/example.md`);
+    console.log(`  Created: .spec-guard/specs/example.md`);
   }
 
-  // AGENTS.md
-  const agentsFile = resolve(targetDir, 'AGENTS.md');
+  // AGENTS.md — stays at project root for agent context auto-loading
+  const agentsFile = resolve('AGENTS.md');
   try {
     await access(agentsFile, constants.F_OK);
   } catch {
-    const src = join(rootDir, 'AGENTS.md');
-    const agentContent = await readFile(src, 'utf8');
+    const agentContent = await readFile(join(rootDir, 'AGENTS.md'), 'utf8');
     await writeFile(agentsFile, agentContent, { flag: 'wx' });
     console.log(`  Created: AGENTS.md`);
   }
 
-  // WORKFLOW.md
-  const workflowFile = resolve(targetDir, 'WORKFLOW.md');
+  // WORKFLOW.md — stays at project root for agent context auto-loading
+  const workflowFile = resolve('WORKFLOW.md');
   try {
     await access(workflowFile, constants.F_OK);
   } catch {
-    const src = join(rootDir, 'WORKFLOW.md');
-    const wfContent = await readFile(src, 'utf8');
+    const wfContent = await readFile(join(rootDir, 'WORKFLOW.md'), 'utf8');
     await writeFile(workflowFile, wfContent, { flag: 'wx' });
     console.log(`  Created: WORKFLOW.md`);
   }
 
   // GitHub Actions workflow
-  const ciDir = resolve(targetDir, '.github', 'workflows');
+  const ciDir = resolve('.github', 'workflows');
   const ciFile = resolve(ciDir, 'spec-guard.yml');
   try {
     await access(ciFile, constants.F_OK);
@@ -429,18 +455,18 @@ async function initCommand(args) {
     console.log(`  Created: .github/workflows/spec-guard.yml`);
   }
 
-  console.log(`Initialized Spec Guard in ${targetDir}`);
+  console.log(`Initialized Spec Guard`);
   return 0;
 }
 
 // ─── new ─────────────────────────────────────────────────────────────────────
 
 async function newCommand(args) {
-  const [kind, outputPath, ...extra] = args;
+  const [kind, rawPath, ...extra] = args;
 
-  if (!kind || !outputPath || extra.length > 0) {
+  if (!kind || !rawPath || extra.length > 0) {
     const kinds = Object.keys(NEW_TEMPLATES).join(' | ');
-    console.error(`Usage: spec-guard new <kind> path/to/file.md`);
+    console.error(`Usage: spec-guard new <kind> <name>`);
     console.error(`Kinds: ${kinds}`);
     return 2;
   }
@@ -452,6 +478,11 @@ async function newCommand(args) {
     return 2;
   }
 
+  const outputPath = resolveWritePath(rawPath, NEW_DEFAULT_DIRS[kind]);
+  if (!outputPath) {
+    console.error(`[BLOCKER] SG-USAGE-001 ${rawPath}: use a bare name — write commands always create files in .spec-guard/`);
+    return 2;
+  }
   return copyTemplate(templatePath, outputPath, kind);
 }
 
@@ -459,12 +490,13 @@ async function newCommand(args) {
 
 async function classifyCommand(args) {
   const flags = parseFlags(args);
-  const inputPath = flags.positional[0];
 
-  if (!inputPath || flags.positional.length > 1) {
-    console.error('Usage: spec-guard classify [--json] path/to/spec.md');
+  if (!flags.positional[0] || flags.positional.length > 1) {
+    console.error('Usage: spec-guard classify [--json] <spec>');
     return 2;
   }
+
+  const inputPath = withDefaultDir(flags.positional[0], SG.specs);
 
   try {
     const text = await readFile(resolve(inputPath), 'utf8');
@@ -504,7 +536,7 @@ async function classifyCommand(args) {
 
 async function statusCommand(args) {
   const flags = parseFlags(args);
-  const dir = flags.positional[0] || 'specs';
+  const dir = flags.positional[0] || SG.specs;
 
   let files;
   try {
@@ -579,13 +611,13 @@ async function statusCommand(args) {
 async function watchCommand(args) {
   const { watch } = await import('node:fs/promises');
   const flags = parseFlags(args);
-  const inputPath = flags.positional[0];
 
-  if (!inputPath) {
-    console.error('Usage: spec-guard watch path/to/spec.md');
+  if (!flags.positional[0]) {
+    console.error('Usage: spec-guard watch <spec>');
     return 2;
   }
 
+  const inputPath = withDefaultDir(flags.positional[0], SG.specs);
   const absPath = resolve(inputPath);
 
   async function runCheck() {
@@ -629,10 +661,15 @@ async function watchCommand(args) {
 
 // ─── template commands ────────────────────────────────────────────────────────
 
-async function copyTemplateCommand(args, templatePath, commandName, label) {
-  const [outputPath, ...extra] = args;
-  if (!outputPath || extra.length > 0) {
-    console.error(`Usage: spec-guard ${commandName} path/to/file.md`);
+async function copyTemplateCommand(args, templatePath, commandName, label, defaultDir) {
+  const [rawPath, ...extra] = args;
+  if (!rawPath || extra.length > 0) {
+    console.error(`Usage: spec-guard ${commandName} <name>`);
+    return 2;
+  }
+  const outputPath = resolveWritePath(rawPath, defaultDir);
+  if (!outputPath) {
+    console.error(`[BLOCKER] SG-USAGE-001 ${rawPath}: use a bare name — write commands always create files in .spec-guard/`);
     return 2;
   }
   return copyTemplate(templatePath, outputPath, label);
@@ -662,14 +699,33 @@ async function copyTemplate(templatePath, outputPath, label) {
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
+// Read commands: bare names default to defaultDir, full paths pass through as-is.
+function withDefaultDir(arg, defaultDir) {
+  if (!arg) return arg;
+  if (arg.includes('/') || arg.includes('\\') || arg.startsWith('.')) return arg;
+  const name = arg.endsWith('.md') ? arg : `${arg}.md`;
+  return join(defaultDir, name);
+}
+
+// Write commands: name only — always resolves within defaultDir.
+// Rejects absolute paths, dotfile names, and path traversal.
+function resolveWritePath(name, defaultDir) {
+  if (!name) return null;
+  if (/^[/\\]/.test(name) || /^[A-Za-z]:/.test(name)) return null; // absolute path
+  if (name.startsWith('.')) return null;                             // dotfile or relative escape
+  if (name.includes('..')) return null;                             // traversal
+  const filename = name.endsWith('.md') ? name : `${name}.md`;
+  return join(defaultDir, filename);
+}
+
 async function inferContractPath(specPath) {
-  const base = specPath.replace(/\.md$/, '').replace(/^specs[/\\]/, '');
+  const base = specPath.replace(/\.md$/, '').replace(/^\.spec-guard[/\\]specs[/\\]/, '');
   const name = base.split(/[/\\]/).pop();
   const candidates = [
-    `contracts/${name}-api-contract.md`,
-    `contracts/${name}-rest-api-contract.md`,
-    `contracts/${name}-component-contract.md`,
-    `contracts/${name}.md`,
+    `.spec-guard/contracts/${name}-api-contract.md`,
+    `.spec-guard/contracts/${name}-rest-api-contract.md`,
+    `.spec-guard/contracts/${name}-component-contract.md`,
+    `.spec-guard/contracts/${name}.md`,
   ];
   for (const p of candidates) {
     try { await access(resolve(p), constants.F_OK); return p; } catch { /* continue */ }
@@ -712,23 +768,25 @@ function parseFlags(args) {
 
 function printUsage() {
   console.error(`Usage:
-  spec-guard draft path/to/spec.md                   guided wizard — builds a valid spec from answers
-  spec-guard run [--check-only] path/to/spec.md      orchestrated 5-phase workflow
-  spec-guard check [--json] [--warnings] path/to/spec.md
-  spec-guard suggest [--warnings] path/to/spec.md    show diagnostics with concrete fix instructions
-  spec-guard analyze path/to/spec.md                 cross-artifact alignment (spec, contract, review)
+  spec-guard draft <name>                            guided wizard — builds a valid spec from answers
+  spec-guard run [--check-only] <name>               orchestrated 5-phase workflow
+  spec-guard check [--json] [--warnings] <name>
+  spec-guard suggest [--warnings] <name>             show diagnostics with concrete fix instructions
+  spec-guard analyze <name>                          cross-artifact alignment (spec, contract, review)
     [--contract path] [--review path] [--json]
-  spec-guard validate [--json] [--warnings] [specs-dir]
-  spec-guard status [--json] [specs-dir]
-  spec-guard watch path/to/spec.md
-  spec-guard init [directory]
-  spec-guard new <kind> path/to/file.md
+  spec-guard validate [--json] [--warnings]
+  spec-guard status [--json]
+  spec-guard watch <name>
+  spec-guard init
+  spec-guard new <kind> <name>
     kinds: spec | brownfield-spec | api-contract | rest-api-contract | component-contract
            one-off-ui | operational-document | task-plan | compound-work
-  spec-guard classify [--json] path/to/spec.md
-  spec-guard blocker path/to/blocker.md
-  spec-guard scope-discovery path/to/scope-discovery.md
-  spec-guard review path/to/review.md
-  spec-guard discovery path/to/discovery.md
-  spec-guard deviation path/to/deviation.md`);
+  spec-guard classify [--json] <name>
+  spec-guard blocker <name>
+  spec-guard scope-discovery <name>
+  spec-guard review <name>
+  spec-guard discovery <name>
+  spec-guard deviation <name>
+
+  Bare names default to .spec-guard/ subdirectories. Pass a full path to override.`);
 }

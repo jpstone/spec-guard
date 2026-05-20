@@ -45,13 +45,13 @@ npm install --save-dev spec-guard
 npx spec-guard init
 
 # Author a spec (guided wizard)
-npx spec-guard draft specs/my-feature.md
+npx spec-guard draft my-feature
 
 # Orchestrated workflow (recommended)
-npx spec-guard run specs/my-feature.md
+npx spec-guard run my-feature
 
 # Just validate
-npx spec-guard check specs/my-feature.md
+npx spec-guard check my-feature
 
 # See all specs
 npx spec-guard status
@@ -74,27 +74,27 @@ Agents don't inherently know the Spec Guard workflow. Without it, they'll implem
 ## CLI
 
 ```bash
-spec-guard draft path/to/spec.md                 # guided spec wizard (interactive)
-spec-guard run [--check-only] path/to/spec.md    # 5-phase orchestrated workflow
-spec-guard check [--json] [--warnings] path/to/spec.md
-spec-guard suggest [--json] path/to/spec.md      # check + actionable fix instructions
-spec-guard analyze [--contract path] [--review path] path/to/spec.md  # cross-artifact check
-spec-guard validate [--json] [--warnings] [specs-dir]
-spec-guard status [--json] [specs-dir]
-spec-guard watch path/to/spec.md
-spec-guard init [directory]
-spec-guard classify [--json] path/to/spec.md
+spec-guard draft <name>                          # guided spec wizard (interactive)
+spec-guard run [--check-only] <name>             # 5-phase orchestrated workflow
+spec-guard check [--json] [--warnings] <name>
+spec-guard suggest [--warnings] <name>           # check + actionable fix instructions
+spec-guard analyze [--contract path] [--review path] <name>  # cross-artifact check
+spec-guard validate [--json] [--warnings]
+spec-guard status [--json]
+spec-guard watch <name>
+spec-guard init
+spec-guard classify [--json] <name>
 
 # Create artifacts
 spec-guard new spec|brownfield-spec|api-contract|rest-api-contract|component-contract|
-              one-off-ui|operational-document|task-plan|compound-work path/to/file.md
+              one-off-ui|operational-document|task-plan|compound-work <name>
 
 # Record problems
-spec-guard blocker path/to/blocker.md
-spec-guard scope-discovery path/to/scope-discovery.md
-spec-guard deviation path/to/deviation.md
-spec-guard review path/to/review.md
-spec-guard discovery path/to/discovery.md
+spec-guard blocker <name>
+spec-guard scope-discovery <name>
+spec-guard deviation <name>
+spec-guard review <name>
+spec-guard discovery <name>
 ```
 
 ### `spec-guard draft`

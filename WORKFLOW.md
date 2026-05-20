@@ -78,10 +78,10 @@ This document defines the complete process flow for spec-first, behavior-tested,
 
 **Steps:**
 
-1. Identify whether a governing spec already exists in `specs/`. If it does, skip to Gate 1.
+1. Identify whether a governing spec already exists in `.spec-guard/specs/`. If it does, skip to Gate 1.
 2. If the request is a fresh task, create a spec:
    ```bash
-   spec-guard new spec specs/<feature-name>.md
+   spec-guard new spec <feature-name>
    ```
 3. Fill in every required section. Required sections are:
    - `Problem / Goal` — what problem this solves and what outcome is required
@@ -93,12 +93,12 @@ This document defines the complete process flow for spec-first, behavior-tested,
 
 4. If the request is too vague to fill these sections, do not guess. Ask for clarification or create a `Discovery Request`:
    ```bash
-   spec-guard discovery .spec-guard/discoveries/<topic>.md
+   spec-guard discovery <topic>
    ```
 
 5. Watch the spec as you write it:
    ```bash
-   spec-guard watch specs/<feature-name>.md
+   spec-guard watch <feature-name>
    ```
 
 **Halt conditions in this phase:**
@@ -111,7 +111,7 @@ This document defines the complete process flow for spec-first, behavior-tested,
 ## Gate 1: Spec Valid
 
 ```bash
-spec-guard check specs/<feature-name>.md
+spec-guard check <feature-name>
 ```
 
 **Required:** Exit 0 (no blockers).
@@ -135,16 +135,16 @@ The classification selected in Gate 1 determines what happens next:
 
 | Classification | Required artifact | Command |
 |---|---|---|
-| Reusable non-UI API | API contract | `spec-guard new api-contract contracts/<name>.md` |
-| REST/service API | REST API contract | `spec-guard new rest-api-contract contracts/<name>.md` |
-| Reusable UI component | Component contract | `spec-guard new component-contract contracts/<name>.md` |
-| One-off application UI | One-off UI doc | `spec-guard new one-off-ui specs/<name>-ui.md` |
+| Reusable non-UI API | API contract | `spec-guard new api-contract <name>` |
+| REST/service API | REST API contract | `spec-guard new rest-api-contract <name>` |
+| Reusable UI component | Component contract | `spec-guard new component-contract <name>` |
+| One-off application UI | One-off UI doc | `spec-guard new one-off-ui <name>` |
 | Direct behavior, no new API/UI | No contract required | — |
 | Operational/document deliverable | The document itself | Create the deliverable document |
 
 Print the classification to confirm:
 ```bash
-spec-guard classify specs/<feature-name>.md
+spec-guard classify <feature-name>
 ```
 
 **Halt conditions in this phase:**
@@ -157,7 +157,7 @@ spec-guard classify specs/<feature-name>.md
 ## Gate 2: Contracts Present
 
 ```bash
-spec-guard check specs/<feature-name>.md --warnings
+spec-guard check <feature-name> --warnings
 ```
 
 **Required:** No `SG-CLASS-002`, `SG-UI-001`, or `SG-UI-002` blockers.
@@ -230,14 +230,14 @@ No implementation may begin until one of these exists.
 2. Classify it: ambiguity, gap, or conflict?
 3. Create a spec deviation request:
    ```bash
-   spec-guard deviation .spec-guard/deviations/<topic>.md
+   spec-guard deviation <topic>
    ```
 4. Halt until the human resolves it
 
 **If out-of-scope work is discovered:**
 1. Record it:
    ```bash
-   spec-guard scope-discovery .spec-guard/scope-discoveries/<topic>.md
+   spec-guard scope-discovery <topic>
    ```
 2. Classify it: required for this spec, or additive?
 3. If required: ask for acknowledgment before continuing
@@ -261,7 +261,7 @@ No implementation may begin until one of these exists.
 
 Create an implementation review:
 ```bash
-spec-guard review .spec-guard/reviews/<feature-name>.md
+spec-guard review <feature-name>
 ```
 
 Complete the review checklist:
@@ -294,7 +294,7 @@ Some requests span multiple work classifications. Do not implement all of it as 
 **How to split:**
 1. Create a compound work plan:
    ```bash
-   spec-guard new compound-work specs/<feature-name>-plan.md
+   spec-guard new compound-work <feature-name>-plan
    ```
 2. Identify each slice and its classification
 3. Create a separate spec for each slice
@@ -308,7 +308,7 @@ Some requests span multiple work classifications. Do not implement all of it as 
 When work cannot safely continue, create a blocker record and halt:
 
 ```bash
-spec-guard blocker .spec-guard/blockers/<topic>.md
+spec-guard blocker <topic>
 ```
 
 Blocker types:
@@ -341,6 +341,5 @@ In discovery mode:
 
 Create a discovery request to track it:
 ```bash
-spec-guard discovery .spec-guard/discoveries/<topic>.md
+spec-guard discovery <topic>
 ```
-

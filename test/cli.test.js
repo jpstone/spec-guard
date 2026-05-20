@@ -10,9 +10,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const cli = join(root, 'bin', 'spec-guard.js');
 
-function runCli(args) {
+function runCli(args, options = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
-    cwd: root,
+    cwd: options.cwd ?? root,
     encoding: 'utf8',
   });
 }
@@ -53,11 +53,11 @@ test('CLI exits 2 for unreadable input', () => {
 
 test('init creates Spec Guard directories', () => {
   const directory = tempDir();
-  const result = runCli(['init', directory]);
+  const result = runCli(['init'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.equal(existsSync(join(directory, 'specs')), true);
-  assert.equal(existsSync(join(directory, 'contracts')), true);
+  assert.equal(existsSync(join(directory, '.spec-guard', 'specs')), true);
+  assert.equal(existsSync(join(directory, '.spec-guard', 'contracts')), true);
   assert.equal(existsSync(join(directory, '.spec-guard', 'blockers')), true);
   assert.equal(existsSync(join(directory, '.spec-guard', 'scope-discoveries')), true);
   assert.equal(existsSync(join(directory, '.spec-guard', 'reviews')), true);
@@ -68,16 +68,16 @@ test('init creates Spec Guard directories', () => {
 
 test('init creates starter spec', () => {
   const directory = tempDir();
-  runCli(['init', directory]);
+  runCli(['init'], { cwd: directory });
 
-  const specPath = join(directory, 'specs', 'example.md');
+  const specPath = join(directory, '.spec-guard', 'specs', 'example.md');
   assert.equal(existsSync(specPath), true);
   assert.match(readFileSync(specPath, 'utf8'), /^# Spec/);
 });
 
 test('init creates AGENTS.md', () => {
   const directory = tempDir();
-  runCli(['init', directory]);
+  runCli(['init'], { cwd: directory });
 
   const agentsPath = join(directory, 'AGENTS.md');
   assert.equal(existsSync(agentsPath), true);
@@ -86,7 +86,7 @@ test('init creates AGENTS.md', () => {
 
 test('init creates WORKFLOW.md', () => {
   const directory = tempDir();
-  runCli(['init', directory]);
+  runCli(['init'], { cwd: directory });
 
   const workflowPath = join(directory, 'WORKFLOW.md');
   assert.equal(existsSync(workflowPath), true);
@@ -95,50 +95,83 @@ test('init creates WORKFLOW.md', () => {
 
 test('init does not overwrite existing AGENTS.md', () => {
   const directory = tempDir();
-  const agentsPath = join(directory, 'AGENTS.md');
-  writeFileSync(agentsPath, 'existing content');
-  runCli(['init', directory]);
+  writeFileSync(join(directory, 'AGENTS.md'), 'existing content');
+  runCli(['init'], { cwd: directory });
 
-  assert.equal(readFileSync(agentsPath, 'utf8'), 'existing content');
+  assert.equal(readFileSync(join(directory, 'AGENTS.md'), 'utf8'), 'existing content');
 });
 
 test('init does not overwrite existing WORKFLOW.md', () => {
   const directory = tempDir();
-  const workflowPath = join(directory, 'WORKFLOW.md');
-  writeFileSync(workflowPath, 'existing content');
-  runCli(['init', directory]);
+  writeFileSync(join(directory, 'WORKFLOW.md'), 'existing content');
+  runCli(['init'], { cwd: directory });
 
-  assert.equal(readFileSync(workflowPath, 'utf8'), 'existing content');
+  assert.equal(readFileSync(join(directory, 'WORKFLOW.md'), 'utf8'), 'existing content');
 });
 
 test('init does not overwrite existing starter spec', () => {
   const directory = tempDir();
-  runCli(['init', directory]);
-  const specPath = join(directory, 'specs', 'example.md');
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'example.md');
   writeFileSync(specPath, 'existing spec');
-  runCli(['init', directory]);
+  runCli(['init'], { cwd: directory });
 
   assert.equal(readFileSync(specPath, 'utf8'), 'existing spec');
 });
 
-test('new spec creates a spec from the template', () => {
+test('init exits 2 when unexpected arguments are given', () => {
+  const result = runCli(['init', 'some-dir']);
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: spec-guard init/);
+});
+
+test('init creates GitHub Actions workflow file', () => {
   const directory = tempDir();
-  const output = join(directory, 'spec.md');
-  const result = runCli(['new', 'spec', output]);
+  const result = runCli(['init'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(output, 'utf8'), /^# Spec/);
+  const workflowPath = join(directory, '.github', 'workflows', 'spec-guard.yml');
+  assert.equal(existsSync(workflowPath), true);
+  assert.match(readFileSync(workflowPath, 'utf8'), /npx spec-guard validate/);
+});
+
+test('new spec creates a spec from the template', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'spec', 'my-feature'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'specs', 'my-feature.md'), 'utf8'), /^# Spec/);
+});
+
+test('new spec creates in .spec-guard/specs/', () => {
+  const directory = tempDir();
+  runCli(['new', 'spec', 'my-feature'], { cwd: directory });
+
+  assert.equal(existsSync(join(directory, '.spec-guard', 'specs', 'my-feature.md')), true);
+});
+
+test('new api-contract creates in .spec-guard/contracts/', () => {
+  const directory = tempDir();
+  runCli(['new', 'api-contract', 'my-api'], { cwd: directory });
+
+  assert.equal(existsSync(join(directory, '.spec-guard', 'contracts', 'my-api.md')), true);
 });
 
 test('new spec refuses to overwrite existing files', () => {
   const directory = tempDir();
-  const output = join(directory, 'spec.md');
-
-  assert.equal(runCli(['new', 'spec', output]).status, 0);
-  const result = runCli(['new', 'spec', output]);
+  assert.equal(runCli(['new', 'spec', 'my-feature'], { cwd: directory }).status, 0);
+  const result = runCli(['new', 'spec', 'my-feature'], { cwd: directory });
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /^\[BLOCKER\] SG-USAGE-002 /);
+});
+
+test('new spec rejects absolute paths', () => {
+  const result = runCli(['new', 'spec', join(tmpdir(), 'escape.md')]);
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /SG-USAGE-001/);
 });
 
 test('classify prints selected classification', () => {
@@ -156,43 +189,51 @@ test('classify reports invalid classification selection', () => {
 });
 
 test('blocker creates a blocker from the template', () => {
-  const output = join(tempDir(), 'blocker.md');
-  const result = runCli(['blocker', output]);
+  const directory = tempDir();
+  const result = runCli(['blocker', 'auth-missing'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(output, 'utf8'), /^# Blocker/);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'blockers', 'auth-missing.md'), 'utf8'), /^# Blocker/);
+});
+
+test('blocker defaults to .spec-guard/blockers/ for bare names', () => {
+  const directory = tempDir();
+  const result = runCli(['blocker', 'auth-missing'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.equal(existsSync(join(directory, '.spec-guard', 'blockers', 'auth-missing.md')), true);
 });
 
 test('scope-discovery creates a scope discovery from the template', () => {
-  const output = join(tempDir(), 'scope.md');
-  const result = runCli(['scope-discovery', output]);
+  const directory = tempDir();
+  const result = runCli(['scope-discovery', 'scope-item'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(output, 'utf8'), /^# Scope Discovery/);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'scope-discoveries', 'scope-item.md'), 'utf8'), /^# Scope Discovery/);
 });
 
 test('review creates an implementation review from the template', () => {
-  const output = join(tempDir(), 'review.md');
-  const result = runCli(['review', output]);
+  const directory = tempDir();
+  const result = runCli(['review', 'my-feature'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(output, 'utf8'), /^# Implementation Review/);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'reviews', 'my-feature.md'), 'utf8'), /^# Implementation Review/);
 });
 
 test('discovery creates a discovery request from the template', () => {
-  const output = join(tempDir(), 'discovery.md');
-  const result = runCli(['discovery', output]);
+  const directory = tempDir();
+  const result = runCli(['discovery', 'my-topic'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(output, 'utf8'), /^# Discovery Request/);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'discoveries', 'my-topic.md'), 'utf8'), /^# Discovery Request/);
 });
 
 test('deviation creates a spec deviation request from the template', () => {
-  const output = join(tempDir(), 'deviation.md');
-  const result = runCli(['deviation', output]);
+  const directory = tempDir();
+  const result = runCli(['deviation', 'my-deviation'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(output, 'utf8'), /^# Spec Deviation Request/);
+  assert.match(readFileSync(join(directory, '.spec-guard', 'deviations', 'my-deviation.md'), 'utf8'), /^# Spec Deviation Request/);
 });
 
 test('draft exits 2 when no output path given', () => {
@@ -207,20 +248,12 @@ test('draft exits 2 when too many arguments given', () => {
   assert.match(result.stderr, /Usage: spec-guard draft/);
 });
 
-test('init creates GitHub Actions workflow file', () => {
-  const directory = tempDir();
-  const result = runCli(['init', directory]);
-
-  assert.equal(result.status, 0);
-  const workflowPath = join(directory, '.github', 'workflows', 'spec-guard.yml');
-  assert.equal(existsSync(workflowPath), true);
-  assert.match(readFileSync(workflowPath, 'utf8'), /npx spec-guard validate specs\//);
-});
-
 test('draft exits 1 when output file already exists', () => {
-  const output = join(tempDir(), 'spec.md');
-  writeFileSync(output, 'existing');
-  const result = runCli(['draft', output]);
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, 'existing');
+  const result = runCli(['draft', 'my-spec'], { cwd: directory });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /SG-USAGE-002/);
 });

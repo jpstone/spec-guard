@@ -53,8 +53,7 @@ spec_guard_draft_spec({
   expected_behavior: "...",
   acceptance_criteria: [...],
   classification: "...",
-  required_tests: [...],
-  output_path: "specs/<name>.md"   // omit to preview without writing
+  output_path: ".spec-guard/specs/<name>.md"   // omit to preview without writing
 })
 ```
 
@@ -65,13 +64,13 @@ If `gate1_passed` is false, address every item in `missing_required` and retry.
 
 **Step 6 — Run:**
 ```bash
-spec-guard run specs/<name>.md
+spec-guard run <name>
 ```
 
 ### Path B: Guided Wizard (when working without interactive conversation)
 
 ```bash
-spec-guard draft specs/<name>.md
+spec-guard draft <name>
 ```
 
 Answers questions in the terminal. Output is guaranteed to pass Gate 1.
@@ -80,7 +79,7 @@ Answers questions in the terminal. Output is guaranteed to pass Gate 1.
 
 Use the brownfield template when modifying existing behavior:
 ```bash
-spec-guard new brownfield-spec specs/<name>.md
+spec-guard new brownfield-spec <name>
 ```
 
 Fill in both **Existing Behavior** (as-is) and **Behavior Delta** (what changes). Anything not in the delta must be preserved exactly.
@@ -102,7 +101,7 @@ The classification determines the *type* of test to use:
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria — no new API or UI surface; use whatever mechanism verifies the criterion |
 | Operational/document deliverable | Process/document checks |
 
-If the request spans multiple rows: split into slices. `spec-guard new compound-work specs/<name>-plan.md`. Classify and implement each slice separately.
+If the request spans multiple rows: split into slices. `spec-guard new compound-work <name>`. Classify and implement each slice separately.
 
 ---
 
@@ -110,9 +109,9 @@ If the request spans multiple rows: split into slices. `spec-guard new compound-
 
 | Classification | Artifact needed before Gate 2 |
 |---|---|
-| Reusable non-UI API | API contract in `contracts/` |
-| REST/service API | REST API contract in `contracts/` |
-| Reusable UI component | Component contract in `contracts/` |
+| Reusable non-UI API | API contract in `.spec-guard/contracts/` |
+| REST/service API | REST API contract in `.spec-guard/contracts/` |
+| Reusable UI component | Component contract in `.spec-guard/contracts/` |
 | One-off application UI | Mockup/design direction + component library reference |
 | Direct behavior, no new API/UI | None |
 | Operational/document deliverable | The document itself |
@@ -123,13 +122,13 @@ If the request spans multiple rows: split into slices. `spec-guard new compound-
 
 **Gate 1 — Spec valid:**
 ```bash
-spec-guard check specs/<name>.md     # must exit 0
-spec-guard suggest specs/<name>.md   # shows fix instructions for each issue
+spec-guard check <name>     # must exit 0
+spec-guard suggest <name>   # shows fix instructions for each issue
 ```
 
 **Gate 2 — Contracts present:**
 ```bash
-spec-guard check specs/<name>.md --warnings
+spec-guard check <name> --warnings
 # No SG-CLASS-002 or SG-UI-001 blockers
 ```
 
@@ -142,8 +141,8 @@ All tests pass. No scope absorbed silently. Discoveries recorded.
 
 **Gate 5 — Review complete:**
 ```bash
-spec-guard review .spec-guard/reviews/<name>.md
-spec-guard analyze specs/<name>.md   # verify spec ↔ contract ↔ review alignment
+spec-guard review <name>
+spec-guard analyze <name>   # verify spec ↔ contract ↔ review alignment
 # All checklist items resolved, no SG-ALIGN warnings
 ```
 
@@ -193,16 +192,16 @@ Stop immediately and surface the issue when any of these are true:
 
 ```bash
 # Work cannot safely continue
-spec-guard blocker .spec-guard/blockers/<topic>.md
+spec-guard blocker <topic>
 
 # Work discovered outside spec scope
-spec-guard scope-discovery .spec-guard/scope-discoveries/<topic>.md
+spec-guard scope-discovery <topic>
 
 # Implementation requires changing the spec
-spec-guard deviation .spec-guard/deviations/<topic>.md
+spec-guard deviation <topic>
 
 # Human explicitly asked for gap/risk discovery
-spec-guard discovery .spec-guard/discoveries/<topic>.md
+spec-guard discovery <topic>
 ```
 
 ---
@@ -217,20 +216,20 @@ Respond with: current status, known blockers, recorded follow-ups, and how to re
 
 ```bash
 # Authoring
-spec-guard draft specs/<name>.md              # guided wizard
-spec-guard new brownfield-spec specs/<name>.md # brownfield template
+spec-guard draft <name>              # guided wizard
+spec-guard new brownfield-spec <name> # brownfield template
 
 # Workflow
-spec-guard run specs/<name>.md                # orchestrated 5-phase run
-spec-guard check specs/<name>.md              # Gate 1
-spec-guard suggest specs/<name>.md            # Gate 1 + fix instructions
-spec-guard analyze specs/<name>.md            # cross-artifact alignment (Gate 4→5)
+spec-guard run <name>                # orchestrated 5-phase run
+spec-guard check <name>              # Gate 1
+spec-guard suggest <name>            # Gate 1 + fix instructions
+spec-guard analyze <name>            # cross-artifact alignment (Gate 4→5)
 
 # Monitoring
-spec-guard watch specs/<name>.md              # live feedback while editing
-spec-guard classify specs/<name>.md           # confirm classification
-spec-guard validate specs/                    # check all specs
-spec-guard status                             # overview table
+spec-guard watch <name>              # live feedback while editing
+spec-guard classify <name>           # confirm classification
+spec-guard validate                  # check all specs
+spec-guard status                    # overview table
 ```
 
 ## MCP Tool Quick Reference
@@ -243,7 +242,7 @@ spec_guard_suggest               → validate + show fix instructions
 spec_guard_classify              → confirm work classification
 spec_guard_test_guidance         → test type + contract checklist for classification
 spec_guard_gate_status           → which gates have passed
-spec_guard_confirm_gate          → record manual gate confirmation (Gates 3–5)
+spec_guard_confirm_gate          → record agent gate confirmation (Gates 3–5)
 spec_guard_analyze               → cross-artifact alignment (Gate 4→5)
 spec_guard_create_artifact       → create any spec-guard artifact from template
 spec_guard_validate_directory    → validate all specs in a directory
