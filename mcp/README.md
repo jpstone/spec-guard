@@ -53,14 +53,14 @@ Add to your agent's MCP configuration:
 Validate a spec file. Returns diagnostics with severity, rule IDs, and messages. Gate 1 check.
 
 ```json
-{ "spec_path": "specs/my-feature.md", "include_warnings": false }
+{ "spec_path": ".spec-guard/specs/my-feature.md", "include_warnings": false }
 ```
 
 ### `spec_guard_suggest`
 Run `check` and return each diagnostic annotated with a concrete, multi-line fix instruction. Prefer this over `spec_guard_check` when the agent needs to know how to fix issues, not just that they exist.
 
 ```json
-{ "spec_path": "specs/my-feature.md" }
+{ "spec_path": ".spec-guard/specs/my-feature.md" }
 ```
 
 ### `spec_guard_interview_questions`
@@ -84,7 +84,7 @@ Turn structured interview answers into a valid spec that passes Gate 1. Optional
   "expected_behavior": "Returns 200 with JWT on valid credentials, 401 on invalid",
   "acceptance_criteria": ["Returns 200 with token on valid credentials", "Returns 401 when password is wrong"],
   "classification": "REST/service API",
-  "output_path": "specs/user-login.md"
+  "output_path": ".spec-guard/specs/user-login.md"
 }
 ```
 
@@ -92,14 +92,14 @@ Turn structured interview answers into a valid spec that passes Gate 1. Optional
 Get the status of all 5 gates for a spec. Returns which gates have passed and what's needed next.
 
 ```json
-{ "spec_path": "specs/my-feature.md" }
+{ "spec_path": ".spec-guard/specs/my-feature.md" }
 ```
 
 ### `spec_guard_classify`
 Get the work classification from a spec, plus test guidance for that classification.
 
 ```json
-{ "spec_path": "specs/my-feature.md" }
+{ "spec_path": ".spec-guard/specs/my-feature.md" }
 ```
 
 ### `spec_guard_test_guidance`
@@ -114,8 +114,8 @@ Cross-artifact consistency check. Compares spec against contract and implementat
 
 ```json
 {
-  "spec_path": "specs/my-feature.md",
-  "contract_path": "contracts/my-feature.md",
+  "spec_path": ".spec-guard/specs/my-feature.md",
+  "contract_path": ".spec-guard/contracts/my-feature.md",
   "review_path": ".spec-guard/reviews/my-feature.md"
 }
 ```
@@ -127,7 +127,7 @@ Record a gate confirmation (Gates 3–5 require agent/human evidence).
 
 ```json
 {
-  "spec_path": "specs/my-feature.md",
+  "spec_path": ".spec-guard/specs/my-feature.md",
   "gate": 3,
   "confirmed": true,
   "evidence": "test 'should return 404 for unknown user' fails with AssertionError: expected 200 to equal 404"
@@ -138,7 +138,7 @@ Record a gate confirmation (Gates 3–5 require agent/human evidence).
 Create any Spec Guard artifact from a template.
 
 ```json
-{ "kind": "blocker", "output_path": ".spec-guard/blockers/missing-mockup.md" }
+{ "kind": "blocker", "name": "missing-mockup" }
 ```
 
 Valid kinds: `spec`, `brownfield-spec`, `api-contract`, `rest-api-contract`, `component-contract`, `one-off-ui`, `operational-document`, `task-plan`, `compound-work`, `blocker`, `scope-discovery`, `review`, `discovery`, `deviation`
@@ -147,14 +147,14 @@ Valid kinds: `spec`, `brownfield-spec`, `api-contract`, `rest-api-contract`, `co
 Validate all specs in a directory. Returns per-file results and summary counts.
 
 ```json
-{ "directory": "specs", "include_warnings": true }
+{ "directory": ".spec-guard/specs", "include_warnings": true }
 ```
 
 ### `spec_guard_status`
 Get a status overview of all specs: title, status, classification, gate 1 passed, blocker/warning counts.
 
 ```json
-{ "directory": "specs" }
+{ "directory": ".spec-guard/specs" }
 ```
 
 ### `spec_guard_workflow_next_step`
@@ -162,7 +162,7 @@ Given a spec and list of passed gates, return the next required action. This is 
 
 ```json
 {
-  "spec_path": "specs/my-feature.md",
+  "spec_path": ".spec-guard/specs/my-feature.md",
   "gates_passed": ["gate1", "gate2"]
 }
 ```
@@ -194,7 +194,7 @@ Returns structured guidance:
 
 4. [ask classification-specific follow-up questions]
 
-5. spec_guard_draft_spec(title, problem, in_scope, ..., output_path="specs/...")
+5. spec_guard_draft_spec(title, problem, in_scope, ..., output_path=".spec-guard/specs/...")
    → spec file written and passes Gate 1
 ```
 
@@ -211,7 +211,7 @@ Returns structured guidance:
 3. spec_guard_classify(spec_path)
    → get classification + test guidance
 
-4. spec_guard_create_artifact(kind="api-contract", output_path="contracts/...")
+4. spec_guard_create_artifact(kind="api-contract", name="...")
    → create contract if required by classification
 
 5. spec_guard_confirm_gate(gate=1, confirmed=true)

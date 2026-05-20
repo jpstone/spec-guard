@@ -11,4 +11,4 @@ Use for shared UI components.
 - [ ] Styling/theming constraints are documented.
 - [ ] Composition rules are documented.
 - [ ] Required unit/component tests target the documented component API.
-- [ ] Browser automation need is explicitly accepted or rejected with a reason.
+- [ ] UI automation test need is explicitly accepted or rejected with a reason.

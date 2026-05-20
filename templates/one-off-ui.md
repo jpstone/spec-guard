@@ -24,7 +24,7 @@
 
 - 
 
-## Browser Automation Tests
+## UI Automation Tests
 
 <!-- Tests must prefer role, label, visible text, and user-facing selectors. -->
 

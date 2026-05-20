@@ -4,7 +4,7 @@ Implement the screen using existing app components.
 
 No reusable developer documentation is required unless a reusable API or reusable component emerges.
 
-Use browser tests with role, label, and visible text selectors.
+Use UI automation tests with role, label, and visible text selectors.
 
 ## What Not To Do
 

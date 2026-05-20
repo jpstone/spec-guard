@@ -96,8 +96,8 @@ The classification determines the *type* of test to use:
 |---|---|
 | Reusable non-UI API | Unit tests against exported surface only |
 | REST/service API | API/integration tests against the contract |
-| Reusable UI component | Unit/component tests + browser automation if the contract includes behavior a JSDOM/virtual DOM environment cannot accurately simulate |
-| One-off application UI | Browser automation for user-visible behavior |
+| Reusable UI component | Unit/component tests + UI automation tests if the contract includes behavior a unit test environment cannot accurately simulate |
+| One-off application UI | UI automation tests for user-visible behavior |
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria — no new API or UI surface; use whatever mechanism verifies the criterion |
 | Operational/document deliverable | Process/document checks |
 
@@ -129,7 +129,7 @@ spec-guard suggest <name>   # shows fix instructions for each issue
 **Gate 2 — Contracts present:**
 ```bash
 spec-guard check <name> --warnings
-# No SG-CLASS-002 or SG-UI-001 blockers
+# No SG-CLASS-002, SG-UI-001, or SG-UI-002 blockers
 ```
 
 **Gate 3 — Failure confirmed:**

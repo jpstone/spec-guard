@@ -8,7 +8,7 @@ Use checklists as operational gates. They should reinforce the methodology witho
 - `api-contract-readiness.md` — confirm reusable API contract readiness.
 - `ui-readiness.md` — confirm UI inputs exist before UI work begins.
 - `reusable-ui-readiness.md` — confirm shared component contract readiness.
-- `browser-test-readiness.md` — confirm browser tests can validate user-visible behavior safely.
+- `browser-test-readiness.md` — confirm UI automation tests can validate user-visible behavior safely.
 - `document-deliverable-readiness.md` — confirm document deliverable checks are appropriate.
 
 ## Before Implementation After Tests Are Written

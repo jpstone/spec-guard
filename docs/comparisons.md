@@ -27,7 +27,7 @@ Spec Guard uses acceptance criteria as inputs, but distinguishes between:
 
 - API contract tests,
 - integration tests,
-- browser automation,
+- UI automation tests,
 - process checks for document deliverables.
 
 ## Spec-Driven Development
@@ -46,7 +46,7 @@ Spec Guard applies this principle to reusable non-UI APIs, REST/service APIs, an
 
 Design-driven workflows start from mockups, prototypes, or design systems.
 
-Spec Guard requires design inputs for UI work. Agents must not invent UI. One-off UI requires mockups or explicit design direction, component-library references, and browser automation for user-visible behavior.
+Spec Guard requires design inputs for UI work. Agents must not invent UI. One-off UI requires mockups or explicit design direction, component-library references, and UI automation tests for user-visible behavior.
 
 ## README / Documentation-Driven Development
 

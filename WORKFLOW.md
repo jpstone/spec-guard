@@ -27,8 +27,8 @@ This document defines the complete process flow for spec-first, behavior-tested,
                      ▼
               ┌─────────────┐
               │  GATE 2     │  spec-guard check --warnings
-              │  Contracts  │  No SG-CLASS, SG-UI, or
-              │  present?   │  SG-CLASS-002 blockers
+              │  Contracts  │  No SG-CLASS-002, SG-UI-001,
+              │  present?   │  or SG-UI-002 blockers
               └──────┬──────┘
                      │
                      ▼
@@ -177,7 +177,7 @@ Select the test type based on classification:
 | Reusable non-UI API | Unit tests | Documented/exported API surface only |
 | REST/service API | API/integration tests | Documented contract: routes, status codes, error shapes |
 | Reusable UI component | Unit/component tests | Documented props, states, callbacks, accessibility |
-| One-off application UI | Browser automation | User-visible behavior, form flows, navigation, permission states |
+| One-off application UI | UI automation | User-visible behavior, form flows, navigation, permission states |
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria | Observable change in behavior — no new API or UI surface to test against specifically |
 | Operational/document deliverable | Process/document checks | Required sections, links, policy gates |
 

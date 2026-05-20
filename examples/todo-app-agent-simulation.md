@@ -46,7 +46,7 @@ Acceptance criteria:
 - user can mark a todo complete/incomplete,
 - user can delete a todo,
 - empty state appears when no todos exist.
-Use browser automation tests first.
+Use UI automation tests first.
 ```
 
 ## Classification
@@ -67,7 +67,7 @@ No reusable non-UI API unless state logic is exported as a durable contract.
 
 ## Tests (derived from acceptance criteria)
 
-The agent writes browser automation tests before implementation. One test per acceptance criterion:
+The agent writes UI automation tests before implementation. One test per acceptance criterion:
 
 ```text
 page exposes heading "Todos"
@@ -89,4 +89,4 @@ The route/page and controls do not exist yet.
 - Do not add authentication.
 - Do not create reusable components without a durable reuse requirement.
 - Do not test private state helpers instead of user-visible behavior.
-- Do not skip browser tests because this is UI work.
+- Do not skip UI automation tests because this is UI work.

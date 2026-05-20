@@ -51,9 +51,9 @@
 
 - 
 
-## Browser Automation Requirement
+## UI Automation Requirement
 
-<!-- Is browser automation required? If yes, describe the behavior that a JSDOM/virtual DOM environment cannot accurately simulate. -->
+<!-- Is UI automation required? If yes, describe the behavior that a unit test environment cannot accurately simulate. -->
 
 - Required: yes/no
 - Reason:

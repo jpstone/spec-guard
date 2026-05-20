@@ -1,6 +1,6 @@
-# Browser Test Readiness Checklist
+# UI Automation Readiness Checklist
 
-Use before writing browser automation.
+Use before writing UI automation tests.
 
 - [ ] User-visible behavior to validate is identified.
 - [ ] Mechanically verifiable mockup fidelity points are identified, if applicable.

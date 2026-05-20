@@ -1,4 +1,4 @@
-# Browser Tests Outline
+# UI Automation Tests Outline
 
 Write before implementation:
 

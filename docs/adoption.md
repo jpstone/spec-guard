@@ -6,24 +6,27 @@ Use this guide to apply Spec Guard in an existing software project.
 
 1. Copy or link `AGENTS.md` (created by `spec-guard init`) into your coding-agent context.
 2. Keep `WORKFLOW.md` available as the canonical process reference.
-3. Put new specs in a predictable project location, such as `specs/`.
+3. Put new specs in `.spec-guard/specs/` (created by `spec-guard init`).
 4. Use `templates/spec.md` or `spec-guard new spec` for new work.
 5. Require agents to identify the governing spec before implementation.
 
 ## Recommended Project Layout
 
 ```text
-/specs/
-  feature-name.md
-/contracts/
-  api-name.md
-/.spec-guard/
+.spec-guard/
+  specs/
+    feature-name.md
+  contracts/
+    api-name.md
   blockers/
   scope-discoveries/
   reviews/
+  deviations/
+  discoveries/
+  runs/
+AGENTS.md
+WORKFLOW.md
 ```
-
-This layout is optional. Use project conventions if they already exist.
 
 ## Agent Prompt Starter
 
@@ -50,7 +53,7 @@ Teams may choose to require:
 - every task links to a spec,
 - every reusable API has a contract document,
 - every UI task references design input,
-- every one-off UI change includes browser automation,
+- every one-off UI change includes UI automation tests,
 - every scope discovery is recorded outside the implementation diff,
 - every skipped failure-first run names a concrete reason.
 

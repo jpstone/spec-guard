@@ -32,7 +32,7 @@ DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → TEST FIRST → [G
 | 2 | Contracts present (API/UI inputs exist and are referenced) | `spec-guard check --warnings` |
 | 3 | Failure-first confirmed (test runs and fails for expected reason) | Agent runs tests, records failure, calls `spec_guard_confirm_gate` |
 | 4 | Tests pass (no scope silently absorbed) | Agent runs tests until passing, calls `spec_guard_confirm_gate` |
-| 5 | Review complete + cross-artifact analysis clean | `spec-guard analyze` then `spec-guard review` |
+| 5 | Review complete + cross-artifact analysis clean | `spec-guard review` then `spec-guard analyze` |
 
 ---
 
@@ -200,7 +200,7 @@ WORKFLOW.md
 - Implement before Gate 1 passes
 - Skip work classification
 - Create documentation by default
-- Test prose instead of behavior for product features
+- Test whether workflow artifacts (specs, contracts, reviews) exist or contain expected content — these are implementation records, not deliverables
 - Invent UI without design direction
 - Silently absorb out-of-scope work
 - Skip Gate 3 (failure-first) without recording a concrete reason
@@ -230,7 +230,7 @@ WORKFLOW.md
 ## Development
 
 ```bash
-npm test                        # 129 tests across check, run, MCP, CLI, discover, analyze, and suggest
+npm test                        # 142 tests across check, run, MCP, CLI, discover, analyze, and suggest
 npm run check:example           # gate 1 smoke check
 npm run run:example             # gate 1+2 non-interactive check
 ```

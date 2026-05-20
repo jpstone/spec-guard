@@ -199,7 +199,7 @@ Discovery may identify security, privacy/legal/compliance, accessibility, reliab
 
 Use for shared libraries, domain services, validation modules, provider adapters, persistence interfaces, and CLI helpers.
 
-1. Before writing any implementation code, create an API contract document (`spec-guard new api-contract contracts/<name>.md`) and fill it in from the spec's acceptance criteria. The agent produces this — it is not a human deliverable. If the acceptance criteria are too vague to define inputs, outputs, or error behavior, that is a spec problem: halt and surface the gap.
+1. Before writing any implementation code, create an API contract document (`spec-guard new api-contract <name>`) and fill it in from the spec's acceptance criteria. The agent produces this — it is not a human deliverable. If the acceptance criteria are too vague to define inputs, outputs, or error behavior, that is a spec problem: halt and surface the gap.
 2. Document purpose, inputs, outputs, errors, edge cases, security/tenant rules, stability expectations, versioning, and backward compatibility.
 3. Write unit tests against the documented/exported API surface only.
 5. Run tests and observe failure, or record why this is impractical.
@@ -212,7 +212,7 @@ Do not test private helper functions as a substitute for public contract tests.
 
 Use for HTTP endpoints, webhook handlers, RPC interfaces, and cross-service contracts.
 
-1. Before writing any implementation code, create a REST API contract document (`spec-guard new rest-api-contract contracts/<name>.md`) and fill it in from the spec's acceptance criteria. The agent produces this — it is not a human deliverable. If the acceptance criteria are too vague to derive a contract (missing route, payload, or response shape), that is a spec problem: halt and surface the gap.
+1. Before writing any implementation code, create a REST API contract document (`spec-guard new rest-api-contract <name>`) and fill it in from the spec's acceptance criteria. The agent produces this — it is not a human deliverable. If the acceptance criteria are too vague to derive a contract (missing route, payload, or response shape), that is a spec problem: halt and surface the gap.
 2. Document route/method, authentication, authorization, request shape, response shape, status codes, error responses, tenant isolation, versioning, deprecation, and audit/logging expectations.
 3. Write API/integration tests against the documented contract.
 4. Run tests and observe failure, or record why this is impractical.
@@ -230,7 +230,7 @@ Use for components shared within an app, across apps, or by platform code.
 6. Implement in the shared UI component library.
 7. Implement until tests pass.
 
-Add browser automation when the component contract includes behavior that a JSDOM or virtual DOM environment cannot accurately simulate — such as focus management, keyboard navigation, scroll, viewport layout, popovers, file uploads, drag and drop, or hydration.
+Add UI automation tests when the component contract includes behavior that a unit test environment cannot accurately simulate — such as focus management, keyboard navigation, scroll, viewport layout, popovers, file uploads, drag and drop, or hydration.
 
 ## Workflow: One-Off Application UI
 
@@ -246,7 +246,7 @@ Workflow:
 
 1. Use the feature spec, mockups, and component library docs as the source of truth.
 2. Do not create developer documentation unless a reusable API or component emerges.
-3. Write browser automation tests for user-visible behavior and mechanically verifiable mockup fidelity.
+3. Write UI automation tests for user-visible behavior and mechanically verifiable mockup fidelity.
 4. Cover headings, labels, calls to action, forms, navigation, success/error states, permission-sensitive visibility, and key accessibility affordances.
 5. Run tests and observe failure, or record why this is impractical.
 6. Implement until tests pass.
@@ -282,7 +282,7 @@ Choose the smallest test/check that validates the behavior or contract with conf
 
 **API/integration tests** validate HTTP endpoints, persistence adapters, provider boundaries, auth/session behavior, or multi-module behavior.
 
-**Browser automation tests** validate user-facing UI behavior, forms, navigation, permission-sensitive screens, browser-only interactions, and mechanically verifiable mockup fidelity.
+**UI automation tests** validate user-facing UI behavior, forms, navigation, permission-sensitive screens, and mechanically verifiable mockup fidelity.
 
 **Release/process checks** validate operational readiness, required runbooks, deployment checklists, policy documentation deliverables, or other document deliverables.
 

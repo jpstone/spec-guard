@@ -34,8 +34,8 @@ const CONTRACT_COMMANDS = {
 export const TEST_GUIDANCE = {
   'Reusable non-UI API':               'Unit tests against the documented/exported API surface only — not private helpers.',
   'REST/service API':                  'API/integration tests against the documented contract: routes, status codes, request/response shapes, error formats.',
-  'Reusable UI component':             'Unit/component tests against documented props, states, callbacks, and accessibility contract. Add browser automation if the contract includes behavior a JSDOM or virtual DOM environment cannot accurately simulate (focus management, keyboard navigation, scroll, viewport layout, popovers, file uploads, drag and drop, hydration).',
-  'One-off application UI':            'Browser automation tests for user-visible behavior: headings, forms, navigation, success/error states, permission-sensitive visibility, key accessibility affordances.',
+  'Reusable UI component':             'Unit/component tests against documented props, states, callbacks, and accessibility contract. Add UI automation tests if the contract includes behavior a unit test environment cannot accurately simulate (focus management, keyboard navigation, scroll, viewport layout, popovers, file uploads, drag and drop, hydration).',
+  'One-off application UI':            'UI automation tests for user-visible behavior: headings, forms, navigation, success/error states, permission-sensitive visibility, key accessibility affordances.',
   'Direct behavior with no new API or UI': 'Tests derived from the acceptance criteria. No new API or UI surface — use whatever mechanism verifies each criterion (calling existing code, checking a value, observing a side effect). Do not add tests for implementation details outside the spec.',
   'Operational/document deliverable':  'Process/document checks validating required sections, links, policy gates, or operational readiness criteria.',
 };

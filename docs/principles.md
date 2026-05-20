@@ -10,7 +10,7 @@ Tests should validate running behavior, API contracts, or user-visible outcomes.
 
 ## Classification Before Implementation
 
-Classify the work before deciding whether documentation, contract updates, unit tests, integration tests, browser automation, or process checks are required.
+Classify the work before deciding whether documentation, contract updates, unit tests, integration tests, UI automation tests, or process checks are required.
 
 ## Contracts Over Internals
 

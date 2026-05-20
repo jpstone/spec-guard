@@ -46,16 +46,16 @@ const RULE_SUGGESTIONS = {
     '  - [x] REST/service API             ← check this one\n' +
     '  - [ ] One-off application UI       ← leave unchecked\n\n' +
     'If the work genuinely spans multiple types, create a compound-work plan:\n' +
-    '  spec-guard new compound-work specs/<name>-plan.md',
+    '  spec-guard new compound-work <name>-plan',
 
   'SG-CLASS-002': (d) => {
     const classification = d.message.match(/classification "(.+?)"/)?.[1] || '';
     const contractType = classificationToContractType(classification);
     return `Create a contract document and reference it in your spec's Dependencies section.\n\n` +
-      `  1. Create:    spec-guard new ${contractType} contracts/<name>.md\n` +
+      `  1. Create:    spec-guard new ${contractType} <name>\n` +
       `  2. Fill it in with the API/component interface\n` +
       `  3. Add to spec Dependencies:\n` +
-      `       - Contract: contracts/<name>.md`;
+      `       - Contract: .spec-guard/contracts/<name>.md`;
   },
 
   'SG-UI-001': () =>
@@ -65,7 +65,7 @@ const RULE_SUGGESTIONS = {
     '  - Reference a design system pattern:  "Follows the Dashboard layout pattern"\n' +
     '  - Attach a wireframe description:  "Mockup: [describe layout]"\n\n' +
     'Do NOT invent UI. If no design direction exists, create a blocker:\n' +
-    '  spec-guard blocker .spec-guard/blockers/no-design-direction.md',
+    '  spec-guard blocker no-design-direction',
 
   'SG-UI-002': () =>
     'Add a component library reference to the spec so agents don\'t invent one.\n\n' +
@@ -99,9 +99,9 @@ const RULE_SUGGESTIONS = {
     if (d.message.includes('not found')) {
       return `Create the contract file at the path referenced in the spec's Dependencies section.\n` +
         `Use the appropriate template:\n` +
-        `  spec-guard new api-contract contracts/<name>.md\n` +
-        `  spec-guard new rest-api-contract contracts/<name>.md\n` +
-        `  spec-guard new component-contract contracts/<name>.md`;
+        `  spec-guard new api-contract <name>\n` +
+        `  spec-guard new rest-api-contract <name>\n` +
+        `  spec-guard new component-contract <name>`;
     }
     if (d.message.includes('blank') || d.message.includes('empty')) {
       return 'Fill in the contract template with the actual interface definition.\n' +
