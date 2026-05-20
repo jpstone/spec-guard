@@ -170,7 +170,7 @@ Stop immediately and surface the issue when any of these are true:
 
 ## What You Must Never Do
 
-- Implement before Gate 1 passes
+- Implement before Gates 1 and 2 pass and Gate 3 is confirmed — the spec must be valid, contracts must be present, and a failing test must exist before any implementation begins
 - Skip work classification
 - Create documentation by default
 - Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
