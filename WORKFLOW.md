@@ -74,29 +74,40 @@ This document defines the complete process flow for spec-first, behavior-tested,
 
 ## Phase 1: Discover
 
+**Triggered by:** The human brings a request — a feature, task, change, or bug fix they want built.
+
 **Goal:** Produce a spec that is complete enough to classify, test, and implement.
 
 **Steps:**
 
 1. Identify whether a governing spec already exists in `.spec-guard/specs/`. If it does, skip to Gate 1.
-2. If the request is a fresh task, create a spec:
-   ```bash
-   spec-guard new spec <feature-name>
-   ```
-3. Fill in every required section. Required sections are:
+2. If the request is a fresh task, author a spec. There are three paths:
+   - **Guided wizard** (recommended) — asks required questions interactively and writes a Gate 1-valid spec:
+     ```bash
+     spec-guard draft <feature-name>
+     ```
+   - **AI-assisted** — the agent asks the human each required question, then calls `spec_guard_draft_spec` to build the spec. See `AGENTS.md` for the question sequence.
+   - **Manual** — create the template and fill it in:
+     ```bash
+     spec-guard new spec <feature-name>
+     ```
+
+3. Every required section must be filled in before Gate 1 can pass. The human is responsible for the content — the agent drafts, but must not invent scope, acceptance criteria, or design direction. Required sections are:
    - `Problem / Goal` — what problem this solves and what outcome is required
    - `In Scope` — what is explicitly included
    - `Out of Scope` — what is explicitly excluded (prevents silent scope absorption)
    - `Expected Behavior` — observable behavior, not implementation details
    - `Acceptance Criteria` — measurable, checkbox-format criteria
-   - `Work Classification` — exactly one selected
+   - `Work Classification` — agent selects the most appropriate classification; human confirms during spec review
 
-4. If the request is too vague to fill these sections, do not guess. Ask for clarification or create a `Discovery Request`:
+4. Present the draft to the human for review and approval before proceeding to Gate 1.
+
+5. If the request is too vague to fill these sections, do not guess. Ask for clarification or create a discovery request:
    ```bash
    spec-guard discovery <topic>
    ```
 
-5. Watch the spec as you write it:
+6. Watch the spec as you write it:
    ```bash
    spec-guard watch <feature-name>
    ```
@@ -128,6 +139,8 @@ Do not proceed to Phase 2 until this passes. Common blockers at this gate:
 ---
 
 ## Phase 2: Classify & Contract
+
+**Triggered by:** Gate 1 passes. Agent-driven.
 
 **Goal:** Confirm the work type and produce any required contract artifact.
 
@@ -167,6 +180,8 @@ Add the contract reference to the `Dependencies` section of the spec once the co
 ---
 
 ## Phase 3: Test First
+
+**Triggered by:** Gate 2 passes. Agent-driven.
 
 **Goal:** Write the right test for the classification. Run it. Watch it fail.
 
@@ -216,6 +231,8 @@ No implementation may begin until one of these exists.
 
 ## Phase 4: Implement
 
+**Triggered by:** Gate 3 confirmed — a failing test exists for the expected reason. Agent-driven.
+
 **Goal:** Make the failing test pass. Nothing more.
 
 **Rules:**
@@ -256,6 +273,8 @@ No implementation may begin until one of these exists.
 ---
 
 ## Phase 5: Review
+
+**Triggered by:** Gate 4 passes — all tests pass and no scope was silently absorbed. Agent-driven.
 
 **Goal:** Confirm the change is traceable, complete, and clean.
 
