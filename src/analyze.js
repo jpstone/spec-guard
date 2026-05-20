@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { resolve, basename, join } from 'node:path';
 import { getSelectedClassifications, getSpecTitle } from './check.js';
 
 // ─── Rule IDs ──────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ export async function analyzeArtifacts({
   specPath,
   contractPath = null,
   reviewPath = null,
+  runStatePath = null,
 }) {
   const diagnostics = [];
 
@@ -42,6 +43,27 @@ export async function analyzeArtifacts({
   const classifications = getSelectedClassifications(specText);
   const classification = classifications[0] || null;
   const title = getSpecTitle(specText) || specPath;
+
+  // ── Stale gate detection ─────────────────────────────────────────────────────
+
+  const name = basename(specPath).replace(/\.md$/, '');
+  const resolvedRunState = runStatePath || join('.spec-guard', 'runs', `${name}-run.json`);
+  try {
+    const runStateText = await readFile(resolve(resolvedRunState), 'utf8');
+    const runState = JSON.parse(runStateText);
+    if (typeof runState.specModifiedAt === 'number' && runState.gatesPassed?.length > 0) {
+      const specStat = await stat(resolve(specPath));
+      if (specStat.mtimeMs > runState.specModifiedAt) {
+        const gates = runState.gatesPassed.join(', ');
+        diagnostics.push({
+          severity: 'WARNING',
+          ruleId: 'SG-STALE-001',
+          path: specPath,
+          message: `spec modified since gates were confirmed (${gates}) — re-verify implementation alignment`,
+        });
+      }
+    }
+  } catch { /* no run state or unreadable — skip */ }
 
   // ── Contract alignment ───────────────────────────────────────────────────────
 

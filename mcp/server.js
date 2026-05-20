@@ -290,14 +290,10 @@ async function toolCheck({ spec_path, include_warnings = false }) {
   const warnings = filtered.filter(d => d.severity === 'WARNING');
 
   return {
-    valid: blockers.length === 0,
     gate1_passed: blockers.length === 0,
     blocker_count: blockers.length,
     warning_count: warnings.length,
     diagnostics: filtered,
-    summary: blockers.length === 0
-      ? `Spec is valid. Gate 1 passed.${warnings.length > 0 ? ` (${warnings.length} warning(s))` : ''}`
-      : `Spec has ${blockers.length} blocker(s). Gate 1 blocked.`,
   };
 }
 
@@ -762,7 +758,9 @@ async function toolInterviewQuestions({ classification = null } = {}) {
       '5. Present the spec to the user for review before proceeding to spec-guard run.',
     ].join('\n'),
     pre_classification: base,
-    classification_specific: classification ? additional : classificationSpecific,
+    classification_specific: classification
+      ? additional
+      : { _note: 'Call again with classification param to get classification-specific questions once classification is known.' },
     universal_optional: universal,
     next_tool: 'spec_guard_draft_spec',
   };
@@ -781,13 +779,9 @@ async function toolSuggest({ spec_path, include_warnings = false }) {
   const annotated = annotateDiagnostics(filtered);
 
   return {
-    spec_path,
     gate1_passed: !all.some(d => d.severity === 'BLOCKER'),
     issue_count: annotated.length,
     diagnostics: annotated,
-    summary: annotated.length === 0
-      ? 'No issues found.'
-      : `${annotated.length} issue(s) found. Each includes a concrete fix suggestion.`,
   };
 }
 

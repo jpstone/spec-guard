@@ -12,7 +12,7 @@ test('suggestFix — returns a non-empty string for every known rule', () => {
   const rules = [
     'SG-SPEC-002', 'SG-SPEC-003', 'SG-SPEC-004', 'SG-SPEC-005', 'SG-SPEC-006',
     'SG-SPEC-007', 'SG-SPEC-008', 'SG-CLASS-001', 'SG-CLASS-002', 'SG-UI-001', 'SG-UI-002',
-    'SG-TEST-001',
+    'SG-TEST-001', 'SG-STALE-001',
     'SG-ALIGN-001', 'SG-ALIGN-002', 'SG-ALIGN-003', 'SG-ALIGN-004',
   ];
   for (const ruleId of rules) {

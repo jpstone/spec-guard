@@ -20,6 +20,29 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
 const args = process.argv.slice(2);
 
+const GITHUB_WORKFLOW = `name: Spec Guard
+
+on:
+  push:
+    paths:
+      - 'specs/**'
+  pull_request:
+    paths:
+      - 'specs/**'
+
+jobs:
+  validate-specs:
+    name: Validate specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --save-dev spec-guard
+      - run: npx spec-guard validate specs/
+`;
+
 const NEW_TEMPLATES = Object.freeze({
   'spec':                    'templates/spec.md',
   'brownfield-spec':         'templates/brownfield-spec.md',
@@ -393,6 +416,17 @@ async function initCommand(args) {
     const wfContent = await readFile(src, 'utf8');
     await writeFile(workflowFile, wfContent, { flag: 'wx' });
     console.log(`  Created: WORKFLOW.md`);
+  }
+
+  // GitHub Actions workflow
+  const ciDir = resolve(targetDir, '.github', 'workflows');
+  const ciFile = resolve(ciDir, 'spec-guard.yml');
+  try {
+    await access(ciFile, constants.F_OK);
+  } catch {
+    await mkdir(ciDir, { recursive: true });
+    await writeFile(ciFile, GITHUB_WORKFLOW, { flag: 'wx' });
+    console.log(`  Created: .github/workflows/spec-guard.yml`);
   }
 
   console.log(`Initialized Spec Guard in ${targetDir}`);

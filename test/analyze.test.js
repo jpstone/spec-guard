@@ -244,6 +244,50 @@ test('analyzeArtifacts — INFO when review file does not exist yet', async () =
   assert.ok(infos.length > 0);
 });
 
+// ─── stale gate detection ─────────────────────────────────────────────────────
+
+test('analyzeArtifacts — SG-STALE-001 when spec modified after gate confirmation', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const runStatePath = join(dir, 'run.json');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(runStatePath, JSON.stringify({
+    gatesPassed: ['gate1', 'gate2', 'gate3', 'gate4', 'gate5'],
+    specModifiedAt: 0, // epoch — any real file will be newer
+  }));
+
+  const result = await analyzeArtifacts({ specPath, runStatePath });
+  const stale = result.diagnostics.filter(d => d.ruleId === 'SG-STALE-001');
+  assert.ok(stale.length > 0, 'Expected SG-STALE-001 diagnostic');
+  assert.equal(stale[0].severity, 'WARNING');
+  assert.ok(stale[0].message.includes('gate'));
+});
+
+test('analyzeArtifacts — no SG-STALE-001 when spec not modified since gate confirmation', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const runStatePath = join(dir, 'run.json');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(runStatePath, JSON.stringify({
+    gatesPassed: ['gate1', 'gate2'],
+    specModifiedAt: Date.now() + 100_000, // far future — spec is "older"
+  }));
+
+  const result = await analyzeArtifacts({ specPath, runStatePath });
+  const stale = result.diagnostics.filter(d => d.ruleId === 'SG-STALE-001');
+  assert.equal(stale.length, 0);
+});
+
+test('analyzeArtifacts — no SG-STALE-001 when no run state exists', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  writeFileSync(specPath, VALID_SPEC);
+
+  const result = await analyzeArtifacts({ specPath, runStatePath: join(dir, 'no-run.json') });
+  const stale = result.diagnostics.filter(d => d.ruleId === 'SG-STALE-001');
+  assert.equal(stale.length, 0);
+});
+
 // ─── metadata ─────────────────────────────────────────────────────────────────
 
 test('analyzeArtifacts — returns title and classification', async () => {

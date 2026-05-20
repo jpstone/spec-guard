@@ -346,31 +346,3 @@ Create a discovery request to track it:
 spec-guard discovery .spec-guard/discoveries/<topic>.md
 ```
 
----
-
-## Quick Reference
-
-```bash
-# Start a new feature
-spec-guard new spec specs/my-feature.md
-spec-guard watch specs/my-feature.md        # live validation while writing
-
-# Gate 1
-spec-guard check specs/my-feature.md        # must exit 0
-
-# Gate 2
-spec-guard classify specs/my-feature.md     # confirm classification
-spec-guard check specs/my-feature.md --warnings
-
-# Record problems
-spec-guard blocker .spec-guard/blockers/x.md
-spec-guard scope-discovery .spec-guard/scope-discoveries/x.md
-spec-guard deviation .spec-guard/deviations/x.md
-
-# Gate 5
-spec-guard review .spec-guard/reviews/my-feature.md
-
-# See all specs
-spec-guard status
-spec-guard validate specs/
-```

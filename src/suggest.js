@@ -120,6 +120,13 @@ const RULE_SUGGESTIONS = {
       'REST API contracts should define routes. Component contracts should define props.';
   },
 
+  'SG-STALE-001': () =>
+    'The spec was edited after gate confirmations were recorded. Re-verify alignment:\n\n' +
+    '  1. Run: spec-guard analyze path/to/spec.md\n' +
+    '  2. Fix any SG-ALIGN-001/002/003/004 issues\n' +
+    '  3. Update the implementation review if acceptance criteria changed\n' +
+    '  4. Re-confirm Gate 5 if the review changes',
+
   'SG-ALIGN-004': () =>
     'Complete all unchecked items in the implementation review.\n' +
     'Gate 5 requires every checkbox to be resolved.\n\n' +

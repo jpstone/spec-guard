@@ -1,114 +1,100 @@
 # Quality Gates
 
-Spec Guard is designed to be measurably stricter than documentation-only spec workflows.
+Spec Guard enforces five mechanical gates. Work cannot proceed past a gate until it passes.
 
-A task is not ready for implementation until these gates pass.
+---
 
-## Gate 1: Spec Exists
-
-Required evidence:
-
-- A governing spec is linked or created.
-- The spec has concrete content for problem/goal, scope, expected behavior, acceptance criteria, classification, and required tests/checks.
-
-CLI support:
+## Gate 1: Spec Valid
 
 ```bash
-spec-guard check path/to/spec.md
+spec-guard check path/to/spec.md   # must exit 0
 ```
 
-## Gate 2: Work Is Classified
+Required evidence:
+
+- A governing spec exists.
+- The spec has concrete content for problem/goal, scope, expected behavior, acceptance criteria, classification, and required tests/checks.
+- `spec-guard check` exits 0 (no blockers).
+
+---
+
+## Gate 2: Contracts Present
+
+```bash
+spec-guard check path/to/spec.md --warnings
+# No SG-CLASS-002, SG-UI-001, or SG-UI-002 blockers
+```
 
 Required evidence:
 
-- Exactly one primary work classification is selected.
-- Classification-specific documentation/test strategy is known.
+- Exactly one work classification is selected.
+- The required contract artifact exists and is referenced in the spec (API contract, REST API contract, or component contract, depending on classification).
 
-Why this is stricter than generic spec workflows:
+Why this is stricter than generic spec workflows: the same implementation request may require unit tests, API/integration tests, browser automation, or document checks. Classification prevents agents from applying one generic plan to every task.
 
-- The same implementation request may require unit tests, API/integration tests, browser automation, or document checks.
-- Classification prevents agents from applying one generic plan to every task.
+---
 
-## Gate 3: Correct Test/Check Is Named Before Implementation
+## Gate 3: Failure Confirmed
 
-Required evidence:
+Required evidence — one of:
 
-- Required tests/checks are identified before code changes.
-- Tests target behavior, contracts, user-visible UI, or document deliverables.
+- New tests/checks were run before implementation and fail for the expected reason.
+- A concrete reason is recorded explaining why running them was impractical (missing infrastructure, irreversible side effects in a live system, or environment not yet available).
 
 Disallowed evidence:
 
 - tests that only check prose for product features,
 - tests against undocumented private internals,
-- vague statements such as "add tests" without naming what must fail.
+- vague statements such as "add tests" without naming what must fail,
+- "impractical" without a concrete reason.
 
-## Gate 4: Failure-First Is Confirmed
+---
 
-Required evidence:
-
-- New tests/checks are run before implementation and fail for the expected reason.
-- If they cannot be run, the concrete reason is recorded.
-
-## Gate 5: UI Inputs Exist Before UI Work
-
-Required evidence for UI work:
-
-- mockup, wireframe, or explicit design direction,
-- component library reference,
-- accessibility and automation expectations.
-
-If missing, the correct output is a blocker, not invented UI.
-
-## Gate 6: Bad Specs Halt Work
-
-Required evidence when a spec problem is discovered:
-
-- ambiguity, gap, or conflict is recorded,
-- work halts until clarification or correction.
-
-Agents must not patch around a bad spec.
-
-## Gate 7: Spec Adherence Is Preserved
+## Gate 4: Tests Pass
 
 Required evidence:
 
-- every changed file traces to the governing spec or an explicitly authorized deviation,
-- no unrequested features or optional enhancements were added,
-- no unrelated refactor, dependency upgrade, architecture change, or UI redesign was included,
-- no nearby TODO was implemented unless required by the spec,
-- any required deviation was recorded and separately authorized.
+- All tests pass.
+- No scope was silently absorbed.
+- Any discovered out-of-scope work is recorded as a scope discovery.
+- Any spec deviation required during implementation is recorded and resolved.
 
-## Gate 8: Scope Discoveries Are Recorded
+---
 
-Required evidence:
+## Gate 5: Review Complete
 
-- discovered work is recorded,
-- required vs additive is stated,
-- additive work is not silently implemented in the current change.
-
-## Gate 9: Discovery Is Explicitly Requested
-
-Required evidence before gap/risk/feature discovery:
-
-- human explicitly asked for discovery,
-- discovery scope is clear,
-- findings distinguish required gaps from optional enhancements,
-- no implementation is performed without separate authorization.
-
-A generic "what's next?" after implementation is not permission to invent a roadmap.
-
-## Gate 10: Implementation Review Confirms Traceability
+```bash
+spec-guard review .spec-guard/reviews/<name>.md
+spec-guard analyze path/to/spec.md   # must exit 0
+```
 
 Required evidence:
 
-- change traces to spec,
-- tests/checks were written first,
-- blockers/scope discoveries were handled,
-- durable docs changed only when durable contracts changed.
+- Implementation review is complete with all checklist items resolved.
+- `spec-guard analyze` exits 0 (no SG-ALIGN warnings).
+- Every changed file traces to the governing spec or an explicitly authorized deviation.
+- Tests/checks were written before implementation.
+- Durable documentation was updated only when the durable contract changed.
+
+---
+
+## Halt Conditions (Apply Throughout Execution)
+
+These are not gates — they are conditions that halt work immediately at any point:
+
+**UI work without design inputs:** If a UI task has no mockup, wireframe, or explicit design direction, work halts. Create a blocker. Do not invent UI.
+
+**Bad spec discovered during implementation:** If an ambiguity, gap, or conflict is found in the spec, work halts. Record a spec deviation. Do not patch around it.
+
+**Spec adherence broken:** Any implementation that adds unrequested features, optional enhancements, opportunistic refactors, dependency upgrades, or nearby TODOs not required by the spec is a halt condition. Record a scope discovery and stop.
+
+**Discovery without explicit request:** Discovery mode (gap analysis, risk review, "what's next?") is only entered when the human explicitly asks. A generic "what's next?" after implementation is not permission to produce a roadmap or invent features.
+
+---
 
 ## Objective Differentiators
 
-Spec Guard is stronger than a generic spec/template workflow when it can answer yes to these questions:
+Spec Guard is stronger than a generic spec/template workflow when it can answer yes to all of these:
 
 - Did a tool or checklist reject specs with missing required content?
 - Was exactly one work classification selected?

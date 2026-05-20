@@ -4,7 +4,7 @@ Implement in the shared UI component library.
 
 Prefer semantic HTML and role/name queries in tests.
 
-Browser automation is not required unless later behavior depends on real browser focus, layout, or multi-component workflows.
+Browser automation is not required unless the component contract depends on real browser behavior (focus management, keyboard navigation, layout, or multi-component workflows).
 
 ## What Not To Do
 

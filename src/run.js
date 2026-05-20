@@ -6,7 +6,7 @@
  * past a gate until it passes.
  */
 
-import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { resolve, dirname, basename, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -416,6 +416,10 @@ async function saveRunState(specPath, state) {
   await mkdir(resolve(dir), { recursive: true });
   const name = basename(specPath).replace('.md', '');
   const runFile = resolve(dir, `${name}-run.json`);
+  try {
+    const specStat = await stat(resolve(specPath));
+    state.specModifiedAt = specStat.mtimeMs;
+  } catch { /* ignore */ }
   await writeFile(runFile, JSON.stringify(state, null, 2));
 }
 

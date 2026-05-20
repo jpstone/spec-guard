@@ -149,6 +149,16 @@ test('discover exits 2 when too many arguments given', () => {
   assert.match(result.stderr, /Usage: spec-guard discover/);
 });
 
+test('init creates GitHub Actions workflow file', () => {
+  const directory = tempDir();
+  const result = runCli(['init', directory]);
+
+  assert.equal(result.status, 0);
+  const workflowPath = join(directory, '.github', 'workflows', 'spec-guard.yml');
+  assert.equal(existsSync(workflowPath), true);
+  assert.match(readFileSync(workflowPath, 'utf8'), /npx spec-guard validate specs\//);
+});
+
 test('discover exits 1 when output file already exists', () => {
   const output = join(tempDir(), 'spec.md');
   writeFileSync(output, 'existing');

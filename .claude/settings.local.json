@@ -5,7 +5,10 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:github.com)",
       "WebSearch",
-      "Bash(node bin/spec-guard.js)"
+      "Bash(node bin/spec-guard.js)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\justi\\\\projects\\\\specguard\" -Recurse | Where-Object {$_.PSIsContainer} | Select-Object -ExpandProperty FullName | Sort-Object)"
     ]
   }
 }

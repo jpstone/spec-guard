@@ -2,7 +2,7 @@
 
 **Spec-first. Behavior-tested. Agent-safe.**
 
-Spec Guard is a methodology, workflow runner, and MCP server for AI-assisted software development. It enforces spec-first, test-driven discipline through five mechanical gates — and provides a complete process flow from discovery to review.
+Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven software development**. The model is simple: humans write specs, agents write all code. Five mechanical gates enforce the boundary between human intent and agent execution.
 
 > Specs guide implementation, but tests validate running behavior and durable contracts — not prose.
 

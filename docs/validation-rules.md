@@ -110,6 +110,14 @@ UI work should reference the component library or explicitly state that none exi
 
 ---
 
+### SG-STALE-001: Gates are current with the spec
+
+**Severity:** WARNING
+
+Checked by `spec-guard analyze`. When a spec is edited after gate confirmations were recorded by `spec-guard run`, the recorded gates are considered stale. Re-run `spec-guard analyze` and update the implementation review to reflect the changed spec before closing Gate 5.
+
+---
+
 ### SG-ALIGN-001: Acceptance criteria covered in review
 
 **Severity:** WARNING
@@ -150,13 +158,13 @@ New tests/checks must run before implementation and fail for the expected reason
 
 ### SG-TEST-003: Tests target contracts/behavior, not internals
 
-Unit/component tests should target documented/exported surfaces only. Testing private internals in place of contract tests is a warning for most work and a blocker for reusable APIs and components.
+Unit/component tests must target documented/exported surfaces only. Underlying helpers, pure functions, and internal state transitions are tested implicitly through the public surface — testing them directly is redundant and makes tests brittle to refactoring.
 
 ---
 
-## Aspirational Rules
+## Process Rules
 
-These rules reflect methodology principles not yet implemented as automated checks.
+These rules are required agent behaviors enforced by `AGENTS.md` and `WORKFLOW.md`. They are not yet implemented as automated CLI checks, but they are mandatory — not optional.
 
 ### SG-CLASS-003: Classification changes are acknowledged
 

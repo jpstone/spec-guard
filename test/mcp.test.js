@@ -101,7 +101,6 @@ test('MCP: spec_guard_check passes for valid spec', () => {
   const { path } = tempSpec(validSpec);
   const response = mcpTool('spec_guard_check', { spec_path: path });
   const result = JSON.parse(response.result.content[0].text);
-  assert.equal(result.valid, true);
   assert.equal(result.gate1_passed, true);
   assert.equal(result.blocker_count, 0);
 });
@@ -110,7 +109,7 @@ test('MCP: spec_guard_check fails for invalid spec', () => {
   const { path } = tempSpec('# Just a title\n\n## Problem / Goal\n\nGoal.\n');
   const response = mcpTool('spec_guard_check', { spec_path: path });
   const result = JSON.parse(response.result.content[0].text);
-  assert.equal(result.valid, false);
+  assert.equal(result.gate1_passed, false);
   assert(result.blocker_count > 0);
 });
 

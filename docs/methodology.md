@@ -277,7 +277,7 @@ Use when the document, checklist, policy, runbook, help content, or process arti
 
 Choose the smallest test/check that validates the behavior or contract with confidence.
 
-**Unit tests** validate documented/exported API surfaces, pure functions, validation rules, state transitions, reusable component APIs, or adapters at a mocked dependency boundary.
+**Unit tests** validate documented/exported API surfaces of reusable modules. Underlying pure functions, validation rules, and state transitions are implementation details — test them through the public API, not directly.
 
 **API/integration tests** validate HTTP endpoints, persistence adapters, provider boundaries, auth/session behavior, or multi-module behavior.
 

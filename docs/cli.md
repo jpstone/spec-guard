@@ -155,9 +155,12 @@ contracts/
   deviations/
 AGENTS.md
 WORKFLOW.md
+.github/
+  workflows/
+    spec-guard.yml      ← ready-to-use CI workflow
 ```
 
-Also creates `AGENTS.md` and `WORKFLOW.md` at the project root if they don't exist.
+Also creates `AGENTS.md`, `WORKFLOW.md`, and `.github/workflows/spec-guard.yml` if they don't exist. The workflow validates specs on every push and pull request that touches `specs/**`.
 
 ---
 

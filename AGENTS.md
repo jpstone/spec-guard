@@ -145,23 +145,6 @@ spec-guard analyze specs/<name>.md   # verify spec ↔ contract ↔ review align
 
 ---
 
-## Cross-Artifact Analysis (Between Gate 4 and Gate 5)
-
-Before closing out implementation, run:
-```bash
-spec-guard analyze specs/<name>.md
-```
-
-This checks:
-- Every acceptance criterion from the spec appears in the review
-- Every required test from the spec appears in the review's "Tests Written First" section
-- The contract file (if required) exists and is structurally complete
-- No unchecked boxes remain in the review
-
-Address all SG-ALIGN findings before confirming Gate 5.
-
----
-
 ## Halt Conditions
 
 Stop immediately and surface the issue when any of these are true:
