@@ -211,6 +211,28 @@ Respond with: current status, known blockers, recorded follow-ups, and how to re
 
 ---
 
+## Directory Structure
+
+All Spec Guard artifacts live under `.spec-guard/` in the project root:
+
+```
+.spec-guard/
+  specs/           ← feature specs (Gate 1 source)
+  contracts/       ← API and component contracts (Gate 2 source)
+  blockers/        ← recorded blockers
+  scope-discoveries/
+  reviews/         ← implementation reviews (Gate 5 source)
+  deviations/
+  discoveries/
+  runs/            ← gate confirmation state
+AGENTS.md          ← this file (project root)
+WORKFLOW.md        ← full process flow (project root)
+```
+
+Write commands (`new`, `draft`, `blocker`, `scope-discovery`, `review`, `discovery`, `deviation`) take a bare name and always write to the appropriate `.spec-guard/` subdirectory. Read/validate commands (`check`, `run`, `analyze`, `suggest`, `classify`, `watch`) default to `.spec-guard/specs/` for bare names but accept full paths.
+
+---
+
 ## CLI Quick Reference
 
 ```bash
