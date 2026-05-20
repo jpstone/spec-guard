@@ -197,10 +197,9 @@ Discovery may identify security, privacy/legal/compliance, accessibility, reliab
 
 Use for shared libraries, domain services, validation modules, provider adapters, persistence interfaces, and CLI helpers.
 
-1. Confirm or define the API spec.
-2. Create/update developer-facing documentation if this is a durable contract.
-3. Document purpose, inputs, outputs, errors, edge cases, security/tenant rules, stability expectations, versioning, and backward compatibility.
-4. Write unit tests against the documented/exported API surface only.
+1. Before writing any implementation code, create an API contract document (`spec-guard new api-contract contracts/<name>.md`) and fill it in from the spec's acceptance criteria. The agent produces this — it is not a human deliverable. If the acceptance criteria are too vague to define inputs, outputs, or error behavior, that is a spec problem: halt and surface the gap.
+2. Document purpose, inputs, outputs, errors, edge cases, security/tenant rules, stability expectations, versioning, and backward compatibility.
+3. Write unit tests against the documented/exported API surface only.
 5. Run tests and observe failure, or record why this is impractical.
 6. Implement until tests pass.
 7. Refactor freely without changing the documented contract.
@@ -211,9 +210,9 @@ Do not test private helper functions as a substitute for public contract tests.
 
 Use for HTTP endpoints, webhook handlers, RPC interfaces, and cross-service contracts.
 
-1. Define the API contract before implementation.
+1. Before writing any implementation code, create a REST API contract document (`spec-guard new rest-api-contract contracts/<name>.md`) and fill it in from the spec's acceptance criteria. The agent produces this — it is not a human deliverable. If the acceptance criteria are too vague to derive a contract (missing route, payload, or response shape), that is a spec problem: halt and surface the gap.
 2. Document route/method, authentication, authorization, request shape, response shape, status codes, error responses, tenant isolation, versioning, deprecation, and audit/logging expectations.
-3. Write API/integration tests against the documented behavior.
+3. Write API/integration tests against the documented contract.
 4. Run tests and observe failure, or record why this is impractical.
 5. Implement until tests pass.
 
@@ -229,7 +228,7 @@ Use for components shared within an app, across apps, or by platform code.
 6. Implement in the shared UI component library.
 7. Implement until tests pass.
 
-Add browser automation when the contract depends on real browser behavior such as focus management, keyboard navigation, dialogs, popovers, file uploads, drag and drop, responsive layout, hydration, or multi-component workflows.
+Add browser automation when the component contract includes behavior that a JSDOM or virtual DOM environment cannot accurately simulate — such as focus management, keyboard navigation, scroll, viewport layout, popovers, file uploads, drag and drop, or hydration.
 
 ## Workflow: One-Off Application UI
 
@@ -258,9 +257,9 @@ Use when behavior can be implemented without creating a reusable API, REST API, 
 
 1. Confirm the existing spec is sufficient.
 2. Do not create new documentation by default.
-3. Write the smallest behavioral test that validates the change.
-4. Run the test and observe failure, or record why this is impractical.
-5. Implement until the test passes.
+3. Write tests that verify every acceptance criterion. There is no new API or UI surface — use whatever mechanism verifies the criterion (calling existing code, checking a value, observing a side effect).
+4. Run the tests and observe failure, or record why this is impractical.
+5. Implement until the tests pass.
 
 ## Workflow: Operational or Document Deliverable
 

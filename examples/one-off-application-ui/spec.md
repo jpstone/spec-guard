@@ -20,6 +20,3 @@ Allow a signed-in user to manage notification preferences from a settings page.
 
 One-off application UI.
 
-## Required Tests / Checks
-
-Browser automation tests for user-visible behavior and mockup fidelity.

@@ -55,8 +55,3 @@
 - [ ] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
 
-## Required Tests / Checks
-
-<!-- Identify tests or process checks to write before implementation. -->
-
-- 

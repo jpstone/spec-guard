@@ -19,7 +19,6 @@ Reasons:
 - Component library expectations are missing.
 - Persistence expectations are missing: local-only, file, database, API, or browser storage.
 - Acceptance criteria are missing.
-- Required tests/checks are not named.
 - The request likely spans multiple classifications.
 
 Correct response:
@@ -66,9 +65,9 @@ No reusable non-UI API unless state logic is exported as a durable contract.
 - `templates/one-off-ui.md`
 - optional `templates/compound-work.md` if the developer later adds backend/API or reusable component requirements.
 
-## Required Tests / Checks
+## Tests (derived from acceptance criteria)
 
-Browser automation tests should be written before implementation:
+The agent writes browser automation tests before implementation. One test per acceptance criterion:
 
 ```text
 page exposes heading "Todos"

@@ -21,8 +21,8 @@ Run this checklist. If you cannot check every item, halt at the first failure.
 - [ ] I have identified the governing spec (file path: __________)
 - [ ] `spec-guard check <spec>` exits 0
 - [ ] I have confirmed exactly one work classification: __________
-- [ ] I know what test to write first: __________
-- [ ] I can run that test and observe it failing
+- [ ] I have read every acceptance criterion and know what behavior each one requires
+- [ ] I will write tests that verify those criteria before writing any implementation code
 
 If the spec doesn't exist: author one (see below). If any item cannot be checked: create a blocker and halt. Do not guess.
 
@@ -71,7 +71,7 @@ spec-guard run specs/<name>.md
 ### Path B: Guided Wizard (when working without interactive conversation)
 
 ```bash
-spec-guard discover specs/<name>.md
+spec-guard draft specs/<name>.md
 ```
 
 Answers questions in the terminal. Output is guaranteed to pass Gate 1.
@@ -87,15 +87,19 @@ Fill in both **Existing Behavior** (as-is) and **Behavior Delta** (what changes)
 
 ---
 
-## Work Classification → Test Type
+## Writing Tests
 
-| Classification | Required test |
+Tests are derived from the spec's acceptance criteria — not from a separate list. Every acceptance criterion must have a corresponding test. The human does not specify what tests to write; the agent reads the acceptance criteria and writes tests that verify each one.
+
+The classification determines the *type* of test to use:
+
+| Classification | Required test type |
 |---|---|
 | Reusable non-UI API | Unit tests against exported surface only |
 | REST/service API | API/integration tests against the contract |
-| Reusable UI component | Unit/component tests + browser if real browser behavior is part of the contract |
+| Reusable UI component | Unit/component tests + browser automation if the contract includes behavior a JSDOM/virtual DOM environment cannot accurately simulate |
 | One-off application UI | Browser automation for user-visible behavior |
-| Direct behavior, no new API/UI | Smallest behavioral test |
+| Direct behavior, no new API/UI | Tests derived from acceptance criteria — no new API or UI surface; use whatever mechanism verifies the criterion |
 | Operational/document deliverable | Process/document checks |
 
 If the request spans multiple rows: split into slices. `spec-guard new compound-work specs/<name>-plan.md`. Classify and implement each slice separately.
@@ -212,7 +216,7 @@ Respond with: current status, known blockers, recorded follow-ups, and how to re
 
 ```bash
 # Authoring
-spec-guard discover specs/<name>.md           # guided wizard
+spec-guard draft specs/<name>.md              # guided wizard
 spec-guard new brownfield-spec specs/<name>.md # brownfield template
 
 # Workflow

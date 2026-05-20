@@ -53,7 +53,7 @@
 
 ## Browser Automation Requirement
 
-<!-- Is browser automation required? If yes, state the real browser behavior being validated. -->
+<!-- Is browser automation required? If yes, describe the behavior that a JSDOM/virtual DOM environment cannot accurately simulate. -->
 
 - Required: yes/no
 - Reason:

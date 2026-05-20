@@ -15,6 +15,3 @@ Provide a shared API for normalizing user-entered email addresses before account
 
 Reusable non-UI API.
 
-## Required Tests / Checks
-
-Unit tests against the exported normalization API.

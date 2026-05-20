@@ -12,7 +12,7 @@ npx spec-guard init
 # 3. Create a spec (two options)
 
 #   Option A: guided wizard
-npx spec-guard discover specs/my-feature.md
+npx spec-guard draft specs/my-feature.md
 
 #   Option B: from template, then edit
 npx spec-guard new spec specs/my-feature.md

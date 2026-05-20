@@ -181,7 +181,6 @@ const TOOLS = [
           ],
           description: 'Work classification — exactly one must be selected',
         },
-        required_tests:   { type: 'array', items: { type: 'string' }, description: 'Named tests/checks to write before implementation' },
         output_path:      { type: 'string', description: 'If provided, write the spec to this path' },
       },
     },
@@ -575,7 +574,6 @@ async function toolDraftSpec({
   acceptance_criteria: acceptanceCriteria = [],
   open_questions: openQuestions = [],
   classification = null,
-  required_tests: requiredTests = [],
   output_path: outputPath = null,
 }) {
   const specText = buildSpecFromAnswers({
@@ -588,7 +586,6 @@ async function toolDraftSpec({
     acceptanceCriteria,
     openQuestions,
     classification,
-    requiredTests,
   });
 
   const diagnostics = checkSpecText(specText, outputPath || '<draft>');
@@ -676,58 +673,12 @@ async function toolInterviewQuestions({ classification = null } = {}) {
   ];
 
   const classificationSpecific = {
-    'Reusable non-UI API': [
-      {
-        field: 'required_tests',
-        required: true,
-        question: 'What specific API behaviors will you test? Name exact test cases.',
-        hint: 'Example: "returns null when key is not found", "throws TypeError when input is not a string"',
-      },
-    ],
-    'REST/service API': [
-      {
-        field: 'required_tests',
-        required: true,
-        question: 'What specific API contract behaviors will you test?',
-        hint: 'Example: "POST /users returns 201 with created user", "GET /users/:id returns 404 when not found"',
-      },
-    ],
-    'Reusable UI component': [
-      {
-        field: 'required_tests',
-        required: true,
-        question: 'What component behaviors and prop contracts will you test?',
-        hint: 'Example: "renders disabled state when disabled prop is true", "calls onChange with new value on selection"',
-      },
-    ],
     'One-off application UI': [
       {
         field: 'expected_behavior',
         required: true,
         question: 'What is the mockup, wireframe, or design direction? Provide a link or description.',
         hint: 'UI work cannot proceed without design direction. No mockup = blocker.',
-      },
-      {
-        field: 'required_tests',
-        required: true,
-        question: 'What user-visible behaviors will browser automation tests verify?',
-        hint: 'Example: "form shows error when submitted with empty email", "user is redirected to /dashboard after login"',
-      },
-    ],
-    'Direct behavior with no new API or UI': [
-      {
-        field: 'required_tests',
-        required: true,
-        question: 'What is the smallest behavioral test that proves the change worked?',
-        hint: 'Focus on the observable effect, not internal state.',
-      },
-    ],
-    'Operational/document deliverable': [
-      {
-        field: 'required_tests',
-        required: true,
-        question: 'What process checks or document validations will confirm this deliverable is complete?',
-        hint: 'Example: "all required sections are present", "all links resolve", "approval sign-off recorded"',
       },
     ],
   };
@@ -842,7 +793,7 @@ async function toolWorkflowNextStep({ spec_path, gates_passed = [] }) {
     const classifications = getSelectedClassifications(text);
     return {
       next_action: 'write_failing_tests',
-      instruction: `Write the tests named in "Required Tests / Checks". Run them. Confirm they fail for the expected reason. Then call spec_guard_confirm_gate with gate=3 and evidence describing what failed and why.`,
+      instruction: `Write tests that verify every acceptance criterion in the spec. Run them before implementing. Confirm they fail for the expected reason. Then call spec_guard_confirm_gate with gate=3 and evidence describing what failed and why.`,
       gate_target: 'gate3',
       test_guidance: TEST_GUIDANCE[classifications[0]],
     };

@@ -74,9 +74,3 @@
 - [ ] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
 
-## Required Tests / Checks
-
-<!-- In brownfield work: include regression tests for existing behavior as well as new behavior.
-     Name both "still works" tests and "now works" tests. -->
-
-- 

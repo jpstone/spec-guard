@@ -75,15 +75,6 @@ const RULE_SUGGESTIONS = {
     '  "No component library — raw HTML/CSS only"\n\n' +
     'If no component library is established, explicitly state that in Expected Behavior.',
 
-  'SG-TEST-001': () =>
-    'Add at least one named test to the "Required Tests / Checks" section.\n\n' +
-    'Name tests by behavior, not by implementation:\n\n' +
-    '  Good:  - returns 404 when the user is not found\n' +
-    '  Good:  - shows inline error when form is submitted with empty email\n' +
-    '  Weak:  - test the user endpoint\n' +
-    '  Weak:  - unit tests\n\n' +
-    'Use spec_guard_test_guidance (MCP) or classify first to get test type guidance.',
-
   'SG-SPEC-008': (d) => {
     const item = d.message.match(/: "(.+)"$/)?.[1] || 'the scope item';
     return `Expand the scope item to describe a specific boundary.\n\n` +

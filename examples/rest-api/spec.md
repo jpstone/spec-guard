@@ -14,6 +14,3 @@ Allow an authenticated user to fetch their own profile.
 
 REST/service API.
 
-## Required Tests / Checks
-
-API/integration tests against the documented route contract.

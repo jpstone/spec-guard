@@ -137,16 +137,16 @@ test('deviation creates a spec deviation request from the template', () => {
   assert.match(readFileSync(output, 'utf8'), /^# Spec Deviation Request/);
 });
 
-test('discover exits 2 when no output path given', () => {
-  const result = runCli(['discover']);
+test('draft exits 2 when no output path given', () => {
+  const result = runCli(['draft']);
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /Usage: spec-guard discover/);
+  assert.match(result.stderr, /Usage: spec-guard draft/);
 });
 
-test('discover exits 2 when too many arguments given', () => {
-  const result = runCli(['discover', 'a.md', 'b.md']);
+test('draft exits 2 when too many arguments given', () => {
+  const result = runCli(['draft', 'a.md', 'b.md']);
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /Usage: spec-guard discover/);
+  assert.match(result.stderr, /Usage: spec-guard draft/);
 });
 
 test('init creates GitHub Actions workflow file', () => {
@@ -159,10 +159,10 @@ test('init creates GitHub Actions workflow file', () => {
   assert.match(readFileSync(workflowPath, 'utf8'), /npx spec-guard validate specs\//);
 });
 
-test('discover exits 1 when output file already exists', () => {
+test('draft exits 1 when output file already exists', () => {
   const output = join(tempDir(), 'spec.md');
   writeFileSync(output, 'existing');
-  const result = runCli(['discover', output]);
+  const result = runCli(['draft', output]);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /SG-USAGE-002/);
 });

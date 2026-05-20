@@ -2,21 +2,31 @@
 
 ## Commands
 
-### `discover`
+### `analyze`
 
 ```bash
-spec-guard discover path/to/spec.md
+spec-guard analyze [--contract path] [--review path] [--json] path/to/spec.md
 ```
 
-Interactive guided wizard for writing a spec from scratch. Asks 8 questions (problem, scope, expected behavior, acceptance criteria, work classification, required tests, and optional fields), then writes a spec file that passes Gate 1. Loops on required fields until they are filled.
+Cross-artifact consistency check. Compares the spec against its contract and implementation review:
 
-Refuses to overwrite an existing file.
+- Contract file exists and contains actual interface definitions (not just a blank template)
+- Every acceptance criterion from the spec appears in the implementation review
+- No unchecked boxes remain in the review
+
+If `--contract` or `--review` are not given, Spec Guard infers the paths from the spec filename.
+
+**Flags:**
+
+- `--contract path` — explicit contract file path
+- `--review path` — explicit review file path
+- `--json` — output diagnostics as NDJSON
 
 **Exit codes:**
 
-- `0` — spec written successfully
-- `1` — output file already exists
-- `2` — usage error (no path given, too many arguments)
+- `0` — no blockers
+- `1` — one or more blockers or warnings
+- `2` — usage error
 
 ---
 
@@ -31,7 +41,6 @@ Validates one Markdown spec file. Reports:
 - missing required headings (BLOCKER)
 - required sections with only placeholder content (BLOCKER)
 - missing or multiple work classifications (BLOCKER)
-- missing required tests/checks (BLOCKER)
 - unresolved open questions (WARNING)
 - missing UI design inputs for UI work (BLOCKER)
 - missing component library reference for UI work (WARNING)
@@ -55,84 +64,57 @@ Does not modify files.
 
 ---
 
-### `suggest`
+### `classify`
 
 ```bash
-spec-guard suggest [--json] path/to/spec.md
+spec-guard classify [--json] path/to/spec.md
 ```
 
-Runs `check` and annotates every diagnostic with a concrete, multi-line fix instruction. Includes before/after examples for most rules.
-
-Use this instead of `check` when you want to know exactly what to change, not just that something is wrong. Agents should prefer `spec_guard_suggest` over `spec_guard_check` for the same reason.
-
-**Flags:**
-
-- `--json` — output annotated diagnostics as NDJSON
-
-**Exit codes:** same as `check`.
+Prints the selected work classification, or reports a blocker if zero or multiple are selected.
 
 ---
 
-### `analyze`
+### `discovery`
 
 ```bash
-spec-guard analyze [--contract path] [--review path] [--json] path/to/spec.md
+spec-guard discovery path/to/discovery-request.md
 ```
 
-Cross-artifact consistency check. Compares the spec against its contract and implementation review:
+Creates a discovery-request artifact from the template. Use this **only** when a human explicitly asks for gap analysis, risk review, or "what did we miss?" — never speculatively.
 
-- Contract file exists and contains actual interface definitions (not just a blank template)
-- Every acceptance criterion from the spec appears in the implementation review
-- Every required test from the spec appears in the review
-- No unchecked boxes remain in the review
+Discovery mode is distinct from implementation. It produces findings; it does not authorize implementing them. Any work identified during discovery requires a separate spec before implementation can begin.
 
-If `--contract` or `--review` are not given, Spec Guard infers the paths from the spec filename.
+Typical triggers:
+- "What did we miss?"
+- "What risks remain?"
+- "What should we build next?"
+- "Review for security/accessibility/reliability gaps."
 
-**Flags:**
-
-- `--contract path` — explicit contract file path
-- `--review path` — explicit review file path
-- `--json` — output diagnostics as NDJSON
+**Not** a trigger: completing an implementation task and deciding to look for follow-up work unprompted.
 
 **Exit codes:**
 
-- `0` — no blockers
-- `1` — one or more blockers or warnings
+- `0` — file created
+- `1` — output file already exists
 - `2` — usage error
 
 ---
 
-### `validate`
+### `draft`
 
 ```bash
-spec-guard validate [--json] [--warnings] [specs-directory]
+spec-guard draft path/to/spec.md
 ```
 
-Runs `check` on every `.md` file (excluding README.md) in a directory, recursively. Defaults to `specs/`.
+Interactive guided wizard for writing a spec from scratch. Asks questions (problem, scope, expected behavior, acceptance criteria, work classification, and optional fields), then writes a spec file that passes Gate 1. Loops on required fields until they are filled.
 
-Prints a summary line: `Validated N spec(s): X clean, Y with issues (Z with blockers)`.
+Refuses to overwrite an existing file.
 
----
+**Exit codes:**
 
-### `status`
-
-```bash
-spec-guard status [--json] [specs-directory]
-```
-
-Prints a summary table of all specs in a directory. Columns: Status, Classification, Issues (blockers/warnings), Path.
-
-With `--json`, outputs an array of objects.
-
----
-
-### `watch`
-
-```bash
-spec-guard watch path/to/spec.md
-```
-
-Watches a single spec file and re-runs `check` on every save. Clears the terminal on each run. Useful while writing a spec.
+- `0` — spec written successfully
+- `1` — output file already exists
+- `2` — usage error (no path given, too many arguments)
 
 ---
 
@@ -188,26 +170,67 @@ Available kinds:
 
 ---
 
-### `classify`
+### `status`
 
 ```bash
-spec-guard classify [--json] path/to/spec.md
+spec-guard status [--json] [specs-directory]
 ```
 
-Prints the selected work classification, or reports a blocker if zero or multiple are selected.
+Prints a summary table of all specs in a directory. Columns: Status, Classification, Issues (blockers/warnings), Path.
+
+With `--json`, outputs an array of objects.
 
 ---
 
-### Template commands
+### `suggest`
 
-All template commands refuse to overwrite existing files.
+```bash
+spec-guard suggest [--json] path/to/spec.md
+```
+
+Runs `check` and annotates every diagnostic with a concrete, multi-line fix instruction. Includes before/after examples for most rules.
+
+Use this instead of `check` when you want to know exactly what to change, not just that something is wrong. Agents should prefer `spec_guard_suggest` over `spec_guard_check` for the same reason.
+
+**Flags:**
+
+- `--json` — output annotated diagnostics as NDJSON
+
+**Exit codes:** same as `check`.
+
+---
+
+### `validate`
+
+```bash
+spec-guard validate [--json] [--warnings] [specs-directory]
+```
+
+Runs `check` on every `.md` file (excluding README.md) in a directory, recursively. Defaults to `specs/`.
+
+Prints a summary line: `Validated N spec(s): X clean, Y with issues (Z with blockers)`.
+
+---
+
+### `watch`
+
+```bash
+spec-guard watch path/to/spec.md
+```
+
+Watches a single spec file and re-runs `check` on every save. Clears the terminal on each run. Useful while writing a spec.
+
+---
+
+### Artifact commands
+
+All artifact commands create a file from a template and refuse to overwrite existing files.
 
 ```bash
 spec-guard blocker path/to/blocker.md
-spec-guard scope-discovery path/to/scope-discovery.md
-spec-guard review path/to/review.md
-spec-guard discovery path/to/discovery.md
 spec-guard deviation path/to/deviation.md
+spec-guard review path/to/review.md
+spec-guard scope-discovery path/to/scope-discovery.md
 ```
 
 ---

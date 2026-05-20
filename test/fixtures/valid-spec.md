@@ -29,6 +29,3 @@ The checker accepts this spec.
 - [x] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
 
-## Required Tests / Checks
-
-- Run `spec-guard check` against this file.

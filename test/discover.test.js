@@ -13,11 +13,6 @@ const validAnswers = {
   expectedBehavior: 'User submits credentials and is redirected to dashboard. See Figma mockup at /designs/login.fig. Uses the design system component library.',
   acceptanceCriteria: ['Login form renders correctly', 'Invalid credentials show an error message'],
   classification: 'One-off application UI',
-  requiredTests: [
-    'renders login form with email and password fields',
-    'shows error message when credentials are invalid',
-    'redirects to dashboard on successful login',
-  ],
 };
 
 test('buildSpecFromAnswers — valid answers produce a spec that passes Gate 1', () => {
@@ -60,10 +55,10 @@ test('buildSpecFromAnswers — acceptance criteria use checkbox format', () => {
   }
 });
 
-test('buildSpecFromAnswers — required tests appear as bullets', () => {
+test('buildSpecFromAnswers — acceptance criteria appear as checkboxes', () => {
   const spec = buildSpecFromAnswers(validAnswers);
-  for (const t of validAnswers.requiredTests) {
-    assert.ok(spec.includes(`- ${t}`), `Missing test: ${t}`);
+  for (const c of validAnswers.acceptanceCriteria) {
+    assert.ok(spec.includes(`- [ ] ${c}`), `Missing criterion: ${c}`);
   }
 });
 
@@ -76,7 +71,6 @@ test('buildSpecFromAnswers — all required headings are present', () => {
     'Expected Behavior',
     'Acceptance Criteria',
     'Work Classification',
-    'Required Tests / Checks',
   ];
   for (const heading of requiredHeadings) {
     assert.ok(spec.includes(`## ${heading}`), `Missing heading: ${heading}`);
@@ -95,13 +89,6 @@ test('buildSpecFromAnswers — empty inScope produces BLOCKER', () => {
   const diagnostics = checkSpecText(spec, '<test>');
   const blockers = diagnostics.filter(d => d.severity === 'BLOCKER');
   assert.ok(blockers.length > 0, 'Expected blockers for empty inScope');
-});
-
-test('buildSpecFromAnswers — empty requiredTests produces BLOCKER', () => {
-  const spec = buildSpecFromAnswers({ ...validAnswers, requiredTests: [] });
-  const diagnostics = checkSpecText(spec, '<test>');
-  const blockers = diagnostics.filter(d => d.severity === 'BLOCKER');
-  assert.ok(blockers.length > 0, 'Expected blockers for empty requiredTests');
 });
 
 test('buildSpecFromAnswers — null classification produces BLOCKER', () => {
@@ -123,5 +110,5 @@ test('buildSpecFromAnswers — strips leading dashes from input items', () => {
 test('buildSpecFromAnswers — default call produces expected structure', () => {
   const spec = buildSpecFromAnswers();
   assert.ok(spec.includes('## Work Classification'));
-  assert.ok(spec.includes('## Required Tests / Checks'));
+  assert.ok(spec.includes('## Acceptance Criteria'));
 });

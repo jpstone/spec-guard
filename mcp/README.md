@@ -84,7 +84,6 @@ Turn structured interview answers into a valid spec that passes Gate 1. Optional
   "expected_behavior": "Returns 200 with JWT on valid credentials, 401 on invalid",
   "acceptance_criteria": ["Returns 200 with token on valid credentials", "Returns 401 when password is wrong"],
   "classification": "REST/service API",
-  "required_tests": ["POST /auth/login returns 200 with valid credentials", "POST /auth/login returns 401 with invalid password"],
   "output_path": "specs/user-login.md"
 }
 ```
@@ -121,7 +120,7 @@ Cross-artifact consistency check. Compares spec against contract and implementat
 }
 ```
 
-Returns diagnostics for: contract missing or blank, acceptance criteria not covered in review (SG-ALIGN-001), required tests not covered in review (SG-ALIGN-002), contract structure issues (SG-ALIGN-003), unchecked review items (SG-ALIGN-004). Required before Gate 5.
+Returns diagnostics for: contract missing or blank (SG-ALIGN-003), acceptance criteria not covered in review (SG-ALIGN-001), contract structure issues, unchecked review items (SG-ALIGN-004). Required before Gate 5.
 
 ### `spec_guard_confirm_gate`
 Record a gate confirmation (Gates 3–5 require agent/human evidence).
@@ -172,7 +171,7 @@ Returns structured guidance:
 ```json
 {
   "next_action": "write_failing_tests",
-  "instruction": "Write the tests named in Required Tests / Checks...",
+  "instruction": "Write tests that verify every acceptance criterion in the spec...",
   "gate_target": "gate3",
   "test_guidance": "Unit tests against the documented/exported API surface only..."
 }

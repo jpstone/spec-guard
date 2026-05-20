@@ -69,9 +69,6 @@ Behavior.
 - [x] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
 
-## Required Tests / Checks
-
-- Test it.
 `;
 
 // ─── initialize ───────────────────────────────────────────────────────────────
@@ -263,10 +260,6 @@ const draftArgs = {
   expected_behavior: 'User submits credentials and is redirected to dashboard on success.',
   acceptance_criteria: ['Login form renders correctly', 'Invalid credentials show an error'],
   classification: 'One-off application UI',
-  required_tests: [
-    'renders login form with email and password fields',
-    'shows error when credentials are invalid',
-  ],
 };
 
 test('MCP: spec_guard_draft_spec — full input passes Gate 1', () => {
@@ -423,13 +416,20 @@ test('MCP: spec_guard_interview_questions — returns protocol steps', () => {
   assert.equal(result.next_tool, 'spec_guard_draft_spec');
 });
 
-test('MCP: spec_guard_interview_questions — classification-specific questions for REST API', () => {
-  const response = mcpTool('spec_guard_interview_questions', { classification: 'REST/service API' });
+test('MCP: spec_guard_interview_questions — classification-specific question for One-off application UI includes mockup', () => {
+  const response = mcpTool('spec_guard_interview_questions', { classification: 'One-off application UI' });
   const result = JSON.parse(response.result.content[0].text);
   assert(Array.isArray(result.classification_specific));
   assert(result.classification_specific.length > 0);
-  const testQuestion = result.classification_specific.find(q => q.field === 'required_tests');
-  assert(testQuestion, 'Expected required_tests question for REST/service API');
+  const mockupQuestion = result.classification_specific.find(q => q.field === 'expected_behavior');
+  assert(mockupQuestion, 'Expected mockup/design direction question for One-off application UI');
+});
+
+test('MCP: spec_guard_interview_questions — REST/service API has no classification-specific questions', () => {
+  const response = mcpTool('spec_guard_interview_questions', { classification: 'REST/service API' });
+  const result = JSON.parse(response.result.content[0].text);
+  assert(Array.isArray(result.classification_specific));
+  assert.equal(result.classification_specific.length, 0);
 });
 
 test('MCP: spec_guard_interview_questions — all 13 tools in tools/list', () => {

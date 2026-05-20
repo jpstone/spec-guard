@@ -5,7 +5,6 @@ export const REQUIRED_HEADINGS = [
   'Expected Behavior',
   'Acceptance Criteria',
   'Work Classification',
-  'Required Tests / Checks',
 ];
 
 export const CLASSIFICATIONS = [
@@ -37,7 +36,6 @@ export function checkSpecText(text, path = '<input>') {
   diagnostics.push(...checkRequiredHeadings(normalized, path));
   diagnostics.push(...checkRequiredSectionContent(normalized, path));
   diagnostics.push(...checkClassification(normalized, path));
-  diagnostics.push(...checkRequiredTests(normalized, path));
   diagnostics.push(...checkOpenQuestions(normalized, path));
   diagnostics.push(...checkAcceptanceCriteriaFormat(normalized, path));
   diagnostics.push(...checkVagueCriteria(normalized, path));
@@ -112,7 +110,7 @@ function checkRequiredHeadings(text, path) {
 
 function checkRequiredSectionContent(text, path) {
   return REQUIRED_HEADINGS
-    .filter((h) => h !== 'Work Classification' && h !== 'Required Tests / Checks')
+    .filter((h) => h !== 'Work Classification')
     .filter((h) => hasHeading(text, h) && !hasSubstantiveContent(getSection(text, h)))
     .map((heading) => ({
       severity: 'BLOCKER',
@@ -136,20 +134,6 @@ function checkClassification(text, path) {
     message: selected.length === 0
       ? 'exactly one work classification must be selected; found none'
       : `exactly one work classification must be selected; found ${selected.length}`,
-  }];
-}
-
-function checkRequiredTests(text, path) {
-  if (!hasHeading(text, 'Required Tests / Checks')) return [];
-
-  const section = getSection(text, 'Required Tests / Checks');
-  if (hasSubstantiveContent(section)) return [];
-
-  return [{
-    severity: 'BLOCKER',
-    ruleId: 'SG-TEST-001',
-    path,
-    message: 'required tests/checks must be identified before implementation',
   }];
 }
 

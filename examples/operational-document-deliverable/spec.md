@@ -12,6 +12,3 @@ The deliverable is the document itself. It must give operators enough informatio
 
 Operational/document deliverable.
 
-## Required Tests / Checks
-
-Process/document checks are appropriate because the document is the deliverable.

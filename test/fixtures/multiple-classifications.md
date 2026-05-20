@@ -29,6 +29,3 @@ The checker reports a blocker.
 - [x] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
 
-## Required Tests / Checks
-
-- Run the checker.

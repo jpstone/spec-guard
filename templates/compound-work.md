@@ -12,9 +12,9 @@ Use when one user request spans multiple work classifications.
 
 ## Work Slices
 
-| Slice | Classification | Required Template | Required Tests / Checks | Implement Now? |
-| --- | --- | --- | --- | --- |
-|  |  |  |  | yes/no |
+| Slice | Classification | Required Template | Implement Now? |
+| --- | --- | --- | --- |
+|  |  |  | yes/no |
 
 ## Slice Order
 

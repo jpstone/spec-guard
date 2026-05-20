@@ -34,7 +34,6 @@ A spec must include these headings:
 - `Expected Behavior`
 - `Acceptance Criteria`
 - `Work Classification`
-- `Required Tests / Checks`
 
 ### SG-SPEC-003: Open questions are resolved before implementation
 
@@ -85,14 +84,6 @@ Every task must select exactly one primary work classification. Zero or multiple
 **Severity:** WARNING
 
 Tasks classified as Reusable non-UI API, REST/service API, or Reusable UI component should reference a contract document in Dependencies or include a Contract heading. This is a warning (not a blocker) to support incremental adoption.
-
----
-
-### SG-TEST-001: Tests/checks identified before implementation
-
-**Severity:** BLOCKER
-
-The spec must name required tests/checks before implementation begins. An empty or placeholder `Required Tests / Checks` section is a blocker.
 
 ---
 

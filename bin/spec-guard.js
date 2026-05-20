@@ -66,7 +66,7 @@ async function run(args) {
   const [command, ...rest] = args;
 
   if (command === 'run')             return runCommand(rest);
-  if (command === 'discover')        return discoverCommand(rest);
+  if (command === 'draft')           return discoverCommand(rest);
   if (command === 'check')           return checkCommand(rest);
   if (command === 'analyze')         return analyzeCommand(rest);
   if (command === 'suggest')         return suggestCommand(rest);
@@ -149,13 +149,13 @@ async function runCommand(args) {
   return exitCode;
 }
 
-// ─── discover ────────────────────────────────────────────────────────────────
+// ─── draft ───────────────────────────────────────────────────────────────────
 
 async function discoverCommand(args) {
   const [outputPath, ...extra] = args;
 
   if (!outputPath || extra.length > 0) {
-    console.error('Usage: spec-guard discover path/to/spec.md');
+    console.error('Usage: spec-guard draft path/to/spec.md');
     return 2;
   }
 
@@ -712,7 +712,7 @@ function parseFlags(args) {
 
 function printUsage() {
   console.error(`Usage:
-  spec-guard discover path/to/spec.md                guided wizard — builds a valid spec from answers
+  spec-guard draft path/to/spec.md                   guided wizard — builds a valid spec from answers
   spec-guard run [--check-only] path/to/spec.md      orchestrated 5-phase workflow
   spec-guard check [--json] [--warnings] path/to/spec.md
   spec-guard suggest [--warnings] path/to/spec.md    show diagnostics with concrete fix instructions

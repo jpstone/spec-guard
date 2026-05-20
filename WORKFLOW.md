@@ -90,7 +90,6 @@ This document defines the complete process flow for spec-first, behavior-tested,
    - `Expected Behavior` — observable behavior, not implementation details
    - `Acceptance Criteria` — measurable, checkbox-format criteria
    - `Work Classification` — exactly one selected
-   - `Required Tests / Checks` — named before implementation begins
 
 4. If the request is too vague to fill these sections, do not guess. Ask for clarification or create a `Discovery Request`:
    ```bash
@@ -124,7 +123,6 @@ Do not proceed to Phase 2 until this passes. Common blockers at this gate:
 | `SG-SPEC-002` missing heading | Fill in the missing section |
 | `SG-SPEC-004` empty section | Replace placeholder with concrete content |
 | `SG-CLASS-001` no classification | Select exactly one classification checkbox |
-| `SG-TEST-001` no tests named | Name at least one concrete test/check |
 | `SG-UI-001` UI work, no mockup | Add mockup reference or create a blocker |
 
 ---
@@ -180,12 +178,12 @@ Select the test type based on classification:
 | REST/service API | API/integration tests | Documented contract: routes, status codes, error shapes |
 | Reusable UI component | Unit/component tests | Documented props, states, callbacks, accessibility |
 | One-off application UI | Browser automation | User-visible behavior, form flows, navigation, permission states |
-| Direct behavior, no new API/UI | Smallest behavioral test | Observable change in behavior |
+| Direct behavior, no new API/UI | Tests derived from acceptance criteria | Observable change in behavior — no new API or UI surface to test against specifically |
 | Operational/document deliverable | Process/document checks | Required sections, links, policy gates |
 
 **Steps:**
 
-1. Write the test(s) named in `Required Tests / Checks`.
+1. Write tests that verify every acceptance criterion in the spec. The classification determines the test type (see Phase 2 table).
 2. Run the test suite.
 3. Confirm the new test(s) fail for the expected reason.
 4. Record the failure:

@@ -10,7 +10,7 @@ Classify every task before implementation. The classification determines require
 | HTTP endpoint, webhook, RPC, or cross-service boundary | REST/service API | REST/service API contract | API/integration tests against contract |
 | Shared UI component used across screens/apps/packages | Reusable UI component | Component contract | Unit/component tests against documented component API |
 | Single-use screen, page form, dashboard, or workflow | One-off application UI | No reusable docs unless reusable surface emerges | Browser automation for user-visible behavior |
-| Behavior through existing API/UI surfaces with no new durable contract | Direct behavior with no new API or UI | None by default | Smallest behavioral test with confidence |
+| Behavior through existing API/UI surfaces with no new durable contract | Direct behavior with no new API or UI | None | Tests derived from acceptance criteria — no new surface to target specifically |
 | Runbook, policy, release checklist, help page, compliance artifact, or other document as product | Operational/document deliverable | The deliverable document | Process/document checks |
 
 ## Classification Rules

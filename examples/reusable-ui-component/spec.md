@@ -15,6 +15,3 @@ Create a shared empty-state component for pages with no records.
 
 Reusable UI component.
 
-## Required Tests / Checks
-
-Component tests against documented props and accessibility contract.

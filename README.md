@@ -45,7 +45,7 @@ npm install --save-dev spec-guard
 npx spec-guard init
 
 # Author a spec (guided wizard)
-npx spec-guard discover specs/my-feature.md
+npx spec-guard draft specs/my-feature.md
 
 # Orchestrated workflow (recommended)
 npx spec-guard run specs/my-feature.md
@@ -64,7 +64,7 @@ For agents: paste `AGENTS.md` into agent context. Read `WORKFLOW.md` for the ful
 ## CLI
 
 ```bash
-spec-guard discover path/to/spec.md              # guided spec wizard (interactive)
+spec-guard draft path/to/spec.md                 # guided spec wizard (interactive)
 spec-guard run [--check-only] path/to/spec.md    # 5-phase orchestrated workflow
 spec-guard check [--json] [--warnings] path/to/spec.md
 spec-guard suggest [--json] path/to/spec.md      # check + actionable fix instructions
@@ -87,9 +87,9 @@ spec-guard review path/to/review.md
 spec-guard discovery path/to/discovery.md
 ```
 
-### `spec-guard discover`
+### `spec-guard draft`
 
-Guided wizard for writing a spec from scratch. Asks 8 questions interactively and writes a valid spec file that passes Gate 1. Refuses to overwrite an existing file.
+Guided wizard for writing a spec from scratch. Asks questions interactively and writes a valid spec file that passes Gate 1. Refuses to overwrite an existing file.
 
 ### `spec-guard suggest`
 

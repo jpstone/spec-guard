@@ -34,10 +34,6 @@ Behavior.
 - [ ] One-off application UI
 - [x] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
-
-## Required Tests / Checks
-
-- Test it.
 `;
 
 const uiSpec = `# Spec
@@ -70,10 +66,6 @@ User can log in. See Figma mockup at /designs/login.fig. Uses the design system 
 - [x] One-off application UI
 - [ ] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
-
-## Required Tests / Checks
-
-- Browser automation: login flow.
 `;
 
 // ─── SG-SPEC-002: Required headings ──────────────────────────────────────────
@@ -149,20 +141,6 @@ test('uppercase X is a valid classification selection', () => {
   const text = validSpec.replace('- [x] Direct behavior', '- [X] Direct behavior');
   const blockers = checkSpecText(text, 'uppercase.md').filter(d => d.severity === 'BLOCKER');
   assert.deepEqual(blockers, []);
-});
-
-// ─── SG-TEST-001: Required tests ─────────────────────────────────────────────
-
-test('reports missing required tests/checks', () => {
-  const text = validSpec.replace('## Required Tests / Checks\n\n- Test it.', '## Required Tests / Checks\n\n');
-  const diagnostics = checkSpecText(text, 'tests.md');
-  assert(diagnostics.some(d => d.ruleId === 'SG-TEST-001'));
-});
-
-test('empty bullets do not count as identified tests/checks', () => {
-  const text = validSpec.replace('## Required Tests / Checks\n\n- Test it.', '## Required Tests / Checks\n\n<!-- Identify tests. -->\n\n- ');
-  const diagnostics = checkSpecText(text, 'empty-bullet.md');
-  assert(diagnostics.some(d => d.ruleId === 'SG-TEST-001'));
 });
 
 // ─── SG-CLASS-002: Contract requirement ──────────────────────────────────────

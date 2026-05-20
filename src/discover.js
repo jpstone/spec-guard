@@ -1,7 +1,6 @@
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { CLASSIFICATIONS } from './check.js';
-import { TEST_GUIDANCE } from './run.js';
 
 /**
  * Build a spec markdown document from structured answers.
@@ -9,7 +8,7 @@ import { TEST_GUIDANCE } from './run.js';
  *
  * Required for Gate 1:
  *   problem, inScope (>=1), outOfScope (>=1), expectedBehavior,
- *   acceptanceCriteria (>=1), classification, requiredTests (>=1)
+ *   acceptanceCriteria (>=1), classification
  */
 export function buildSpecFromAnswers({
   title = '',
@@ -24,7 +23,6 @@ export function buildSpecFromAnswers({
   dependencies = [],
   openQuestions = [],
   classification = null,
-  requiredTests = [],
 } = {}) {
   const bulletLines = (arr) =>
     arr.length > 0
@@ -90,10 +88,6 @@ export function buildSpecFromAnswers({
     '## Work Classification',
     '',
     classificationList,
-    '',
-    '## Required Tests / Checks',
-    '',
-    bulletLines(requiredTests),
     '',
   ];
 
@@ -161,7 +155,7 @@ export async function discoverInteractive() {
     hint('Answer each question to produce a valid spec draft.');
     hint('Required fields are marked — press Enter to re-prompt them.');
 
-    const TOTAL = 8;
+    const TOTAL = 7;
 
     // 1. Title
     step(1, TOTAL, 'Title');
@@ -210,20 +204,8 @@ export async function discoverInteractive() {
     }
     print(`  ✓  ${classification}`);
 
-    // 7. Required Tests / Checks
-    step(7, TOTAL, 'Required Tests / Checks  [required]');
-    const guidance = TEST_GUIDANCE[classification];
-    if (guidance) {
-      hint(`For "${classification}":`);
-      hint(guidance);
-    }
-    hint('Name the specific tests you will write. Be concrete:');
-    hint('  "returns 404 when user not found"');
-    hint('  "shows error state when form is submitted empty"');
-    const requiredTests = await askRequiredList('Required Tests', 'name at least one test');
-
-    // 8. Optional sections
-    step(8, TOTAL, 'Optional: Users / Actors and Open Questions');
+    // 7. Optional sections
+    step(7, TOTAL, 'Optional: Users / Actors and Open Questions');
     hint('Who uses or invokes this? (skip if obvious)');
     const users = await askList('Users / Actors');
     print();
@@ -243,7 +225,6 @@ export async function discoverInteractive() {
       acceptanceCriteria,
       openQuestions,
       classification,
-      requiredTests,
     };
 
     return { answers, specText: buildSpecFromAnswers(answers) };
