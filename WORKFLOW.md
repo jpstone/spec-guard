@@ -1,6 +1,6 @@
 # Spec Guard Workflow
 
-This document defines the complete process flow for spec-first, behavior-tested, agent-safe development. Every gate in this workflow is enforced by `spec-guard` tooling. Gates are not advisory — they are checkpoints an agent must pass before proceeding.
+This document is addressed to the agent. All imperatives are instructions you must follow. The human's role is noted where it applies; everything else is your responsibility. Every gate is a hard checkpoint — you do not proceed past a gate until it passes.
 
 ---
 
@@ -92,7 +92,7 @@ This document defines the complete process flow for spec-first, behavior-tested,
      spec-guard new spec <feature-name>
      ```
 
-3. Every required section must be filled in before Gate 1 can pass. The human is responsible for the content — the agent drafts, but must not invent scope, acceptance criteria, or design direction. Required sections are:
+3. Fill in every required section. Draft from human input — do not invent scope, acceptance criteria, or design direction. Required sections:
    - `Problem / Goal` — what problem this solves and what outcome is required
    - `In Scope` — what is explicitly included
    - `Out of Scope` — what is explicitly excluded (prevents silent scope absorption)
@@ -144,8 +144,6 @@ Do not proceed to Phase 2 until this passes. Common blockers at this gate:
 
 **Goal:** Confirm the work type and produce any required contract artifact.
 
-The classification selected in Gate 1 determines what happens next:
-
 | Classification | Required artifact | Command |
 |---|---|---|
 | Reusable non-UI API | API contract | `spec-guard new api-contract <name>` |
@@ -155,7 +153,7 @@ The classification selected in Gate 1 determines what happens next:
 | Direct behavior, no new API/UI | No contract required | — |
 | Operational/document deliverable | The document itself | Create the deliverable document |
 
-Print the classification to confirm:
+Confirm the classification and reference the contract in the spec's `Dependencies` section once created:
 ```bash
 spec-guard classify <feature-name>
 ```
@@ -175,8 +173,6 @@ spec-guard check <feature-name> --warnings
 
 **Required:** No `SG-CLASS-002`, `SG-UI-001`, or `SG-UI-002` blockers.
 
-Add the contract reference to the `Dependencies` section of the spec once the contract file exists.
-
 ---
 
 ## Phase 3: Test First
@@ -194,11 +190,11 @@ Select the test type based on classification:
 | Reusable UI component | Unit/component tests | Documented props, states, callbacks, accessibility |
 | One-off application UI | UI automation | User-visible behavior, form flows, navigation, permission states |
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria | Observable change in behavior — no new API or UI surface to test against specifically |
-| Operational/document deliverable | Process/document checks | Required sections, links, policy gates |
+| Operational/document deliverable | Process/document checks | Required sections, links, document-specific checks |
 
 **Steps:**
 
-1. Write tests that verify every acceptance criterion in the spec. The classification determines the test type (see Phase 2 table).
+1. Write tests that verify every acceptance criterion in the spec. The classification determines the test type (see table above).
 2. Run the test suite.
 3. Confirm the new test(s) fail for the expected reason.
 4. Record the failure:
@@ -206,12 +202,10 @@ Select the test type based on classification:
    Expected failure: [test name] fails because [function/endpoint/component] does not yet exist
    ```
 
-**If you cannot run the test yet**, record the concrete reason before proceeding:
+**If you cannot run the test yet**, you must record a concrete reason before proceeding — missing infrastructure, irreversible side effect, etc. A vague "impractical" without specifics does not qualify.
 ```
-Failure-first impractical: [concrete reason — missing infrastructure, irreversible side effect, etc.]
+Failure-first impractical: [concrete reason]
 ```
-
-`"Impractical"` is not a general escape hatch. If no concrete reason exists, running the test is required.
 
 **Halt conditions in this phase:**
 - Cannot write a test without making implementation assumptions → spec is unclear; return to Phase 1
@@ -298,26 +292,21 @@ Then run the cross-artifact alignment check:
 spec-guard analyze <feature-name>
 ```
 
-This verifies every acceptance criterion is covered in the review, every required test is named, and no unchecked boxes remain. Gate 5 cannot be closed until `spec-guard analyze` reports no `SG-ALIGN` warnings.
+Gate 5 cannot close until `spec-guard analyze` reports no `SG-ALIGN` warnings.
 
 ---
 
 ## Gate 5: Review Complete
 
 **Required:**
-- All review checklist items checked or explicitly resolved
+- All review checklist items checked
 - `spec-guard analyze` reports no `SG-ALIGN` warnings
 
 ---
 
 ## Compound Work
 
-Some requests span multiple work classifications. Do not implement all of it as one undifferentiated task.
-
-**When to split:**
-- One request requires both API work and UI work
-- One request creates both a reusable component and uses it in a page
-- A broad product request ("build a todo app") implies multiple systems
+If a request spans multiple work classifications, split it. Do not implement multiple classifications as one task.
 
 **How to split:**
 1. Create a compound work plan:
@@ -353,12 +342,7 @@ Blocker types:
 
 ## Discovery Mode
 
-Discovery is separate from implementation. Enter discovery mode only when the human explicitly asks:
-
-- "What did we miss?"
-- "What risks remain?"
-- "What should we build next?"
-- "Review for security/accessibility/reliability gaps."
+Discovery is separate from implementation. Enter only when the human explicitly requests it (gap analysis, risk review, "what should we build next?", etc.).
 
 In discovery mode:
 1. Confirm the discovery scope

@@ -1,6 +1,6 @@
 # Agent Instructions — Spec Guard
 
-You are an implementation agent operating under Spec Guard. This document is your complete operating contract. The full process flow is in `WORKFLOW.md`. The full methodology is in `docs/methodology.md`.
+You are an implementation agent operating under Spec Guard. **Read `WORKFLOW.md` before any task** — it defines the step-by-step process and all imperatives in it apply to you. This document is the compact rules reference. `docs/methodology.md` has the full methodology.
 
 ---
 
@@ -14,23 +14,24 @@ Every gate is a `spec-guard` command. Gates are not advisory. You do not proceed
 
 ---
 
-## Before You Touch Any Code
+## Pre-Implementation Checklist
 
-Run this checklist. If you cannot check every item, halt at the first failure.
+Run before writing any implementation code. All items must be checked. If any cannot be checked, halt.
 
-- [ ] I have identified the governing spec (`.spec-guard/specs/__________.md`)
-- [ ] `spec-guard check <name>` exits 0
-- [ ] I have confirmed exactly one work classification: __________
-- [ ] I have read every acceptance criterion and know what behavior each one requires
-- [ ] I will write tests that verify those criteria before writing any implementation code
-- [ ] *(UI classifications only)* A mockup, wireframe, or explicit design direction is in the spec — OR "No mockup required" is documented after human confirmation
-- [ ] *(UI classifications only)* A component library is referenced in the spec — OR "No component library — custom styling" is documented after human confirmation
+- [ ] Governing spec identified: `.spec-guard/specs/<name>.md`
+- [ ] Gate 1 — `spec-guard check <name>` exits 0
+- [ ] Exactly one work classification confirmed: __________
+- [ ] Every acceptance criterion read and understood
+- [ ] Gate 2 — `spec-guard check <name> --warnings` exits 0
+- [ ] Gate 3 — tests written from acceptance criteria, run, and confirmed failing
+- [ ] *(UI only)* Mockup/design direction in spec — or "No mockup required" confirmed by human
+- [ ] *(UI only)* Component library in spec — or "No component library — custom styling" confirmed by human
 
-If the spec doesn't exist: author one (see below). If any item cannot be checked: create a blocker and halt. Do not guess.
+If the spec doesn't exist: author one (see below). Do not guess.
 
 ---
 
-## Authoring a Spec — Two Paths
+## Authoring a Spec
 
 ### Path A: AI-Assisted (recommended when working with a user)
 
@@ -230,7 +231,7 @@ All Spec Guard artifacts live under `.spec-guard/` in the project root:
   discoveries/
   runs/            ← gate confirmation state
 AGENTS.md          ← this file (project root)
-WORKFLOW.md        ← full process flow (project root)
+WORKFLOW.md        ← full process flow — required reading (project root)
 ```
 
 Write commands (`new`, `draft`, `blocker`, `scope-discovery`, `review`, `discovery`, `deviation`) take a bare name and always write to the appropriate `.spec-guard/` subdirectory. Read/validate commands (`check`, `run`, `analyze`, `suggest`, `classify`, `watch`) default to `.spec-guard/specs/` for bare names but accept full paths.
