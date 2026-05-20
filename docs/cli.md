@@ -74,6 +74,24 @@ Prints the selected work classification and the corresponding test guidance, or 
 
 ---
 
+### `confirm-gate`
+
+```bash
+spec-guard confirm-gate <spec> <gate> [--evidence=<text>] [--no-confirm]
+```
+
+Records an agent-confirmed gate (3, 4, or 5) to the run state file. Gates 1 and 2 are automated — use `check` for those.
+
+- `--evidence`: required for gate 3; describe what test failed and why.
+- `--no-confirm`: record that the gate is not yet confirmed (problem encountered).
+
+Example:
+```bash
+spec-guard confirm-gate auth-flow 3 --evidence="test auth.test.js:42 fails — returns 401, expected 403"
+```
+
+---
+
 ### `discovery`
 
 ```bash
@@ -120,6 +138,16 @@ Refuses to overwrite an existing file.
 
 ---
 
+### `gate-status`
+
+```bash
+spec-guard gate-status [--json] <spec>
+```
+
+Shows the pass/fail state of all five gates for a spec. Gates 1 and 2 are checked live; gates 3–5 are read from the saved run state (`.spec-guard/runs/<name>-run.json`).
+
+---
+
 ### `init`
 
 ```bash
@@ -151,6 +179,36 @@ All files and directories are created only if they don't already exist. `AGENTS.
 
 ---
 
+### `initiative`
+
+```bash
+spec-guard initiative <name>
+```
+
+Interactive wizard for decomposing a multi-feature initiative. Collects initiative name, title, description, and a list of feature slices (each with name, title, description, and classification). Writes the artifact to `.spec-guard/initiatives/<name>.md`.
+
+Refuses to overwrite an existing file.
+
+**Exit codes:**
+
+- `0` — artifact written successfully
+- `1` — output file already exists, or no slices defined
+- `2` — usage error
+
+---
+
+### `initiative-questions`
+
+```bash
+spec-guard initiative-questions [--json]
+```
+
+Returns the structured question list for gathering context before decomposing a broad app or product idea into individual feature slices. Use this when a developer describes a multi-feature initiative rather than a single capability.
+
+With `--json`, outputs `{ required, optional }` as JSON.
+
+---
+
 ### `new`
 
 ```bash
@@ -172,6 +230,16 @@ Available kinds:
 | `operational-document` | `.spec-guard/specs/` | Operational deliverable |
 | `task-plan` | `.spec-guard/specs/` | Implementation task plan |
 | `compound-work` | `.spec-guard/specs/` | Multi-classification work plan |
+
+---
+
+### `next`
+
+```bash
+spec-guard next [--json] <spec>
+```
+
+Prints the next action required given the current gate state. Reads saved run state to determine which gates have been confirmed, then checks gates 1 and 2 live. Exits 0 only when all 5 gates are complete.
 
 ---
 
@@ -224,74 +292,6 @@ spec-guard watch <spec>
 ```
 
 Watches a single spec file and re-runs `check` on every save. Clears the terminal on each run. Useful while writing a spec.
-
----
-
-### `gate-status`
-
-```bash
-spec-guard gate-status [--json] <spec>
-```
-
-Shows the pass/fail state of all five gates for a spec. Gates 1 and 2 are checked live; gates 3–5 are read from the saved run state (`.spec-guard/runs/<name>-run.json`).
-
----
-
-### `confirm-gate`
-
-```bash
-spec-guard confirm-gate <spec> <gate> [--evidence=<text>] [--no-confirm]
-```
-
-Records an agent-confirmed gate (3, 4, or 5) to the run state file. Gates 1 and 2 are automated — use `check` for those.
-
-- `--evidence`: required for gate 3; describe what test failed and why.
-- `--no-confirm`: record that the gate is not yet confirmed (problem encountered).
-
-Example:
-```bash
-spec-guard confirm-gate auth-flow 3 --evidence="test auth.test.js:42 fails — returns 401, expected 403"
-```
-
----
-
-### `next`
-
-```bash
-spec-guard next [--json] <spec>
-```
-
-Prints the next action required given the current gate state. Reads saved run state to determine which gates have been confirmed, then checks gates 1 and 2 live. Exits 0 only when all 5 gates are complete.
-
----
-
-### `initiative-questions`
-
-```bash
-spec-guard initiative-questions [--json]
-```
-
-Returns the structured question list for gathering context before decomposing a broad app or product idea into individual feature slices. Use this when a developer describes a multi-feature initiative rather than a single capability.
-
-With `--json`, outputs `{ required, optional }` as JSON.
-
----
-
-### `initiative`
-
-```bash
-spec-guard initiative <name>
-```
-
-Interactive wizard for decomposing a multi-feature initiative. Collects initiative name, title, description, and a list of feature slices (each with name, title, description, and classification). Writes the artifact to `.spec-guard/initiatives/<name>.md`.
-
-Refuses to overwrite an existing file.
-
-**Exit codes:**
-
-- `0` — artifact written successfully
-- `1` — output file already exists, or no slices defined
-- `2` — usage error
 
 ---
 

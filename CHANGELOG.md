@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2
+
+### Internal
+
+- MCP server now reads version from `package.json` at startup — single source of truth
+
 ## 0.7.1
 
 ### Documentation

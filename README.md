@@ -94,20 +94,20 @@ Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
 
 | Tool | What it does |
 |---|---|
+| `spec_guard_analyze` | Cross-artifact consistency check (spec ↔ contract ↔ review) |
 | `spec_guard_check` | Validate a spec; returns diagnostics |
-| `spec_guard_suggest` | Check + return each diagnostic with a concrete fix instruction |
-| `spec_guard_gate_status` | Status of all 5 gates for a spec |
 | `spec_guard_classify` | Get classification + test guidance |
-| `spec_guard_test_guidance` | Get test type and Gate 2 checklist for a classification |
 | `spec_guard_confirm_gate` | Record gate 3/4/5 confirmation with evidence |
 | `spec_guard_create_artifact` | Create any artifact from a template |
-| `spec_guard_validate_directory` | Check all specs in a directory |
-| `spec_guard_status` | Overview of all specs |
-| `spec_guard_initiative_questions` | Get question list for decomposing a broad app into feature slices |
-| `spec_guard_save_initiative` | Save initiative decomposition artifact; returns slice names for drafting |
-| `spec_guard_interview_questions` | Get structured question list for AI-assisted spec authoring |
 | `spec_guard_draft_spec` | Turn interview answers into a valid spec (passes Gate 1) |
-| `spec_guard_analyze` | Cross-artifact consistency check (spec ↔ contract ↔ review) |
+| `spec_guard_gate_status` | Status of all 5 gates for a spec |
+| `spec_guard_initiative_questions` | Get question list for decomposing a broad app into feature slices |
+| `spec_guard_interview_questions` | Get structured question list for AI-assisted spec authoring |
+| `spec_guard_save_initiative` | Save initiative decomposition artifact; returns slice names for drafting |
+| `spec_guard_status` | Overview of all specs |
+| `spec_guard_suggest` | Check + return each diagnostic with a concrete fix instruction |
+| `spec_guard_test_guidance` | Get test type and Gate 2 checklist for a classification |
+| `spec_guard_validate_directory` | Check all specs in a directory |
 | `spec_guard_workflow_next_step` | **Given gates passed → what to do next** |
 
 `spec_guard_workflow_next_step` is the key tool for agents: call it after each action and it returns a structured `next_action` + `instruction` so the agent always knows what step comes next without reading docs.
@@ -165,15 +165,14 @@ WORKFLOW.md
 
 | Doc | What it covers |
 |---|---|
-| [Quickstart](docs/quickstart.md) | Minimum workflow, live validation, CI setup |
 | [CLI Reference](docs/cli.md) | All commands, flags, exit codes, diagnostic format |
-| [Validation Rules](docs/validation-rules.md) | Every rule ID with severity and description |
-| [Quality Gates](docs/quality-gates.md) | Gate-by-gate breakdown and pass conditions |
-| [Work Classification](docs/work-classification.md) | How to choose the right classification |
-| [Philosophy](docs/philosophy.md) | Design philosophy, innovations, and problems Spec Guard solves |
-| [Principles](docs/principles.md) | Foundational rules the methodology is built on |
 | [Glossary](docs/glossary.md) | Term definitions |
 | [MCP Reference](mcp/README.md) | MCP server setup, tool list, and usage examples |
+| [Philosophy](docs/philosophy.md) | Design philosophy, innovations, and problems Spec Guard solves |
+| [Quality Gates](docs/quality-gates.md) | Gate-by-gate breakdown and pass conditions |
+| [Quickstart](docs/quickstart.md) | Minimum workflow, live validation, CI setup |
+| [Validation Rules](docs/validation-rules.md) | Every rule ID with severity and description |
+| [Work Classification](docs/work-classification.md) | How to choose the right classification |
 
 ---
 

@@ -22,7 +22,7 @@
  */
 
 import { readFile, writeFile, mkdir, access, readdir } from 'node:fs/promises';
-import { constants } from 'node:fs';
+import { constants, readFileSync } from 'node:fs';
 import { resolve, relative, join, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -41,6 +41,7 @@ import { initiativeQuestions, saveInitiative } from '../src/initiative.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
+const { version } = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'));
 
 // ─── MCP Protocol ─────────────────────────────────────────────────────────────
 
@@ -939,7 +940,7 @@ async function dispatch(msg) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'spec-guard', version: '0.7.1' },
+        serverInfo: { name: 'spec-guard', version },
       },
     };
   }
