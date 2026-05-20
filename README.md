@@ -12,7 +12,7 @@ Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven 
 
 | Layer | What it is | Who uses it |
 |---|---|---|
-| **`WORKFLOW.md` + `AGENTS.md`** | Process flow document + compact agent instructions | Humans and agents reading context |
+| **`WORKFLOW.md` + `AGENTS.md`** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
 | **`spec-guard run`** | Interactive CLI that walks a spec through all 5 gates | Agents executing CLI commands |
 | **MCP server** | Structured tool calls for all Spec Guard operations | MCP-compatible agents (Claude Code, Cursor, etc.) |
 
@@ -57,7 +57,17 @@ npx spec-guard check specs/my-feature.md
 npx spec-guard status
 ```
 
-For agents: paste `AGENTS.md` into agent context. Read `WORKFLOW.md` for the full process flow.
+## Wiring an agent to Spec Guard
+
+Agents don't inherently know the Spec Guard workflow. Without it, they'll implement normally — no gates, no classification, no halt conditions. There are three ways to give an agent the operating contract:
+
+**MCP server (preferred)** — Connect the MCP server and the agent receives structured guidance at each step via tool calls. No upfront loading required. `spec_guard_workflow_next_step` always tells the agent what to do next. Works with any MCP-compatible agent (Claude Code, Cursor, Copilot, etc.).
+
+**Project file context** — `spec-guard init` puts `AGENTS.md` in the project root. Agents that automatically ingest project-level instruction files (Claude Code's `CLAUDE.md` pattern, Cursor rules, etc.) will pick it up without any manual step. Point the agent at the project and it reads the contract on its own.
+
+**Manual paste** — For agents without MCP support or automatic file ingestion, paste the contents of `AGENTS.md` at the start of a session. The agent then operates under the full Spec Guard contract for that session.
+
+`WORKFLOW.md` has the full phase-by-phase process flow. `AGENTS.md` is the compact operating contract an agent needs to execute it.
 
 ---
 
@@ -101,7 +111,7 @@ Cross-artifact consistency check that compares the spec against its contract and
 
 - Contract exists and contains actual interface definitions (not just a blank template)
 - Every acceptance criterion from the spec appears in the review
-- Every required test from the spec appears in the review
+- Every acceptance criterion from the spec appears in the review
 - No unchecked boxes remain in the review
 
 Required before Gate 5 can be considered complete.
@@ -167,7 +177,7 @@ See `mcp/README.md` for full setup and usage.
 
 ```
 specs/
-  example.md              ← starter spec
+  example.md
 contracts/
 .spec-guard/
   blockers/
@@ -175,9 +185,12 @@ contracts/
   reviews/
   deviations/
   discoveries/
-  runs/                   ← gate confirmation records
-AGENTS.md                 ← compact agent instructions
-WORKFLOW.md               ← full process flow with gates
+  runs/
+AGENTS.md
+WORKFLOW.md
+.github/
+  workflows/
+    spec-guard.yml
 ```
 
 ---

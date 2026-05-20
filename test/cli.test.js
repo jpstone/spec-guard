@@ -61,6 +61,64 @@ test('init creates Spec Guard directories', () => {
   assert.equal(existsSync(join(directory, '.spec-guard', 'blockers')), true);
   assert.equal(existsSync(join(directory, '.spec-guard', 'scope-discoveries')), true);
   assert.equal(existsSync(join(directory, '.spec-guard', 'reviews')), true);
+  assert.equal(existsSync(join(directory, '.spec-guard', 'deviations')), true);
+  assert.equal(existsSync(join(directory, '.spec-guard', 'discoveries')), true);
+  assert.equal(existsSync(join(directory, '.spec-guard', 'runs')), true);
+});
+
+test('init creates starter spec', () => {
+  const directory = tempDir();
+  runCli(['init', directory]);
+
+  const specPath = join(directory, 'specs', 'example.md');
+  assert.equal(existsSync(specPath), true);
+  assert.match(readFileSync(specPath, 'utf8'), /^# Spec/);
+});
+
+test('init creates AGENTS.md', () => {
+  const directory = tempDir();
+  runCli(['init', directory]);
+
+  const agentsPath = join(directory, 'AGENTS.md');
+  assert.equal(existsSync(agentsPath), true);
+  assert.match(readFileSync(agentsPath, 'utf8'), /Agent Instructions/);
+});
+
+test('init creates WORKFLOW.md', () => {
+  const directory = tempDir();
+  runCli(['init', directory]);
+
+  const workflowPath = join(directory, 'WORKFLOW.md');
+  assert.equal(existsSync(workflowPath), true);
+  assert.match(readFileSync(workflowPath, 'utf8'), /Spec Guard Workflow/);
+});
+
+test('init does not overwrite existing AGENTS.md', () => {
+  const directory = tempDir();
+  const agentsPath = join(directory, 'AGENTS.md');
+  writeFileSync(agentsPath, 'existing content');
+  runCli(['init', directory]);
+
+  assert.equal(readFileSync(agentsPath, 'utf8'), 'existing content');
+});
+
+test('init does not overwrite existing WORKFLOW.md', () => {
+  const directory = tempDir();
+  const workflowPath = join(directory, 'WORKFLOW.md');
+  writeFileSync(workflowPath, 'existing content');
+  runCli(['init', directory]);
+
+  assert.equal(readFileSync(workflowPath, 'utf8'), 'existing content');
+});
+
+test('init does not overwrite existing starter spec', () => {
+  const directory = tempDir();
+  runCli(['init', directory]);
+  const specPath = join(directory, 'specs', 'example.md');
+  writeFileSync(specPath, 'existing spec');
+  runCli(['init', directory]);
+
+  assert.equal(readFileSync(specPath, 'utf8'), 'existing spec');
 });
 
 test('new spec creates a spec from the template', () => {
