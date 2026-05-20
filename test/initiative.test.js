@@ -188,6 +188,42 @@ test('initiative refuses to overwrite existing file', () => {
   assert.match(result.stderr, /SG-USAGE-002/);
 });
 
+test('initiative --from-json creates initiative file from JSON', () => {
+  const dir = tempDir();
+  runCli(['init'], { cwd: dir });
+  const jsonPath = join(dir, 'init.json');
+  writeFileSync(jsonPath, JSON.stringify({
+    title: 'My App',
+    description: 'A simple task management app',
+    slices: [
+      { name: 'user-auth', title: 'User Auth', description: 'Sign up and login', classification: 'REST/service API' },
+      { name: 'todo-ui', title: 'Todo UI', description: 'Main task list', classification: 'One-off application UI' },
+    ],
+  }));
+  const result = runCli(['initiative', '--from-json', jsonPath, 'my-app'], { cwd: dir });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(existsSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md')));
+});
+
+test('initiative --from-json with stdin (-) creates initiative file', () => {
+  const dir = tempDir();
+  runCli(['init'], { cwd: dir });
+  const json = JSON.stringify({
+    title: 'Another App',
+    description: 'An e-commerce platform',
+    slices: [
+      { name: 'product-api', title: 'Product API', description: 'CRUD for products', classification: 'REST/service API' },
+    ],
+  });
+  const result = spawnSync(process.execPath, [cli, 'initiative', '--from-json', '-', 'another-app'], {
+    cwd: dir,
+    input: json,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(existsSync(join(dir, '.spec-guard', 'initiatives', 'another-app.md')));
+});
+
 // ─── CLI: init creates initiatives directory ──────────────────────────────────
 
 test('init creates .spec-guard/initiatives/ directory', () => {

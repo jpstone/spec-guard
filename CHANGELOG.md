@@ -2,6 +2,14 @@
 
 ## 0.8.0
 
+### CLI/MCP parity for non-interactive agents
+
+- `spec-guard interview-questions [--json]` — mirrors `spec_guard_interview_questions`; prints structured question list or returns JSON with `pre_classification`, `classification_specific`, and `universal_optional` arrays
+- `spec-guard draft [--from-json <path>|-] <name>` — `--from-json` flag accepts a JSON file path or `-` for stdin; non-interactive path for CLI agents that cannot drive a TTY wizard
+- `spec-guard initiative [--from-json <path>|-] <name>` — same non-interactive flag for initiative creation
+- `readJsonInput()` helper in `bin/spec-guard.js` — shared stdin/file JSON reader used by both `--from-json` paths
+- `interviewQuestions()` extracted from `mcp/server.js` into `src/discover.js` — single source for CLI and MCP
+
 ### Review completeness enforcement
 
 - `templates/implementation-review.md` — added `Linked Contract`, `Implementation Files`, `Test Files`, `Summary of Change`, and `Linked Documentation` sections; added Documentation Updates checkbox requiring all linked docs are confirmed updated

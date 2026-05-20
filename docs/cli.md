@@ -121,10 +121,26 @@ Typical triggers:
 ### `draft`
 
 ```bash
-spec-guard draft <name>
+spec-guard draft [--from-json <path>|-] <name>
 ```
 
-Interactive guided wizard for writing a spec from scratch. Asks questions (problem, scope, expected behavior, acceptance criteria, work classification, and optional fields), then writes a spec file that passes Gate 1. Loops on required fields until they are filled.
+Guided wizard for writing a spec from scratch. Asks questions (problem, scope, expected behavior, acceptance criteria, work classification, and optional fields), then writes a spec file that passes Gate 1. Loops on required fields until they are filled.
+
+**Non-interactive mode:** pass `--from-json <path>` to read answers from a JSON file instead of prompting. Use `-` to read from stdin. The JSON must include `problem`, `in_scope`, `out_of_scope`, `expected_behavior`, `acceptance_criteria`, and `classification`. Optional fields: `title`, `users`, `open_questions`.
+
+```json
+{
+  "title": "Login Feature",
+  "problem": "Users cannot authenticate",
+  "in_scope": ["Login form", "JWT issuance"],
+  "out_of_scope": ["OAuth", "SSO"],
+  "users": ["End user"],
+  "expected_behavior": "User submits credentials and receives a token",
+  "acceptance_criteria": ["Valid credentials return 200 with token"],
+  "open_questions": [],
+  "classification": "Reusable non-UI API"
+}
+```
 
 Defaults to `.spec-guard/specs/<name>.md`. Pass a full path to write elsewhere.
 
@@ -182,10 +198,23 @@ All files and directories are created only if they don't already exist. `AGENTS.
 ### `initiative`
 
 ```bash
-spec-guard initiative <name>
+spec-guard initiative [--from-json <path>|-] <name>
 ```
 
-Interactive wizard for decomposing a multi-feature initiative. Collects initiative name, title, description, and a list of feature slices (each with name, title, description, and classification). Writes the artifact to `.spec-guard/initiatives/<name>.md`.
+Wizard for decomposing a multi-feature initiative. Collects initiative name, title, description, and a list of feature slices (each with name, title, description, and classification). Writes the artifact to `.spec-guard/initiatives/<name>.md`.
+
+**Non-interactive mode:** pass `--from-json <path>` to read answers from a JSON file instead of prompting. Use `-` to read from stdin. The JSON must include `title`, `description`, and `slices` (array of `{ name, title, description, classification }`).
+
+```json
+{
+  "title": "My App",
+  "description": "A task management application",
+  "slices": [
+    { "name": "user-auth", "title": "User Auth", "description": "Sign up and login", "classification": "REST/service API" },
+    { "name": "todo-ui",   "title": "Todo UI",   "description": "Main task list",    "classification": "One-off application UI" }
+  ]
+}
+```
 
 Refuses to overwrite an existing file.
 
@@ -206,6 +235,18 @@ spec-guard initiative-questions [--json]
 Returns the structured question list for gathering context before decomposing a broad app or product idea into individual feature slices. Use this when a developer describes a multi-feature initiative rather than a single capability.
 
 With `--json`, outputs `{ required, optional }` as JSON.
+
+---
+
+### `interview-questions`
+
+```bash
+spec-guard interview-questions [--json]
+```
+
+Returns the structured question list for guiding a spec authoring conversation. Use this before calling `draft` — ask the user these questions, collect answers, then pass them to `draft --from-json`.
+
+With `--json`, outputs `{ pre_classification, classification_specific, universal_optional, protocol, next_tool }` as JSON. `pre_classification` is the required question list; `universal_optional` contains optional questions (title, open questions).
 
 ---
 

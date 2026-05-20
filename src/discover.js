@@ -2,6 +2,91 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { CLASSIFICATIONS } from './check.js';
 
+export function interviewQuestions(classification = null) {
+  const base = [
+    {
+      field: 'problem',
+      required: true,
+      question: 'What problem are you solving, or what outcome do you need?',
+      hint: 'Focus on the problem, not the solution. What happens if this is not built?',
+    },
+    {
+      field: 'in_scope',
+      required: true,
+      question: 'What is explicitly included in this work? List the specific things that must be delivered.',
+      hint: 'Be concrete. Vague scope items like "the API" are not sufficient.',
+    },
+    {
+      field: 'out_of_scope',
+      required: true,
+      question: 'What are you explicitly NOT building? What might someone assume is included but is not?',
+      hint: 'Listing out-of-scope items prevents scope creep and agent overreach.',
+    },
+    {
+      field: 'expected_behavior',
+      required: true,
+      question: 'What will users or callers observe when this is working correctly? Describe observable behavior.',
+      hint: 'Describe outcomes, not implementation details.',
+    },
+    {
+      field: 'acceptance_criteria',
+      required: true,
+      question: 'What must be provably true when this is done? List specific, testable conditions.',
+      hint: 'Each criterion becomes a checkbox. Avoid vague words like "correctly" or "properly".',
+    },
+    {
+      field: 'classification',
+      required: true,
+      question: `Which work type best describes this? Choose exactly one: ${CLASSIFICATIONS.join(' | ')}`,
+      hint: 'If the work spans multiple types, it needs to be decomposed into separate specs.',
+    },
+  ];
+
+  const classificationSpecific = {
+    'One-off application UI': [
+      {
+        field: 'expected_behavior',
+        required: true,
+        question: 'What is the mockup, wireframe, or design direction? Provide a link or description.',
+        hint: 'UI work cannot proceed without design direction. No mockup = blocker.',
+      },
+    ],
+  };
+
+  const universal = [
+    {
+      field: 'title',
+      required: false,
+      question: 'What is a short name for this feature or change?',
+      hint: 'Optional, but helpful for tracking.',
+    },
+    {
+      field: 'open_questions',
+      required: false,
+      question: 'Are there any unresolved questions that might affect implementation?',
+      hint: 'Better to surface these now than discover them at Gate 3.',
+    },
+  ];
+
+  const additional = classification ? (classificationSpecific[classification] || []) : [];
+
+  return {
+    protocol: [
+      '1. Ask the user the required questions in order.',
+      '2. Ask optional questions if time permits or they seem relevant.',
+      '3. Call spec_guard_draft_spec with the collected answers.',
+      '4. If gate1_passed is false, address missing_required and retry.',
+      '5. Present the spec to the user for review before proceeding to spec-guard run.',
+    ].join('\n'),
+    pre_classification: base,
+    classification_specific: classification
+      ? additional
+      : { _note: 'Call again with classification param to get classification-specific questions once classification is known.' },
+    universal_optional: universal,
+    next_tool: 'spec_guard_draft_spec',
+  };
+}
+
 const UI_CLASSIFICATIONS = ['One-off application UI', 'Reusable UI component'];
 
 /**

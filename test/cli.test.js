@@ -414,3 +414,62 @@ test('draft exits 1 when output file already exists', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /SG-USAGE-002/);
 });
+
+test('draft --from-json creates spec file from JSON input', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const jsonPath = join(directory, 'answers.json');
+  writeFileSync(jsonPath, JSON.stringify({
+    title: 'Login Feature',
+    problem: 'Users cannot authenticate',
+    in_scope: ['Login form', 'JWT issuance'],
+    out_of_scope: ['OAuth', 'SSO'],
+    users: ['End user'],
+    expected_behavior: 'User submits credentials and receives a token',
+    acceptance_criteria: ['Valid credentials return 200 with token', 'Invalid credentials return 401'],
+    open_questions: [],
+    classification: 'Reusable non-UI API',
+  }));
+  const result = runCli(['draft', '--from-json', jsonPath, 'login-feature'], { cwd: directory });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(existsSync(join(directory, '.spec-guard', 'specs', 'login-feature.md')));
+});
+
+test('draft --from-json with stdin (-) creates spec file', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const json = JSON.stringify({
+    title: 'Signup',
+    problem: 'No signup flow',
+    in_scope: ['Email signup'],
+    out_of_scope: ['OAuth'],
+    users: [],
+    expected_behavior: 'User can register',
+    acceptance_criteria: ['POST /signup returns 201'],
+    open_questions: [],
+    classification: 'REST/service API',
+  });
+  const result = spawnSync(process.execPath, [cli, 'draft', '--from-json', '-', 'signup'], {
+    cwd: directory,
+    input: json,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(existsSync(join(directory, '.spec-guard', 'specs', 'signup.md')));
+});
+
+// ─── interview-questions ──────────────────────────────────────────────────────
+
+test('interview-questions prints question list', () => {
+  const result = runCli(['interview-questions']);
+  assert.equal(result.status, 0);
+  assert.ok(result.stdout.length > 0);
+});
+
+test('interview-questions --json returns parseable JSON with pre_classification and universal_optional', () => {
+  const result = runCli(['interview-questions', '--json']);
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(result.stdout);
+  assert.ok(Array.isArray(parsed.pre_classification), 'should have pre_classification array');
+  assert.ok(Array.isArray(parsed.universal_optional), 'should have universal_optional array');
+});

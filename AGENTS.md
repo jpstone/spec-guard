@@ -12,6 +12,8 @@ DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → TEST FIRST → [G
 
 Every gate is a `spec-guard` command. Gates are not advisory. You do not proceed past a gate until it passes.
 
+> **Invoking the CLI:** Use `npx spec-guard <command>` unless `spec-guard` resolves on your PATH (e.g. globally installed or the project has a `spec-guard` npm script). If the bare command fails with "not found", prefix every command with `npx`.
+
 ---
 
 ## Before Starting Any Work on an Existing Feature

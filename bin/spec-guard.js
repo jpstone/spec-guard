@@ -12,7 +12,7 @@ import {
   getSpecTitle,
 } from '../src/check.js';
 import { runInteractive, runCheck, PHASES, gate1, gate2, TEST_GUIDANCE } from '../src/run.js';
-import { discoverInteractive } from '../src/discover.js';
+import { discoverInteractive, buildSpecFromAnswers, interviewQuestions } from '../src/discover.js';
 import { initiativeQuestions, saveInitiative, initiativeInteractive } from '../src/initiative.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
@@ -106,6 +106,7 @@ async function run(args) {
   if (command === 'gate-status')     return gateStatusCommand(rest);
   if (command === 'confirm-gate')    return confirmGateCommand(rest);
   if (command === 'next')            return nextCommand(rest);
+  if (command === 'interview-questions')  return interviewQuestionsCommand(rest);
   if (command === 'initiative-questions') return initiativeQuestionsCommand(rest);
   if (command === 'initiative')           return initiativeCommand(rest);
   if (command === 'blocker')         return copyTemplateCommand(rest, 'templates/blocker.md', 'blocker', 'blocker', SG.blockers);
@@ -183,10 +184,11 @@ async function runCommand(args) {
 // ─── draft ───────────────────────────────────────────────────────────────────
 
 async function discoverCommand(args) {
-  const [rawPath, ...extra] = args;
+  const flags = parseFlags(args);
+  const rawPath = flags.positional[0];
 
-  if (!rawPath || extra.length > 0) {
-    console.error('Usage: spec-guard draft <name>');
+  if (!rawPath || flags.positional.length > 1) {
+    console.error('Usage: spec-guard draft [--from-json <path|-] <name>');
     return 2;
   }
 
@@ -208,7 +210,29 @@ async function discoverCommand(args) {
     }
   }
 
-  const { specText } = await discoverInteractive();
+  let specText;
+  if (flags['from-json']) {
+    let data;
+    try {
+      data = await readJsonInput(flags['from-json']);
+    } catch (err) {
+      console.error(`[BLOCKER] SG-USAGE-001: cannot read JSON input: ${err.message}`);
+      return 2;
+    }
+    specText = buildSpecFromAnswers({
+      title: data.title || '',
+      problem: data.problem || '',
+      inScope: data.in_scope || [],
+      outOfScope: data.out_of_scope || [],
+      users: data.users || [],
+      expectedBehavior: data.expected_behavior || '',
+      acceptanceCriteria: data.acceptance_criteria || [],
+      openQuestions: data.open_questions || [],
+      classification: data.classification || null,
+    });
+  } else {
+    ({ specText } = await discoverInteractive());
+  }
 
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, specText, { flag: 'wx' });
@@ -821,6 +845,32 @@ async function nextCommand(args) {
   return result.complete ? 0 : 1;
 }
 
+// ─── interview-questions ──────────────────────────────────────────────────────
+
+async function interviewQuestionsCommand(args) {
+  const flags = parseFlags(args);
+  const result = interviewQuestions();
+
+  if (flags.json) {
+    console.log(JSON.stringify(result));
+    return 0;
+  }
+
+  console.log('\n  Required questions:\n');
+  for (const q of result.pre_classification) {
+    console.log(`  [${q.field}] ${q.question}`);
+    console.log(`    ${q.hint}`);
+    console.log();
+  }
+  console.log('  Optional questions:\n');
+  for (const q of result.universal_optional) {
+    console.log(`  [${q.field}] ${q.question}`);
+    console.log(`    ${q.hint}`);
+    console.log();
+  }
+  return 0;
+}
+
 // ─── initiative-questions ─────────────────────────────────────────────────────
 
 async function initiativeQuestionsCommand(args) {
@@ -850,10 +900,11 @@ async function initiativeQuestionsCommand(args) {
 // ─── initiative ───────────────────────────────────────────────────────────────
 
 async function initiativeCommand(args) {
-  const [rawName, ...extra] = args;
+  const flags = parseFlags(args);
+  const rawName = flags.positional[0];
 
-  if (!rawName || extra.length > 0) {
-    console.error('Usage: spec-guard initiative <name>');
+  if (!rawName || flags.positional.length > 1) {
+    console.error('Usage: spec-guard initiative [--from-json <path>|-] <name>');
     return 2;
   }
 
@@ -869,10 +920,22 @@ async function initiativeCommand(args) {
     }
   }
 
-  const answers = await initiativeInteractive();
-  if (answers.error) {
-    console.error(`[BLOCKER] SG-USAGE-001: ${answers.error}`);
-    return 1;
+  let answers;
+  if (flags['from-json']) {
+    let data;
+    try {
+      data = await readJsonInput(flags['from-json']);
+    } catch (err) {
+      console.error(`[BLOCKER] SG-USAGE-001: cannot read JSON input: ${err.message}`);
+      return 2;
+    }
+    answers = { name: rawName, title: data.title || '', description: data.description || '', slices: data.slices || [] };
+  } else {
+    answers = await initiativeInteractive();
+    if (answers.error) {
+      console.error(`[BLOCKER] SG-USAGE-001: ${answers.error}`);
+      return 1;
+    }
   }
 
   const result = await saveInitiative({ ...answers });
@@ -1095,6 +1158,18 @@ function inferReviewPath(specPath) {
   return `.spec-guard/reviews/${name}.md`;
 }
 
+async function readJsonInput(pathOrDash) {
+  let text;
+  if (pathOrDash === '-') {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    text = Buffer.concat(chunks).toString('utf8');
+  } else {
+    text = await readFile(resolve(pathOrDash), 'utf8');
+  }
+  return JSON.parse(text);
+}
+
 async function collectMarkdownFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = [];
@@ -1118,6 +1193,7 @@ function parseFlags(args) {
     else if (arg === '--check-only') flags['check-only'] = true;
     else if (arg === '--contract') flags.contract = args[++i] || null;
     else if (arg === '--review') flags.review = args[++i] || null;
+    else if (arg === '--from-json') flags['from-json'] = args[++i] || null;
     else if (arg.startsWith('--')) {
       // Handle --key=value and --no-key boolean flags
       const eqIdx = arg.indexOf('=');
@@ -1138,7 +1214,8 @@ function parseFlags(args) {
 
 function printUsage() {
   console.error(`Usage:
-  spec-guard draft <name>                            guided wizard — builds a valid spec from answers
+  spec-guard interview-questions [--json]            list spec authoring questions (mirrors spec_guard_interview_questions)
+  spec-guard draft [--from-json <path>|-] <name>    guided wizard — or non-interactive from JSON
   spec-guard run [--check-only] <name>               orchestrated 5-phase workflow
   spec-guard check [--json] [--warnings] <name>
   spec-guard suggest [--warnings] <name>             show diagnostics with concrete fix instructions
@@ -1158,7 +1235,7 @@ function printUsage() {
   spec-guard discovery <name>
   spec-guard deviation <name>
   spec-guard initiative-questions [--json]           list initiative decomposition questions
-  spec-guard initiative <name>                       interactive wizard — decompose app into slices
+  spec-guard initiative [--from-json <path>|-] <name>  interactive wizard — or non-interactive from JSON
 
   Bare names default to .spec-guard/ subdirectories. Pass a full path to override.`);
 }

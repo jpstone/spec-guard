@@ -63,6 +63,32 @@ Run `check` and return each diagnostic annotated with a concrete, multi-line fix
 { "spec_path": ".spec-guard/specs/my-feature.md" }
 ```
 
+### `spec_guard_initiative_questions`
+Get the structured question list for gathering context before decomposing a broad app or product idea into individual feature slices. Call this when a developer describes a multi-feature initiative rather than a single capability.
+
+```json
+{}
+```
+
+Returns `{ required, optional }` arrays of questions.
+
+### `spec_guard_save_initiative`
+Validate and write an initiative decomposition artifact to `.spec-guard/initiatives/<name>.md`. Returns slice names and suggested spec paths for use with `spec_guard_draft_spec`.
+
+```json
+{
+  "name": "my-app",
+  "title": "My App",
+  "description": "A task management application",
+  "slices": [
+    { "name": "user-auth", "title": "User Auth", "description": "Sign up and login", "classification": "REST/service API" },
+    { "name": "todo-ui",   "title": "Todo UI",   "description": "Main task list",    "classification": "One-off application UI" }
+  ]
+}
+```
+
+Returns `{ path, slices }` where each slice includes `name` and `suggestedSpecPath`. Returns `{ error }` if a classification is invalid or a slice name conflicts with an existing spec.
+
 ### `spec_guard_interview_questions`
 Get a structured question list and authoring protocol for AI-assisted spec authoring. Call this first, use the questions to interview the user, then call `spec_guard_draft_spec` with their answers.
 
@@ -120,7 +146,7 @@ Cross-artifact consistency check. Compares spec against contract and implementat
 }
 ```
 
-Returns diagnostics for: contract missing or blank (SG-ALIGN-003), acceptance criteria not covered in review (SG-ALIGN-001), contract structure issues, unchecked review items (SG-ALIGN-004). Required before Gate 5.
+Returns diagnostics for: contract missing or blank (SG-ALIGN-003), acceptance criteria not covered in review (SG-ALIGN-001), contract structure issues, unchecked review items (SG-ALIGN-004), blank Implementation Files section (SG-ALIGN-005), blank Test Files section (SG-ALIGN-006). Required before Gate 5.
 
 ### `spec_guard_confirm_gate`
 Record a gate confirmation (Gates 3–5 require agent/human evidence).
@@ -180,6 +206,20 @@ Returns structured guidance:
 ---
 
 ## Typical Agent Workflow Using MCP
+
+### Starting from a broad app idea (initiative decomposition)
+
+```
+1. spec_guard_initiative_questions()
+   → get question list for gathering initiative context
+
+2. [ask user the required questions]
+
+3. spec_guard_save_initiative(name, title, description, slices=[...])
+   → initiative artifact written; returns suggestedSpecPath for each slice
+
+4. [for each slice, run the "Starting a new spec" workflow below]
+```
 
 ### Starting a new spec (AI-assisted authoring)
 
