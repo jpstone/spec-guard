@@ -248,16 +248,18 @@ function checkUIInputs(text, path) {
       severity: 'BLOCKER',
       ruleId: 'SG-UI-001',
       path,
-      message: `UI work requires mockup, wireframe, or explicit design direction — add a reference before implementation`,
+      message: hasComponentLib
+        ? `UI work requires a mockup or explicit design direction — component library is referenced but human confirmation is needed to proceed without a mockup`
+        : `UI work requires a mockup or explicit design direction — add a reference before implementation`,
     });
   }
 
-  if (!hasComponentLib) {
+  if (!hasComponentLib && hasMockup) {
     diagnostics.push({
-      severity: 'WARNING',
+      severity: 'BLOCKER',
       ruleId: 'SG-UI-002',
       path,
-      message: `UI work should reference a component library or explicitly state that none exists`,
+      message: `UI work requires a component library reference or explicit confirmation of custom styling — mockup is present but no component library is referenced`,
     });
   }
 

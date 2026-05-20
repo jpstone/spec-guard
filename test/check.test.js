@@ -162,30 +162,48 @@ test('no contract warning when contract is referenced in dependencies', () => {
   assert(!diagnostics.some(d => d.ruleId === 'SG-CLASS-002'));
 });
 
-// ─── SG-UI-001 / SG-UI-002: UI inputs ────────────────────────────────────────
+// ─── SG-UI-001: UI design anchor ─────────────────────────────────────────────
 
 test('no UI blockers for a spec with design direction and component library', () => {
   const diagnostics = checkSpecText(uiSpec, 'ui-valid.md');
   assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
+});
+
+test('no UI blocker when only mockup is referenced', () => {
+  const text = uiSpec.replace('Uses the design system component library.', '');
+  const diagnostics = checkSpecText(text, 'ui-mockup-only.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
+});
+
+test('blocks UI work with no mockup even when component library is referenced', () => {
+  const text = uiSpec.replace('See Figma mockup at /designs/login.fig.', '');
+  const diagnostics = checkSpecText(text, 'ui-lib-only.md');
+  const blocker = diagnostics.find(d => d.ruleId === 'SG-UI-001' && d.severity === 'BLOCKER');
+  assert(blocker);
+  assert.match(blocker.message, /component library is referenced/);
   assert(!diagnostics.some(d => d.ruleId === 'SG-UI-002'));
 });
 
-test('blocks UI work without mockup or design direction', () => {
-  const text = uiSpec.replace('See Figma mockup at /designs/login.fig. Uses the design system component library.', 'User can log in.');
-  const diagnostics = checkSpecText(text, 'ui-no-mockup.md');
-  assert(diagnostics.some(d => d.ruleId === 'SG-UI-001' && d.severity === 'BLOCKER'));
+test('blocks UI work with no component library even when mockup is referenced', () => {
+  const text = uiSpec.replace('Uses the design system component library.', '');
+  const diagnostics = checkSpecText(text, 'ui-mockup-only.md');
+  const blocker = diagnostics.find(d => d.ruleId === 'SG-UI-002' && d.severity === 'BLOCKER');
+  assert(blocker);
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
 });
 
-test('warns on UI work without component library reference', () => {
-  const text = uiSpec.replace('Uses the design system component library.', '');
-  const diagnostics = checkSpecText(text, 'ui-no-lib.md');
-  assert(diagnostics.some(d => d.ruleId === 'SG-UI-002' && d.severity === 'WARNING'));
+test('blocks UI work with neither mockup nor component library — SG-UI-001 only', () => {
+  const text = uiSpec.replace('See Figma mockup at /designs/login.fig. Uses the design system component library.', 'User can log in.');
+  const diagnostics = checkSpecText(text, 'ui-no-anchor.md');
+  const blocker = diagnostics.find(d => d.ruleId === 'SG-UI-001' && d.severity === 'BLOCKER');
+  assert(blocker);
+  assert(!blocker.message.includes('component library is referenced'));
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-002'));
 });
 
 test('non-UI work does not trigger UI rules', () => {
   const diagnostics = checkSpecText(validSpec, 'non-ui.md');
   assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
-  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-002'));
 });
 
 // ─── getSelectedClassifications ──────────────────────────────────────────────

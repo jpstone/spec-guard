@@ -23,6 +23,8 @@ Run this checklist. If you cannot check every item, halt at the first failure.
 - [ ] I have confirmed exactly one work classification: __________
 - [ ] I have read every acceptance criterion and know what behavior each one requires
 - [ ] I will write tests that verify those criteria before writing any implementation code
+- [ ] *(UI classifications only)* A mockup, wireframe, or explicit design direction is in the spec — OR "No mockup required" is documented after human confirmation
+- [ ] *(UI classifications only)* A component library is referenced in the spec — OR "No component library — custom styling" is documented after human confirmation
 
 If the spec doesn't exist: author one (see below). If any item cannot be checked: create a blocker and halt. Do not guess.
 

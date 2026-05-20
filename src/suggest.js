@@ -58,22 +58,51 @@ const RULE_SUGGESTIONS = {
       `       - Contract: .spec-guard/contracts/<name>.md`;
   },
 
-  'SG-UI-001': () =>
-    'Add a mockup, wireframe, or explicit design direction to the spec before implementation.\n\n' +
-    '  Options:\n' +
-    '  - Link a Figma file:  "See Figma mockup at [url]"\n' +
-    '  - Reference a design system pattern:  "Follows the Dashboard layout pattern"\n' +
-    '  - Attach a wireframe description:  "Mockup: [describe layout]"\n\n' +
-    'Do NOT invent UI. If no design direction exists, create a blocker:\n' +
-    '  spec-guard blocker no-design-direction',
+  'SG-UI-001': (d) => {
+    if (d.message.includes('component library is referenced')) {
+      return (
+        'A component library is referenced but no mockup or design direction is present.\n\n' +
+        'Ask the user — do not assume:\n' +
+        '  "This spec has no mockup. Is the component library sufficient design context\n' +
+        '   for this work, or do you need to provide a mockup or layout description first?"\n\n' +
+        'Do NOT proceed until the user responds.\n\n' +
+        'If the user confirms the component library is sufficient:\n' +
+        '  Add to the spec (Expected Behavior or Dependencies):\n' +
+        '    "No mockup required — component library sufficient for this work"\n' +
+        '  Then re-run: spec-guard check <name>\n\n' +
+        'If the user says a mockup is needed:\n' +
+        '  spec-guard blocker no-mockup\n' +
+        '  Halt until the mockup is provided.'
+      );
+    }
+    return (
+      'UI work requires a mockup, wireframe, or explicit design direction before implementation.\n\n' +
+      '  Options:\n' +
+      '  - Link a Figma file:    "See Figma mockup at [url]"\n' +
+      '  - Describe the layout:  "Mockup: [describe layout and structure]"\n' +
+      '  - Reference a pattern:  "Follows the Dashboard layout pattern"\n' +
+      '  - Name a component:     "Uses MUI v5 Card component"\n\n' +
+      'Do NOT invent UI. If no design input exists yet:\n' +
+      '  spec-guard blocker no-mockup\n' +
+      '  Halt until the human provides direction.'
+    );
+  },
 
   'SG-UI-002': () =>
-    'Add a component library reference to the spec so agents don\'t invent one.\n\n' +
-    '  Examples:\n' +
-    '  "Uses MUI v5 component library"\n' +
-    '  "Uses Radix UI primitives with Tailwind CSS"\n' +
-    '  "No component library — raw HTML/CSS only"\n\n' +
-    'If no component library is established, explicitly state that in Expected Behavior.',
+    'A mockup is present but no component library is referenced.\n\n' +
+    'Ask the user — do not assume:\n' +
+    '  "This spec has no component library reference. Are you using an existing\n' +
+    '   component library, or is this custom styling from the mockup?\n' +
+    '   If custom, I\'ll note that in the spec so I don\'t invent a library."\n\n' +
+    'Do NOT proceed until the user responds.\n\n' +
+    'If the user names a component library:\n' +
+    '  Add to the spec (Expected Behavior or Dependencies):\n' +
+    '    "Uses [library name and version]"\n' +
+    '  Then re-run: spec-guard check <name>\n\n' +
+    'If the user confirms custom styling:\n' +
+    '  Add to the spec:\n' +
+    '    "No component library — custom styling from mockup"\n' +
+    '  Then re-run: spec-guard check <name>',
 
   'SG-SPEC-008': (d) => {
     const item = d.message.match(/: "(.+)"$/)?.[1] || 'the scope item';

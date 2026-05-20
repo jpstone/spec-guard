@@ -87,17 +87,17 @@ Tasks classified as Reusable non-UI API, REST/service API, or Reusable UI compon
 
 ---
 
-### SG-UI-001: UI design input exists
+### SG-UI-001: UI design direction exists
 
 **Severity:** BLOCKER
 
-Tasks classified as One-off application UI or Reusable UI component must reference mockups, wireframes, or explicit design direction. Detected by looking for terms like "mockup", "wireframe", "Figma", "design direction", "sketch", or "prototype" in the spec text.
+Tasks classified as One-off application UI or Reusable UI component must reference a mockup, wireframe, or explicit design direction before implementation. If a component library is referenced but no mockup is present, the agent must ask the human whether the component library is sufficient before proceeding — it must not assume. If the human confirms, the agent documents "No mockup required — [reason]" in the spec, which clears the blocker on re-check. Detected by looking for terms like "mockup", "wireframe", "Figma", "design direction", "sketch", or "prototype" in the spec text.
 
 ### SG-UI-002: Component library reference exists
 
-**Severity:** WARNING
+**Severity:** BLOCKER
 
-UI work should reference the component library or explicitly state that none exists. Detected by looking for "component library", "design system", or "UI kit" in the spec.
+UI work must reference a component library or explicitly confirm that custom styling will be used. Fires only when a mockup is present but no component library is referenced. The agent must ask the human whether an existing library is being used or if styling is custom — it must not assume. If custom styling is confirmed, the agent documents "No component library — custom styling from mockup" in the spec, which clears the blocker on re-check. Detected by looking for terms like "component library", "design system", or "UI kit" in the spec text.
 
 ---
 
