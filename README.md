@@ -103,6 +103,8 @@ Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
 | `spec_guard_create_artifact` | Create any artifact from a template |
 | `spec_guard_validate_directory` | Check all specs in a directory |
 | `spec_guard_status` | Overview of all specs |
+| `spec_guard_initiative_questions` | Get question list for decomposing a broad app into feature slices |
+| `spec_guard_save_initiative` | Save initiative decomposition artifact; returns slice names for drafting |
 | `spec_guard_interview_questions` | Get structured question list for AI-assisted spec authoring |
 | `spec_guard_draft_spec` | Turn interview answers into a valid spec (passes Gate 1) |
 | `spec_guard_analyze` | Cross-artifact consistency check (spec ↔ contract ↔ review) |

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.1
+
+### Documentation
+
+- `docs/cli.md` — added `initiative-questions` and `initiative` command entries; added `initiatives/` to `init` directory tree
+- `docs/glossary.md` — added "Initiative" definition
+- `docs/quickstart.md` — added "Starting from a broad app idea" section
+- `README.md` — added `spec_guard_initiative_questions` and `spec_guard_save_initiative` to MCP tools table
+- `.gitignore` — added `.spec-guard/runs/` (ephemeral gate state, not a project artifact)
+
 ## 0.7.0
 
 ### Initiative decomposition

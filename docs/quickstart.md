@@ -30,6 +30,26 @@ npx spec-guard suggest my-feature
 
 Bare names resolve to `.spec-guard/specs/<name>.md`. Pass a full path to write elsewhere.
 
+## Starting from a broad app idea
+
+If you have a multi-feature product in mind rather than a single capability, use the initiative flow to decompose it first:
+
+```bash
+# CLI: interactive wizard
+npx spec-guard initiative-questions   # review the questions first
+npx spec-guard initiative my-app      # guided wizard → writes .spec-guard/initiatives/my-app.md
+```
+
+Or via MCP:
+```
+spec_guard_initiative_questions()     # get questions
+spec_guard_save_initiative({...})     # save initiative → returns slice names
+```
+
+Each returned slice then goes through the standard `draft` → 5-gate workflow independently.
+
+---
+
 ## For an AI coding agent
 
 Add `AGENTS.md` (created by `init`) to your agent context.

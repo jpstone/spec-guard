@@ -1,5 +1,9 @@
 # Glossary
 
+## Initiative
+
+A broad app or product idea that spans multiple independent feature areas. An initiative is decomposed into individual slices, each of which becomes its own spec and follows the standard 5-gate workflow independently. Artifacts are stored in `.spec-guard/initiatives/`.
+
 ## Spec
 
 The human-approved description of required behavior, acceptance criteria, scope, and constraints.

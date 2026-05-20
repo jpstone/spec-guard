@@ -133,6 +133,7 @@ Creates the recommended directory structure in the current directory:
   specs/
     example.md
   contracts/
+  initiatives/
   blockers/
   scope-discoveries/
   reviews/
@@ -261,6 +262,36 @@ spec-guard next [--json] <spec>
 ```
 
 Prints the next action required given the current gate state. Reads saved run state to determine which gates have been confirmed, then checks gates 1 and 2 live. Exits 0 only when all 5 gates are complete.
+
+---
+
+### `initiative-questions`
+
+```bash
+spec-guard initiative-questions [--json]
+```
+
+Returns the structured question list for gathering context before decomposing a broad app or product idea into individual feature slices. Use this when a developer describes a multi-feature initiative rather than a single capability.
+
+With `--json`, outputs `{ required, optional }` as JSON.
+
+---
+
+### `initiative`
+
+```bash
+spec-guard initiative <name>
+```
+
+Interactive wizard for decomposing a multi-feature initiative. Collects initiative name, title, description, and a list of feature slices (each with name, title, description, and classification). Writes the artifact to `.spec-guard/initiatives/<name>.md`.
+
+Refuses to overwrite an existing file.
+
+**Exit codes:**
+
+- `0` — artifact written successfully
+- `1` — output file already exists, or no slices defined
+- `2` — usage error
 
 ---
 

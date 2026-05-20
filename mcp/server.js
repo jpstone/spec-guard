@@ -939,7 +939,7 @@ async function dispatch(msg) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'spec-guard', version: '0.7.0' },
+        serverInfo: { name: 'spec-guard', version: '0.7.1' },
       },
     };
   }
