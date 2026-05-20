@@ -65,8 +65,8 @@ This document defines the complete process flow for spec-first, behavior-tested,
                      ▼
               ┌─────────────┐
               │  GATE 5     │  spec-guard review
-              │  Review     │  All checklist items resolved
-              │  complete?  │
+              │  Review     │  spec-guard analyze
+              │  complete?  │  All checklist items resolved
               └─────────────┘
 ```
 
@@ -138,7 +138,7 @@ The classification selected in Gate 1 determines what happens next:
 | Reusable non-UI API | API contract | `spec-guard new api-contract <name>` |
 | REST/service API | REST API contract | `spec-guard new rest-api-contract <name>` |
 | Reusable UI component | Component contract | `spec-guard new component-contract <name>` |
-| One-off application UI | One-off UI doc | `spec-guard new one-off-ui <name>` |
+| One-off application UI | Mockup/design direction + component library reference in spec | Add to spec Dependencies section |
 | Direct behavior, no new API/UI | No contract required | — |
 | Operational/document deliverable | The document itself | Create the deliverable document |
 
@@ -149,7 +149,7 @@ spec-guard classify <feature-name>
 
 **Halt conditions in this phase:**
 - Classification is ambiguous → halt and ask
-- Classification changes from what was in the spec → record a blocker, do not proceed
+- Classification changes from what was in the spec → acknowledge and record the change before continuing (SG-CLASS-003)
 - Required contract artifact cannot be defined yet (missing inputs) → create a blocker
 
 ---
@@ -274,11 +274,20 @@ Complete the review checklist:
 - [ ] Durable documentation updated only if contract changed
 - [ ] No unrequested features or refactors included
 
+Then run the cross-artifact alignment check:
+```bash
+spec-guard analyze <feature-name>
+```
+
+This verifies every acceptance criterion is covered in the review, every required test is named, and no unchecked boxes remain. Gate 5 cannot be closed until `spec-guard analyze` reports no `SG-ALIGN` warnings.
+
 ---
 
 ## Gate 5: Review Complete
 
-**Required:** All review checklist items checked or explicitly resolved.
+**Required:**
+- All review checklist items checked or explicitly resolved
+- `spec-guard analyze` reports no `SG-ALIGN` warnings
 
 ---
 
