@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.6.0
+
+### New CLI commands — CLI/MCP parity complete
+
+- `spec-guard gate-status <name>` — shows pass/fail for all 5 gates; gates 1–2 checked live, gates 3–5 from run state; supports `--json`
+- `spec-guard confirm-gate <name> <3|4|5>` — records agent gate confirmation; gate 3 requires `--evidence="<what failed and why>"`; `--no-confirm` records a failed confirmation
+- `spec-guard next <name>` — returns the next action given current gate state, mirrors `spec_guard_workflow_next_step`
+- `spec-guard classify` now includes test guidance in output, matching `spec_guard_classify` MCP behavior
+
+Every MCP tool now has a CLI equivalent.
+
+### Documentation
+
+- Renamed `docs/methodology.md` → `docs/philosophy.md`; rewrote as human-facing design philosophy
+- Deleted `docs/adoption.md`, `docs/comparisons.md`, `docs/principles.md`
+- Deleted `checklists/` (superseded by mechanical gates and `AGENTS.md`)
+- `AGENTS.md` — pre-implementation checklist now includes Gates 2 and 3; optimized for agent consumption
+- `WORKFLOW.md` — added "Triggered by" lines for each phase; optimized for agent consumption
+- `docs/quality-gates.md` — added correct `confirm-gate` commands for gates 3–5
+- `docs/validation-rules.md` — fixed default filter description; corrected SG-ALIGN-001 section reference
+- `docs/work-classification.md` — one-off UI row now documents design input requirement; reusable UI component test requirement updated
+
+### Examples
+
+- Replaced per-classification example directories with a single end-to-end walkthrough: developer request → spec authoring → Gates 1–5 → complete
+
+### Tests
+
+- Added coverage for all 7 previously untested `new <kind>` template types
+- 161 tests (was 154)
+
+---
+
 ## 0.5.0
 
 ### Cross-artifact analysis

@@ -9,7 +9,7 @@ This walkthrough follows a single feature from a developer's initial request thr
 In a fresh repository:
 
 ```bash
-npm install --save-dev spec-guard
+npm install --save-dev @jpstone/spec-guard
 npx spec-guard init
 ```
 

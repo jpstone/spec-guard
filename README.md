@@ -39,7 +39,7 @@ DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → TEST FIRST → [G
 ## Quick start
 
 ```bash
-npm install --save-dev spec-guard
+npm install --save-dev @jpstone/spec-guard
 
 # Initialize project
 npx spec-guard init
@@ -178,7 +178,7 @@ WORKFLOW.md
 ## Development
 
 ```bash
-npm test                        # 154 tests across check, run, MCP, CLI, discover, analyze, and suggest
+npm test                        # 161 tests across check, run, MCP, CLI, discover, analyze, and suggest
 npm run check:example           # gate 1 smoke check
 npm run run:example             # gate 1+2 non-interactive check
 ```

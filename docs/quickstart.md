@@ -4,7 +4,7 @@
 
 ```bash
 # 1. Install
-npm install --save-dev spec-guard
+npm install --save-dev @jpstone/spec-guard
 
 # 2. Initialize project structure
 npx spec-guard init

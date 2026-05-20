@@ -1,11 +1,11 @@
 {
-  "name": "spec-guard",
-  "version": "0.5.0",
+  "name": "@jpstone/spec-guard",
+  "version": "0.6.0",
   "description": "Spec-first, behavior-tested, agent-safe methodology, workflow runner, and MCP server.",
   "type": "module",
   "bin": {
-    "spec-guard": "./bin/spec-guard.js",
-    "spec-guard-mcp": "./mcp/server.js"
+    "spec-guard": "bin/spec-guard.js",
+    "spec-guard-mcp": "mcp/server.js"
   },
   "files": [
     "README.md",
@@ -17,9 +17,7 @@
     "bin/",
     "src/",
     "mcp/",
-    "templates/brownfield-spec.md",
     "templates/",
-    "checklists/",
     "examples/",
     "LICENSE"
   ],
@@ -29,12 +27,20 @@
     "run:example": "node bin/spec-guard.js run --check-only test/fixtures/valid-spec.md"
   },
   "keywords": [
-    "spec-first", "tdd", "ai-agents", "methodology", "contracts", "agent-safe", "mcp"
+    "spec-first",
+    "tdd",
+    "ai-agents",
+    "methodology",
+    "contracts",
+    "agent-safe",
+    "mcp"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jpstone/spec-guard.git"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }

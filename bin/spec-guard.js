@@ -64,7 +64,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install --save-dev spec-guard
+      - run: npm install --save-dev @jpstone/spec-guard
       - run: npx spec-guard validate
 `;
 
