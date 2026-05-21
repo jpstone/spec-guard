@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.0
+
+### Spec status transitions
+
+- Specs now transition from `Draft` to `Ready` when Gate 3 is confirmed and to `Implemented` when Gate 5 is confirmed.
+- `blocker --spec <spec> <topic>` and `deviation --spec <spec> <topic>` mark the referenced spec as `Blocked`.
+- `gate-status` now reports the current spec file status while gate/run state remains authoritative.
+- Workflow documentation now describes status transitions and clarifies that status does not replace gate confirmations.
+
+---
+
 ## 0.13.0
 
 ### Documentation integrity workflow

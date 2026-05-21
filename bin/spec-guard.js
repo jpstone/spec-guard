@@ -17,6 +17,7 @@ import { initiativeQuestions, saveInitiative, initiativeInteractive } from '../s
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
 import { addDocLinkToReadme } from '../src/readme-maintenance.js';
+import { updateSpecStatus } from '../src/spec-status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -614,6 +615,7 @@ async function gateStatusCommand(args) {
   if (flags.json) {
     console.log(JSON.stringify({
       spec_path: inputPath,
+      status: getSpecStatus(text) || 'Unknown',
       gate1: { passed: g1.passed, label: 'Spec valid',         blockers: g1.blockers.map(d => formatDiagnostic(d)) },
       gate2: g2
         ? { passed: g2.passed, label: 'Contracts present',     blockers: g2.blockers.map(d => formatDiagnostic(d)) }
@@ -632,6 +634,7 @@ async function gateStatusCommand(args) {
   const skip = (reason) => `— ${reason}`;
 
   console.log(`\nSpec: ${inputPath}`);
+  console.log(`Status: ${getSpecStatus(text) || 'Unknown'}`);
   if (classification) console.log(`Classification: ${classification}`);
   console.log('');
   console.log(`  Gate 1 [${mark(g1.passed)}] Spec valid`);
@@ -700,6 +703,10 @@ async function confirmGateCommand(args) {
     if (gate === 3) {
       runState.failureFirstConfirmed = true;
       runState.failureFirstReason = evidence;
+      await updateSpecStatus(inputPath, 'Ready');
+    }
+    if (gate === 5) {
+      await updateSpecStatus(inputPath, 'Implemented');
     }
   }
 
@@ -1095,9 +1102,10 @@ async function watchCommand(args) {
 // ─── template commands ────────────────────────────────────────────────────────
 
 async function copyTemplateCommand(args, templatePath, commandName, label, defaultDir) {
-  const [rawPath, ...extra] = args;
+  const flags = parseFlags(args);
+  const [rawPath, ...extra] = flags.positional;
   if (!rawPath || extra.length > 0) {
-    console.error(`Usage: spec-guard ${commandName} <name>`);
+    console.error(`Usage: spec-guard ${commandName} [--spec <spec>] <name>`);
     return 2;
   }
   const outputPath = resolveWritePath(rawPath, defaultDir);
@@ -1105,7 +1113,11 @@ async function copyTemplateCommand(args, templatePath, commandName, label, defau
     console.error(`[BLOCKER] SG-USAGE-001 ${rawPath}: use a bare name — write commands always create files in .spec-guard/`);
     return 2;
   }
-  return copyTemplate(templatePath, outputPath, label);
+  const result = await copyTemplate(templatePath, outputPath, label);
+  if (result === 0 && flags.spec && (commandName === 'blocker' || commandName === 'deviation')) {
+    await updateSpecStatus(withDefaultDir(flags.spec, SG.specs), 'Blocked');
+  }
+  return result;
 }
 
 async function copyTemplate(templatePath, outputPath, label) {
@@ -1327,6 +1339,7 @@ function parseFlags(args) {
     else if (arg === '--review') flags.review = args[++i] || null;
     else if (arg === '--from-json') flags['from-json'] = args[++i] || null;
     else if (arg === '--classification') flags.classification = args[++i] || null;
+    else if (arg === '--spec') flags.spec = args[++i] || null;
     else if (arg.startsWith('--')) {
       // Handle --key=value and --no-key boolean flags
       const eqIdx = arg.indexOf('=');

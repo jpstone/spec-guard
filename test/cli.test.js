@@ -315,6 +315,18 @@ test('blocker defaults to .spec-guard/blockers/ for bare names', () => {
   assert.equal(existsSync(join(directory, '.spec-guard', 'blockers', 'auth-missing.md')), true);
 });
 
+test('blocker --spec updates referenced spec status to Blocked', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+
+  const result = runCli(['blocker', '--spec', 'my-spec', 'auth-missing'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Blocked/);
+});
+
 test('scope-discovery creates a scope discovery from the template', () => {
   const directory = tempDir();
   const result = runCli(['scope-discovery', 'scope-item'], { cwd: directory });
@@ -394,6 +406,32 @@ test('confirm-gate records gate 3 with evidence', () => {
   const state = JSON.parse(readFileSync(runFile, 'utf8'));
   assert.ok(state.gatesPassed.includes('gate3'));
   assert.equal(state.failureFirstReason, 'test auth.test.js fails: 401 not 403');
+});
+
+test('confirm-gate 3 updates spec status to Ready', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+
+  const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=test fails before implementation'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Ready/);
+});
+
+test('confirm-gate 5 updates spec status to Implemented and gate-status reports it', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+
+  const result = runCli(['confirm-gate', 'my-spec', '5'], { cwd: directory });
+  const status = runCli(['gate-status', '--json', 'my-spec'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Implemented/);
+  assert.equal(JSON.parse(status.stdout).status, 'Implemented');
 });
 
 test('confirm-gate exits 2 when gate 3 confirmed without evidence', () => {

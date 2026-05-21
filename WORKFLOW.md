@@ -226,7 +226,7 @@ Failure-first impractical: [concrete reason]
 - Test run output showing the new test failing for the expected reason
 - Written record of why running the test was impractical, with a concrete reason
 
-No implementation may begin until one of these exists.
+No implementation may begin until one of these exists. When Gate 3 is confirmed, Spec Guard updates the spec's `Status` to `Ready`; gate/run state remains authoritative.
 
 ---
 
@@ -313,6 +313,8 @@ Gate 5 cannot close until `spec-guard analyze` reports no `SG-ALIGN` warnings.
 - All review checklist items checked
 - `spec-guard analyze` reports no `SG-ALIGN` warnings
 
+When Gate 5 is confirmed, Spec Guard updates the spec's `Status` to `Implemented`; gate/run state remains authoritative.
+
 ---
 
 ## Compound Work
@@ -337,7 +339,11 @@ When work cannot safely continue, create a blocker record and halt:
 
 ```bash
 spec-guard blocker <topic>
+# or, when blocking a specific spec:
+spec-guard blocker --spec <spec-name> <topic>
 ```
+
+When a blocker or unresolved deviation is recorded for a specific spec, Spec Guard updates that spec's `Status` to `Blocked`; gate/run state remains authoritative.
 
 Blocker types:
 - Missing spec or unclear spec

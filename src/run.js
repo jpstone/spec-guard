@@ -13,6 +13,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { checkSpecText, getSelectedClassifications, getSpecTitle, formatDiagnostic } from './check.js';
 import { ensureReadmePreference, maintainReadme } from './readme-maintenance.js';
+import { updateSpecStatus } from './spec-status.js';
 
 // ─── Phase/Gate definitions ───────────────────────────────────────────────────
 
@@ -304,6 +305,7 @@ export async function runInteractive(specPath, options = {}) {
     }
 
     gate('Gate 3 passed: Failure confirmed (or reason recorded)');
+    await updateSpecStatus(specPath, 'Ready');
     state.gatesPassed.push('gate3');
 
     // ── PHASE 4: IMPLEMENT ──────────────────────────────────────────────────
@@ -358,6 +360,7 @@ export async function runInteractive(specPath, options = {}) {
 
     if (gate5Result.passed) {
       gate('Gate 5 passed: Review complete');
+      await updateSpecStatus(specPath, 'Implemented');
       state.gatesPassed.push('gate5');
     } else {
       warn('Review still has unchecked items. Recording as in-progress.');
