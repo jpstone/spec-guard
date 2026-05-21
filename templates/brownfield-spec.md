@@ -79,4 +79,5 @@
 - [ ] One-off application UI
 - [ ] Direct behavior with no new API or UI
 - [ ] Operational/document deliverable
+- [ ] Bugfix
 

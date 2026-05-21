@@ -95,6 +95,7 @@ const TOOLS = [
             'One-off application UI',
             'Direct behavior with no new API or UI',
             'Operational/document deliverable',
+            'Bugfix',
           ],
           description: 'The work classification',
         },
@@ -180,6 +181,7 @@ const TOOLS = [
             'One-off application UI',
             'Direct behavior with no new API or UI',
             'Operational/document deliverable',
+            'Bugfix',
           ],
           description: 'Work classification — exactly one must be selected',
         },
@@ -211,7 +213,7 @@ const TOOLS = [
           enum: [
             'Reusable non-UI API', 'REST/service API', 'Reusable UI component',
             'One-off application UI', 'Direct behavior with no new API or UI',
-            'Operational/document deliverable',
+            'Operational/document deliverable', 'Bugfix',
           ],
           description: 'If the classification is already known, include classification-specific questions',
         },
@@ -277,7 +279,7 @@ const TOOLS = [
                 enum: [
                   'Reusable non-UI API', 'REST/service API', 'Reusable UI component',
                   'One-off application UI', 'Direct behavior with no new API or UI',
-                  'Operational/document deliverable',
+                  'Operational/document deliverable', 'Bugfix',
                 ],
               },
             },

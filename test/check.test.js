@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkSpecText, formatDiagnostic, getSelectedClassifications, getSpecStatus, getSpecTitle } from '../src/check.js';
+import { CLASSIFICATIONS, checkSpecText, formatDiagnostic, getSelectedClassifications, getSpecStatus, getSpecTitle } from '../src/check.js';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -141,6 +141,17 @@ test('uppercase X is a valid classification selection', () => {
   const text = validSpec.replace('- [x] Direct behavior', '- [X] Direct behavior');
   const blockers = checkSpecText(text, 'uppercase.md').filter(d => d.severity === 'BLOCKER');
   assert.deepEqual(blockers, []);
+});
+
+test('Bugfix is a valid classification choice and passes validation', () => {
+  assert(CLASSIFICATIONS.includes('Bugfix'));
+  const text = validSpec
+    .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
+    .replace('- [ ] Operational/document deliverable', '- [ ] Operational/document deliverable\n- [x] Bugfix');
+  const diagnostics = checkSpecText(text, 'bugfix.md');
+  const blockers = diagnostics.filter(d => d.severity === 'BLOCKER');
+  assert.deepEqual(blockers, []);
+  assert.deepEqual(getSelectedClassifications(text), ['Bugfix']);
 });
 
 // ─── SG-CLASS-002: Contract requirement ──────────────────────────────────────

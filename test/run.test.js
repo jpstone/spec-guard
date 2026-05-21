@@ -152,7 +152,7 @@ test('runCheck returns error for missing spec', async () => {
 
 // ─── TEST_GUIDANCE ────────────────────────────────────────────────────────────
 
-test('TEST_GUIDANCE covers all 6 classifications', () => {
+test('TEST_GUIDANCE covers all 7 classifications', () => {
   const classifications = [
     'Reusable non-UI API',
     'REST/service API',
@@ -160,9 +160,25 @@ test('TEST_GUIDANCE covers all 6 classifications', () => {
     'One-off application UI',
     'Direct behavior with no new API or UI',
     'Operational/document deliverable',
+    'Bugfix',
   ];
   for (const c of classifications) {
     assert(TEST_GUIDANCE[c], `Missing guidance for: ${c}`);
     assert(TEST_GUIDANCE[c].length > 10, `Guidance too short for: ${c}`);
   }
+});
+
+test('Bugfix test guidance requires failure-first and permanent-or-temporary evidence choice', () => {
+  const guidance = TEST_GUIDANCE.Bugfix;
+  assert.match(guidance, /failure-first/i);
+  assert.match(guidance, /permanent/i);
+  assert.match(guidance, /temporary/i);
+  assert.match(guidance, /Have you verified that the reported bug is fixed and no longer reproduces\?/);
+});
+
+test('existing non-bugfix test guidance remains unchanged', () => {
+  assert.equal(
+    TEST_GUIDANCE['Direct behavior with no new API or UI'],
+    'Tests derived from the acceptance criteria. No new API or UI surface — use whatever mechanism verifies each criterion (calling existing code, checking a value, observing a side effect). Do not add tests for implementation details outside the spec.'
+  );
 });

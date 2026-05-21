@@ -1,14 +1,42 @@
 # Changelog
 
+## 0.12.0
+
+### Bugfix work classification
+
+- Added `Bugfix` as a valid work classification in specs, templates, CLI/MCP validation, and test guidance.
+- Bugfix work keeps failure-first validation while allowing the user to choose permanent or temporary test evidence.
+- Temporary Bugfix tests/checks may be removed after passing only after human confirmation that the reported bug is fixed and no longer reproduces.
+
+### Spec Guard bypass prompt
+
+- Agent instructions now require asking `Do you want to use Spec Guard for this task?` at the start of every new codebase change request.
+- If the user answers yes, the full Spec Guard workflow remains required.
+- If the user answers no, the current task may bypass specs, gates, and Spec Guard artifacts entirely.
+- Bypass cannot be inferred from task size, file type, perceived risk, or any other heuristic; it requires the user's explicit answer and applies only to the current task.
+
+---
+
 ## 0.11.0
 
-### Cross-slice integration enforcement
+### Dependency integration table enforcement
 
 - `SG-ALIGN-007` — BLOCKER in `spec-guard analyze` when classification is `One-off application UI` and a contract is present: fires if the `Dependency Integration` table is missing, unpopulated (placeholder dashes), or its confirmation checkbox is unchecked; all three conditions are checked independently
 - `templates/implementation-review.md` — `Dependency Integration` section is now a structured table: `Dependency | Integration code | Test`; the agent must name the dependency, link the exact file/location that wires it at runtime (proxy config, middleware, dev server script), and name the test that exercises it through that real code path — test-only URL overrides and mocked routes do not satisfy the requirement; followed by a single confirmation checkbox
 - `src/run.js` — `One-off application UI` test guidance now requires: identify the integration code, write a test that fails (404) before the wiring exists, implement the wiring, confirm it returns 200; explicitly calls out test-only URL overrides and mocked routes as non-compliant
 - `src/suggest.js` — SG-ALIGN-007 fix instruction updated with table example and step-by-step wiring TDD loop
-- `src/initiative.js` — initiative artifact includes a `Cross-Slice Integration` section when UI and API slices coexist
+
+---
+
+## 0.10.0
+
+### Cross-slice integration enforcement
+
+- `SG-ALIGN-007` (initial) — BLOCKER in `spec-guard analyze` when classification is `One-off application UI`, a contract is present, and the `Dependency Integration` checkbox is not checked
+- `templates/implementation-review.md` — added `Dependency Integration` section with a single checkbox; remove the section if there is genuinely no runtime dependency
+- `src/suggest.js` — added fix instruction for SG-ALIGN-007
+- `src/run.js` — `One-off application UI` test guidance states that at least one test must exercise each API dependency without mocking; a fully-mocked suite does not satisfy Gate 3
+- `src/initiative.js` — initiative artifact includes a `Cross-Slice Integration` section when slices include both a UI classification and an API classification
 
 ---
 

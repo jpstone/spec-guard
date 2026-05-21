@@ -74,9 +74,11 @@ This document is addressed to the agent. All imperatives are instructions you mu
 
 ## Phase 1: Discover
 
-**Triggered by:** The human brings a request — a feature, task, change, or bug fix they want built.
+**Triggered by:** The human brings a request — a feature, task, change, or bug fix they want built — and explicitly answers yes when asked: "Do you want to use Spec Guard for this task?"
 
 **Goal:** Produce a spec that is complete enough to classify, test, and implement.
+
+If the human answers no to the Spec Guard prompt, this workflow is bypassed entirely for the current task only. Do not infer bypass eligibility; bypass requires the user's explicit answer.
 
 **Steps:**
 
@@ -151,6 +153,7 @@ Do not proceed to Phase 2 until this passes. Common blockers at this gate:
 | Reusable UI component | Component contract | `spec-guard new component-contract <name>` |
 | One-off application UI | Mockup/design direction + component library reference in spec | Add to spec Dependencies section |
 | Direct behavior, no new API/UI | No contract required | — |
+| Bugfix | No contract required | — |
 | Operational/document deliverable | The document itself | Create the deliverable document |
 
 Confirm the classification and reference the contract in the spec's `Dependencies` section once created:
@@ -190,6 +193,7 @@ Select the test type based on classification:
 | Reusable UI component | Unit/component tests | Documented props, states, callbacks, accessibility |
 | One-off application UI | UI automation | User-visible behavior, form flows, navigation, permission states |
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria | Observable change in behavior — no new API or UI surface to test against specifically |
+| Bugfix | Failure-first bug reproduction | Reproduce the reported bug before implementation. Ask whether evidence should be permanent or temporary; temporary tests/checks may be removed only after passing and human confirmation: "Have you verified that the reported bug is fixed and no longer reproduces?" |
 | Operational/document deliverable | Process/document checks | Required sections, links, document-specific checks |
 
 **Steps:**

@@ -4,6 +4,18 @@ You are an implementation agent operating under Spec Guard. **Read `WORKFLOW.md`
 
 ---
 
+## Spec Guard Use Prompt
+
+At the start of every new codebase change request, ask the user:
+
+> Do you want to use Spec Guard for this task?
+
+If the user answers yes, follow the full Spec Guard workflow below. If the user answers no, the agent may complete the current task without drafting specs, running gates, or creating Spec Guard artifacts.
+
+The agent must not infer bypass eligibility from task size, file type, perceived risk, or any other heuristic. Bypass must come from the user's explicit answer, and that answer applies only to the current task or instruction. Existing Spec Guard requirements remain unchanged when the user chooses to use Spec Guard.
+
+---
+
 ## The Loop
 
 ```
@@ -156,6 +168,7 @@ The classification determines the *type* of test to use:
 | Reusable UI component | Unit/component tests + UI automation tests if the contract includes behavior a unit test environment cannot accurately simulate |
 | One-off application UI | UI automation tests for user-visible behavior |
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria — no new API or UI surface; use whatever mechanism verifies the criterion |
+| Bugfix | Failure-first bug reproduction; ask whether evidence should be permanent or temporary; temporary tests/checks may be removed only after passing and human confirmation: "Have you verified that the reported bug is fixed and no longer reproduces?" |
 | Operational/document deliverable | Process/document checks |
 
 If the request spans multiple rows: split into slices. `spec-guard new compound-work <name>`. Classify and implement each slice separately.
@@ -171,6 +184,7 @@ If the request spans multiple rows: split into slices. `spec-guard new compound-
 | Reusable UI component | Component contract in `.spec-guard/contracts/` |
 | One-off application UI | Mockup/design direction + component library reference |
 | Direct behavior, no new API/UI | None |
+| Bugfix | None |
 | Operational/document deliverable | The document itself |
 
 ---

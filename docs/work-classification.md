@@ -11,6 +11,7 @@ Classify every task before implementation. The classification determines require
 | Shared UI component used across screens/apps/packages | Reusable UI component | Component contract | Unit/component tests against documented component API; UI automation tests if the contract includes behavior a unit test environment cannot accurately simulate |
 | Single-use screen, page form, dashboard, or workflow | One-off application UI | No contract — but mockup/design direction and component library reference are required spec inputs before Gate 2 | UI automation tests for user-visible behavior |
 | Behavior through existing API/UI surfaces with no new durable contract | Direct behavior with no new API or UI | None | Tests derived from acceptance criteria — no new surface to target specifically |
+| Small or focused correction of reported broken behavior | Bugfix | None | Failure-first bug reproduction; ask whether evidence should be permanent or temporary. Temporary tests/checks may be removed only after passing and human confirmation: "Have you verified that the reported bug is fixed and no longer reproduces?" |
 | Runbook, policy, release checklist, help page, compliance artifact, or other document as product | Operational/document deliverable | The deliverable document | Process/document checks |
 
 ## Classification Rules
@@ -20,6 +21,7 @@ Classify every task before implementation. The classification determines require
 - If classification changes during implementation, stop and surface the change.
 - Do not create contract documentation for one-off work unless a reusable surface emerges.
 - Do not use document checks for product features.
+- Use Bugfix only for correcting reported broken behavior, not for feature work, refactors, API changes, or broad UI changes.
 
 ## Compound Requests
 
@@ -54,6 +56,10 @@ Classify as REST/service API because the durable service contract changes.
 ### Existing reusable component behavior change
 
 Classify as reusable UI component because the component contract changes.
+
+### Tiny visual correction
+
+Classify as Bugfix when the work corrects a reported defect, such as a small alignment issue. Keep failure-first evidence, but ask whether the evidence should be permanent or temporary.
 
 ### README update for a library API
 

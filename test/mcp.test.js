@@ -136,6 +136,7 @@ test('MCP: spec_guard_test_guidance returns guidance for each classification', (
     'REST/service API',
     'One-off application UI',
     'Direct behavior with no new API or UI',
+    'Bugfix',
   ];
   for (const c of classifications) {
     const response = mcpTool('spec_guard_test_guidance', { classification: c });
