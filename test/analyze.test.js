@@ -100,11 +100,6 @@ Direct behavior with no new API or UI
 
 -
 
-## Dependency Integration
-
-- [ ] At least one test exercises each external dependency without mocking, confirming runtime wiring.
-- [x] No external API or service dependency — not applicable.
-
 ## Scope Control
 
 - [x] No out-of-scope work was absorbed silently.
@@ -307,6 +302,58 @@ test('analyzeArtifacts — INFO when review file does not exist yet', async () =
   const result = await analyzeArtifacts({ specPath, reviewPath: join(dir, 'no-review.md') });
   const infos = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-002' && d.severity === 'INFO');
   assert.ok(infos.length > 0);
+});
+
+// ─── SG-ALIGN-007 ─────────────────────────────────────────────────────────────
+
+const UI_SPEC = VALID_SPEC
+  .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
+  .replace('- [ ] One-off application UI', '- [x] One-off application UI');
+
+const REVIEW_WITH_WIRING = COMPLETE_REVIEW +
+  '\n## Dependency Integration\n\n- [x] At least one test exercises each external dependency without mocking, confirming runtime wiring.\n';
+
+const REVIEW_WITHOUT_WIRING = COMPLETE_REVIEW;
+
+test('analyzeArtifacts — SG-ALIGN-007 BLOCKER when One-off UI + contract but Dependency Integration unchecked', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, UI_SPEC);
+  writeFileSync(contractPath, 'GET /todos\nPOST /todos\n## Routes\n- GET /todos returns list');
+  writeFileSync(reviewPath, REVIEW_WITHOUT_WIRING);
+
+  const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
+  assert.ok(diags.length > 0, 'should emit SG-ALIGN-007');
+  assert.equal(diags[0].severity, 'BLOCKER');
+});
+
+test('analyzeArtifacts — no SG-ALIGN-007 when One-off UI + contract and Dependency Integration is checked', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, UI_SPEC);
+  writeFileSync(contractPath, 'GET /todos\nPOST /todos\n## Routes\n- GET /todos returns list');
+  writeFileSync(reviewPath, REVIEW_WITH_WIRING);
+
+  const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
+  assert.equal(diags.length, 0, 'should not emit SG-ALIGN-007 when wiring is confirmed');
+});
+
+test('analyzeArtifacts — no SG-ALIGN-007 when One-off UI with no contract', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, UI_SPEC);
+  writeFileSync(reviewPath, REVIEW_WITHOUT_WIRING);
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
+  assert.equal(diags.length, 0, 'should not emit SG-ALIGN-007 when no contract is involved');
 });
 
 // ─── stale gate detection ─────────────────────────────────────────────────────

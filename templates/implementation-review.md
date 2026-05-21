@@ -49,11 +49,11 @@
 
 ## Dependency Integration
 
-<!-- If the spec declares an API, service, or data-layer dependency, at least one test must
-     exercise that dependency without mocking — proving runtime wiring, not just isolated behavior. -->
+<!-- Required when this implementation calls an external API, service, or data layer at runtime.
+     A mocked test suite alone does not satisfy this — at least one test must use the real dependency.
+     Remove this entire section if there is genuinely no runtime dependency. -->
 
 - [ ] At least one test exercises each external dependency without mocking, confirming runtime wiring.
-- [ ] No external API or service dependency — not applicable.
 
 ## Scope Control
 

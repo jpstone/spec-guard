@@ -1,11 +1,13 @@
 # Changelog
 
-## 0.9.2
+## 0.10.0
 
 ### Cross-slice integration enforcement
 
-- `templates/implementation-review.md` — added `Dependency Integration` section with two checkboxes: one confirming at least one test exercises each external dependency without mocking, one for marking not applicable; unchecked boxes block Gate 5 via SG-ALIGN-004
-- `src/run.js` — `One-off application UI` test guidance now explicitly states that at least one test must exercise each API dependency without mocking when the spec declares one; a fully-mocked suite does not satisfy Gate 3
+- `SG-ALIGN-007` — BLOCKER in `spec-guard analyze` when classification is `One-off application UI`, a contract is present, and the review's `Dependency Integration` checkbox is not checked; a mocked-only test suite cannot pass Gate 5
+- `templates/implementation-review.md` — added `Dependency Integration` section with a single checkbox (no "not applicable" escape hatch); remove the section entirely if there is genuinely no runtime dependency; required when a cross-artifact dependency exists
+- `src/suggest.js` — fix instruction for SG-ALIGN-007 with concrete steps for adding a real wiring test
+- `src/run.js` — `One-off application UI` test guidance now explicitly states that at least one test must exercise each API dependency without mocking; a fully-mocked suite does not satisfy Gate 3
 - `src/initiative.js` — initiative artifact now includes a `Cross-Slice Integration` section when slices include both a UI classification and an API classification, requiring a no-mock integration test before Gate 5 of any dependent UI slice
 
 ---

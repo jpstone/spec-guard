@@ -9,6 +9,7 @@ import { getSelectedClassifications, getSpecTitle } from './check.js';
 // SG-ALIGN-004  unchecked items remain in implementation review (Gate 5 blocked)
 // SG-ALIGN-005  Implementation Files section blank in review
 // SG-ALIGN-006  Test Files section blank in review
+// SG-ALIGN-007  One-off application UI with contract has no confirmed runtime wiring test
 
 const CONTRACT_STRUCTURE = {
   'REST/service API': {
@@ -153,6 +154,20 @@ export async function analyzeArtifacts({
           path: reviewPath,
           message: `${unchecked} unchecked item(s) remain in implementation review — Gate 5 is blocked`,
         });
+      }
+
+      // SG-ALIGN-007: UI spec with a contract must confirm runtime wiring
+      if (classification === 'One-off application UI' && contractPath) {
+        const depSection = extractSection(reviewText, 'Dependency Integration');
+        const confirmed = depSection && /^- \[x\]/im.test(depSection);
+        if (!confirmed) {
+          diagnostics.push({
+            severity: 'BLOCKER',
+            ruleId: 'SG-ALIGN-007',
+            path: reviewPath,
+            message: 'One-off application UI with a contract dependency must confirm runtime wiring — check the Dependency Integration box in the review, or add the section if it was removed',
+          });
+        }
       }
 
       // Check Implementation Files and Test Files are populated

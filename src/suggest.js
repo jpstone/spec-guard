@@ -153,6 +153,17 @@ const RULE_SUGGESTIONS = {
     'For each unchecked item:\n' +
     '  - [ ] item   →   - [x] item   (completed)\n' +
     '  or document explicitly why it does not apply.',
+
+  'SG-ALIGN-007': () =>
+    'This spec is classified as One-off application UI and references a contract — at least one\n' +
+    'test must exercise the real dependency without mocking, confirming runtime wiring.\n\n' +
+    'In the implementation review, add or complete the Dependency Integration section:\n\n' +
+    '  ## Dependency Integration\n' +
+    '  - [x] At least one test exercises each external dependency without mocking, confirming runtime wiring.\n\n' +
+    'A fully-mocked test suite does not satisfy this. The wiring test must:\n' +
+    '  1. Start the real backend (or use it as middleware in the dev server)\n' +
+    '  2. Perform a real operation through the UI (e.g., click Add, then verify the item persists)\n' +
+    '  3. Not intercept or stub the API calls',
 };
 
 export function suggestFix(diagnostic) {
