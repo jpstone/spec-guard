@@ -42,6 +42,14 @@
      The review contains implementation files, test files, and linked documentation
      that will need updating. Leave blank for entirely new features. -->
 
+## Documentation Requirements
+
+<!-- List every documentation file this spec requires to be created, updated, linked, or validated.
+     Use direct repository-relative links, such as [API Guide](docs/my-api.md).
+     If no documentation changes are required, state that explicitly. -->
+
+- No documentation changes required.
+
 ## Dependencies
 
 - 

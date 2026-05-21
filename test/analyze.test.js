@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { analyzeArtifacts } from '../src/analyze.js';
@@ -192,11 +192,93 @@ test('analyzeArtifacts — clean contract when REST API contract has endpoints',
   const specPath = join(dir, 'spec.md');
   const contractPath = join(dir, 'contract.md');
   writeFileSync(specPath, specContent);
-  writeFileSync(contractPath, '# REST API Contract\n\n## Routes\n\n### POST /auth/login\n\nReturns a session token on success.\n\n### DELETE /auth/logout\n\nRevokes the current session.\n');
+  writeFileSync(contractPath, '# REST API Contract\n\n## End-User API Documentation\n\n- Documentation Path: docs/auth-api.md\n\n## Routes\n\n### POST /auth/login\n\nReturns a session token on success.\n\n### DELETE /auth/logout\n\nRevokes the current session.\n');
+  mkdirSync(join(dir, 'docs'), { recursive: true });
+  writeFileSync(join(dir, 'docs', 'auth-api.md'), '# Auth API');
 
   const result = await analyzeArtifacts({ specPath, contractPath });
   const contractErrors = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-003');
   assert.equal(contractErrors.length, 0);
+});
+
+test('analyzeArtifacts — BLOCKER when API contract has no persisted end-user API doc path', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(contractPath, '# API Contract\n\n## Exported Surface\n\n- login()\n');
+
+  const result = await analyzeArtifacts({ specPath, contractPath });
+  const blockers = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-008');
+  assert.equal(blockers.length, 1);
+  assert.match(blockers[0].message, /end-user API doc/i);
+});
+
+test('analyzeArtifacts — BLOCKER when persisted end-user API doc path does not exist', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(contractPath, '# API Contract\n\n## End-User API Documentation\n\n- Documentation Path: docs/auth-api.md\n\n## Exported Surface\n\n- login()\n');
+
+  const result = await analyzeArtifacts({ specPath, contractPath });
+  const blockers = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-008');
+  assert.equal(blockers.length, 1);
+  assert.match(blockers[0].message, /docs\/auth-api\.md/);
+});
+
+test('analyzeArtifacts — clean when persisted end-user API doc path exists', async () => {
+  const dir = tmp();
+  mkdirSync(join(dir, 'docs'), { recursive: true });
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(contractPath, '# API Contract\n\n## End-User API Documentation\n\n- Documentation Path: docs/auth-api.md\n\n## Exported Surface\n\n- login()\n');
+  writeFileSync(join(dir, 'docs', 'auth-api.md'), '# Auth API\n');
+
+  const result = await analyzeArtifacts({ specPath, contractPath });
+  const blockers = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-008');
+  assert.equal(blockers.length, 0);
+});
+
+// ─── documentation requirements alignment ─────────────────────────────────────
+
+test('analyzeArtifacts — SG-ALIGN-009 when spec documentation requirement is missing from review linked docs', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, `${VALID_SPEC}\n## Documentation Requirements\n\n- [API Guide](docs/api.md)\n`);
+  writeFileSync(reviewPath, COMPLETE_REVIEW);
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-009');
+  assert.equal(diags.length, 1);
+  assert.match(diags[0].message, /docs\/api\.md/);
+});
+
+test('analyzeArtifacts — clean documentation requirements when spec and review linked docs match', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, `${VALID_SPEC}\n## Documentation Requirements\n\n- [API Guide](docs/api.md)\n`);
+  writeFileSync(reviewPath, COMPLETE_REVIEW.replace('## Linked Documentation\n\n-', '## Linked Documentation\n\n- [API Guide](docs/api.md)'));
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-009');
+  assert.equal(diags.length, 0);
+});
+
+test('analyzeArtifacts — SG-ALIGN-009 when review linked doc is not directly linked from spec documentation requirements', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, `${VALID_SPEC}\n## Documentation Requirements\n\n- No documentation changes are required.\n`);
+  writeFileSync(reviewPath, COMPLETE_REVIEW.replace('## Linked Documentation\n\n-', '## Linked Documentation\n\n- docs/api.md'));
+
+  const result = await analyzeArtifacts({ specPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-009');
+  assert.equal(diags.length, 1);
+  assert.match(diags[0].message, /not directly linked from the spec/i);
 });
 
 // ─── review alignment ──────────────────────────────────────────────────────────

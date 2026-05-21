@@ -12,6 +12,7 @@ import { resolve, dirname, basename, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { checkSpecText, getSelectedClassifications, getSpecTitle, formatDiagnostic } from './check.js';
+import { ensureReadmePreference, maintainReadme } from './readme-maintenance.js';
 
 // ─── Phase/Gate definitions ───────────────────────────────────────────────────
 
@@ -148,6 +149,16 @@ export async function runInteractive(specPath, options = {}) {
 
     const specText = await readFile(resolve(specPath), 'utf8');
     const title = getSpecTitle(specText) || basename(specPath);
+
+    const readmePreference = await ensureReadmePreference({
+      ask: async (prompt) => confirm(`  ${prompt}`),
+    });
+    if (readmePreference.maintainReadme === true) {
+      await maintainReadme({
+        title,
+        purpose: summarizeForReadme(extractSection(specText, 'Problem / Goal')),
+      });
+    }
 
     header(`Spec Guard Run: ${title}`);
     info(`Spec: ${specPath}`);
@@ -432,4 +443,16 @@ function extractSection(text, heading) {
   const rest = text.slice(start);
   const next = /^##\s+/m.exec(rest);
   return next ? rest.slice(0, next.index).trim() : rest.trim();
+}
+
+function summarizeForReadme(text) {
+  if (!text) return '';
+  return text
+    .replace(/<!--.*?-->/gs, '')
+    .split('\n')
+    .map(line => line.replace(/^[-*+]\s+/, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 400)
+    .trim();
 }

@@ -43,9 +43,10 @@
 
 <!-- User-facing docs created or updated as part of this implementation
      (API docs, README sections, changelogs, user guides, CLI references, etc.).
-     Future changes to this feature should update these. Leave blank if none. -->
+     Every doc listed here must also be directly linked from the governing spec's
+     Documentation Requirements section. If none, state "None". -->
 
-- 
+- None
 
 ## Dependency Integration
 
@@ -68,7 +69,9 @@
 
 ## Documentation Updates
 
-- [ ] All docs listed in Linked Documentation above updated, or confirmed not applicable.
+- [ ] All current-spec documentation obligations were satisfied.
+- [ ] All docs listed in Linked Documentation above are directly linked from the governing spec's Documentation Requirements section.
+- [ ] All docs listed in Linked Documentation above were validated against the implemented behavior, or confirmed not applicable.
 - [ ] No documentation update was needed.
 - [ ] Durable contract documentation was updated.
 - [ ] The document itself was the deliverable.

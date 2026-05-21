@@ -158,6 +158,54 @@ test('new api-contract creates in .spec-guard/contracts/', () => {
   assert.equal(existsSync(join(directory, '.spec-guard', 'contracts', 'my-api.md')), true);
 });
 
+test('new api-contract creates end-user API doc in existing documentation location and records path', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  writeFileSync(join(directory, 'README.md'), '# Project\n\n## Table of Contents\n\n- [Guide](documentation/guide.md)\n');
+  runCli(['new', 'api-contract', 'billing'], { cwd: directory });
+
+  const contract = readFileSync(join(directory, '.spec-guard', 'contracts', 'billing.md'), 'utf8');
+  assert.match(contract, /## End-User API Documentation/);
+  assert.match(contract, /- Documentation Path: documentation\/billing-api\.md/);
+  assert.equal(existsSync(join(directory, 'documentation', 'billing-api.md')), true);
+  assert.match(readFileSync(join(directory, 'README.md'), 'utf8'), /\[Billing API\]\(documentation\/billing-api\.md\)/);
+});
+
+test('new rest-api-contract falls back to docs folder and avoids contract in API doc filename', () => {
+  const directory = tempDir();
+  const result = runCli(['new', 'rest-api-contract', 'orders-contract'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  const contract = readFileSync(join(directory, '.spec-guard', 'contracts', 'orders-contract.md'), 'utf8');
+  assert.match(contract, /- Documentation Path: docs\/orders-api\.md/);
+  assert.equal(existsSync(join(directory, 'docs', 'orders-api.md')), true);
+  assert.equal(existsSync(join(directory, 'docs', 'orders-contract.md')), false);
+});
+
+test('new api-contract does not modify README table of contents when API doc is already linked', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const readmePath = join(directory, 'README.md');
+  const readme = '# Project\n\n## Table of Contents\n\n- [Billing API](docs/billing-api.md)\n';
+  writeFileSync(readmePath, readme);
+  runCli(['new', 'api-contract', 'billing'], { cwd: directory });
+
+  assert.equal(readFileSync(readmePath, 'utf8'), readme);
+});
+
+test('new api-contract does not update README when README maintenance preference is opt-out', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const readmePath = join(directory, 'README.md');
+  const readme = '# Project\n\n## Table of Contents\n\n- [Guide](docs/guide.md)\n';
+  writeFileSync(readmePath, readme);
+  writeFileSync(join(directory, '.spec-guard', 'repo-preferences.json'), JSON.stringify({ readme: { maintain: false } }, null, 2));
+
+  runCli(['new', 'api-contract', 'billing'], { cwd: directory });
+
+  assert.equal(readFileSync(readmePath, 'utf8'), readme);
+});
+
 test('new brownfield-spec creates in .spec-guard/specs/', () => {
   const directory = tempDir();
   const result = runCli(['new', 'brownfield-spec', 'my-change'], { cwd: directory });

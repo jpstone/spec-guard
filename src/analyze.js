@@ -1,5 +1,6 @@
-import { readFile, stat } from 'node:fs/promises';
-import { resolve, basename, join } from 'node:path';
+import { constants } from 'node:fs';
+import { access, readFile, stat } from 'node:fs/promises';
+import { resolve, basename, dirname, join } from 'node:path';
 import { getSelectedClassifications, getSpecTitle } from './check.js';
 
 // ─── Rule IDs ──────────────────────────────────────────────────────────────────
@@ -10,6 +11,8 @@ import { getSelectedClassifications, getSpecTitle } from './check.js';
 // SG-ALIGN-005  Implementation Files section blank in review
 // SG-ALIGN-006  Test Files section blank in review
 // SG-ALIGN-007  One-off application UI with contract: Dependency Integration table unpopulated or checkbox unchecked
+// SG-ALIGN-008  API contract missing persisted end-user API documentation path or doc file
+// SG-ALIGN-009  current spec documentation requirements do not align with review linked documentation
 
 const CONTRACT_STRUCTURE = {
   'REST/service API': {
@@ -94,6 +97,30 @@ export async function analyzeArtifacts({
           });
         }
       }
+
+      if (isApiStyleContract(contractText)) {
+        const docPath = extractEndUserApiDocPath(contractText);
+        if (!docPath) {
+          diagnostics.push({
+            severity: 'BLOCKER',
+            ruleId: 'SG-ALIGN-008',
+            path: contractPath,
+            message: 'API contract must persist a corresponding end-user API doc path in an "End-User API Documentation" section',
+          });
+        } else {
+          const repoRoot = inferRepoRootFromContractPath(contractPath);
+          try {
+            await access(resolve(repoRoot, docPath), constants.F_OK);
+          } catch {
+            diagnostics.push({
+              severity: 'BLOCKER',
+              ruleId: 'SG-ALIGN-008',
+              path: contractPath,
+              message: `end-user API doc not found at persisted repository-relative path: ${docPath}`,
+            });
+          }
+        }
+      }
     } catch {
       diagnostics.push({
         severity: 'BLOCKER',
@@ -154,6 +181,34 @@ export async function analyzeArtifacts({
           path: reviewPath,
           message: `${unchecked} unchecked item(s) remain in implementation review — Gate 5 is blocked`,
         });
+      }
+
+      // SG-ALIGN-009: current spec documentation requirements must align with review linked docs
+      const specDocSection = extractSection(specText, 'Documentation Requirements');
+      const reviewDocSection = extractSection(reviewText, 'Linked Documentation');
+      const specDocLinks = extractDocLinks(specDocSection || '');
+      const reviewDocLinks = extractDocLinks(reviewDocSection || '');
+
+      for (const docPath of specDocLinks) {
+        if (!reviewDocLinks.includes(docPath)) {
+          diagnostics.push({
+            severity: 'WARNING',
+            ruleId: 'SG-ALIGN-009',
+            path: reviewPath,
+            message: `documentation requirement is listed in the spec but missing from review Linked Documentation: ${docPath}`,
+          });
+        }
+      }
+
+      for (const docPath of reviewDocLinks) {
+        if (!specDocLinks.includes(docPath)) {
+          diagnostics.push({
+            severity: 'WARNING',
+            ruleId: 'SG-ALIGN-009',
+            path: reviewPath,
+            message: `documentation was created or updated but is not directly linked from the spec Documentation Requirements section: ${docPath}`,
+          });
+        }
       }
 
       // SG-ALIGN-007: UI spec with a contract must have populated Dependency Integration table + confirmed checkbox
@@ -263,4 +318,46 @@ function extractSection(text, heading) {
   const rest = normalized.slice(start);
   const next = /^##\s+/m.exec(rest);
   return next ? rest.slice(0, next.index) : rest;
+}
+
+function isApiStyleContract(text) {
+  return /^#\s+(API Contract|REST\s*\/\s*Service API Contract|REST API Contract)\s*$/im.test(text);
+}
+
+function extractEndUserApiDocPath(text) {
+  const section = extractSection(text, 'End-User API Documentation');
+  if (!section) return null;
+  const match = /^\s*-\s*Documentation Path:\s*(\S.*?)\s*$/im.exec(section);
+  if (!match) return null;
+  const docPath = match[1].trim();
+  if (!docPath || /^[/\\]/.test(docPath) || /^[A-Za-z]:/.test(docPath) || docPath.includes('..')) return null;
+  return docPath;
+}
+
+function inferRepoRootFromContractPath(contractPath) {
+  const normalized = resolve(contractPath).replace(/\\/g, '/');
+  const marker = '/.spec-guard/contracts/';
+  const markerIndex = normalized.indexOf(marker);
+  if (markerIndex >= 0) return normalized.slice(0, markerIndex);
+  return dirname(resolve(contractPath));
+}
+
+function extractDocLinks(text) {
+  if (!text) return [];
+  const links = new Set();
+  const normalized = text.replace(/\\/g, '/');
+  const markdownLinks = normalized.matchAll(/\[[^\]]+\]\(([^)#]+\.md)(?:#[^)]+)?\)/gi);
+  for (const match of markdownLinks) addDocLink(links, match[1]);
+
+  const plainPaths = normalized.matchAll(/(?:^|[\s`(])((?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.md)(?:#[A-Za-z0-9_.-]+)?/gim);
+  for (const match of plainPaths) addDocLink(links, match[1]);
+
+  return [...links];
+}
+
+function addDocLink(links, rawPath) {
+  const path = rawPath.trim().replace(/^\.\//, '').replace(/[,.;:]+$/, '');
+  if (!path || path === '-' || /^[/\\]/.test(path) || /^[A-Za-z]:/.test(path) || path.includes('..')) return;
+  if (path.startsWith('.spec-guard/')) return;
+  links.add(path);
 }

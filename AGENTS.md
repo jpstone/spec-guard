@@ -16,6 +16,22 @@ The agent must not infer bypass eligibility from task size, file type, perceived
 
 ---
 
+## Spec Guard Question Sequencing
+
+This guidance applies only to Spec Guard workflow question flows used by agents, including spec interviews, initiative decomposition, classification clarification, blocker/deviation clarification, and similar Spec Guard-driven user-question sequences; it does not govern unrelated agent questions outside a Spec Guard flow.
+
+When a Spec Guard flow requires multiple known questions:
+
+1. List the multiple known questions up front.
+2. Tell the user they will be walked through the questions one at a time.
+3. Ask only the first question, then wait for the user's answer before asking the next question.
+
+When only one question is needed, ask it directly without a question-list preface.
+
+When suggested answers are reasonably knowable from existing context, offer those suggested answers with the question and make clear the user may accept one or provide their own answer.
+
+---
+
 ## The Loop
 
 ```
@@ -41,6 +57,14 @@ Reference the review in the spec's `Prior Implementation Review` field so the fu
 
 ---
 
+## Documentation Requirements Integrity
+
+For the governing spec currently being implemented, verify 100% of that spec's documentation obligations. Use the spec's `Documentation Requirements` section as the source of truth for docs the current spec requires to be created, updated, linked, or validated. Also account for obligations from the linked contract, work classification, and prior implementation review.
+
+Any documentation file created or updated for the current spec must be listed in the spec's `Documentation Requirements` section as a direct repository-relative link, and the same file must appear in the implementation review's `Linked Documentation` section. If no documentation changes are required, the spec or review must explicitly say so. Do not audit unrelated repository documentation.
+
+---
+
 ## Pre-Implementation Checklist
 
 Run before writing any implementation code. All items must be checked. If any cannot be checked, halt.
@@ -49,6 +73,7 @@ Run before writing any implementation code. All items must be checked. If any ca
 - [ ] Gate 1 — `spec-guard check <name>` exits 0
 - [ ] Exactly one work classification confirmed: __________
 - [ ] Every acceptance criterion read and understood
+- [ ] Documentation Requirements section read; all current-spec documentation obligations identified or explicitly marked not applicable
 - [ ] Gate 2 — `spec-guard check <name> --warnings` exits 0
 - [ ] Gate 3 — tests written from acceptance criteria, run, and confirmed failing
 - [ ] *(UI only)* Mockup/design direction in spec — or "No mockup required" confirmed by human
@@ -78,7 +103,7 @@ Use the standard spec flow (below) when the request is a **single feature, chang
 spec_guard_initiative_questions()
 ```
 
-**Step 2 — Ask the user the required questions**, then propose a slice breakdown (one slice per independently deliverable feature area). Present the breakdown for human review before saving.
+**Step 2 — Ask the user the required questions** using Spec Guard Question Sequencing above, then propose a slice breakdown (one slice per independently deliverable feature area). Present the breakdown for human review before saving.
 
 **Step 3 — Save the initiative:**
 ```
@@ -109,7 +134,7 @@ spec_guard_interview_questions()
 // or: spec_guard_interview_questions({ classification: "REST/service API" }) if already known
 ```
 
-**Step 2 — Ask the user each required question from the result.**
+**Step 2 — Ask the user each required question from the result using Spec Guard Question Sequencing above.**
 Ask them in order. Do not skip required questions. For optional questions, use judgment.
 
 **Step 3 — Draft the spec:**

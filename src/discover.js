@@ -166,6 +166,10 @@ export function buildSpecFromAnswers({
     '',
     bulletLines(edgeCases.length > 0 ? edgeCases : ['-']),
     '',
+    '## Documentation Requirements',
+    '',
+    '- No documentation changes required.',
+    '',
     '## Dependencies',
     '',
     (() => {

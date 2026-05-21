@@ -76,6 +76,8 @@ This document is addressed to the agent. All imperatives are instructions you mu
 
 **Triggered by:** The human brings a request — a feature, task, change, or bug fix they want built — and explicitly answers yes when asked: "Do you want to use Spec Guard for this task?"
 
+**Spec Guard workflow question flows:** When an agent must ask multiple known questions in a Spec Guard flow, list the questions up front, tell the user they will be walked through them one at a time, ask only the first question, and wait for the user's answer before asking the next. When only one question is needed, the agent may ask it directly. When suggested answers are reasonably knowable, offer those suggested answers while allowing the user to provide their own answer. This applies to Spec Guard workflow question flows only and does not govern unrelated agent questions outside a Spec Guard flow.
+
 **Goal:** Produce a spec that is complete enough to classify, test, and implement.
 
 If the human answers no to the Spec Guard prompt, this workflow is bypassed entirely for the current task only. Do not infer bypass eligibility; bypass requires the user's explicit answer.
@@ -100,9 +102,10 @@ If the human answers no to the Spec Guard prompt, this workflow is bypassed enti
    - `Out of Scope` — what is explicitly excluded (prevents silent scope absorption)
    - `Expected Behavior` — observable behavior, not implementation details
    - `Acceptance Criteria` — measurable, checkbox-format criteria
+   - `Documentation Requirements` — direct repository-relative links to docs the current spec requires to be created, updated, linked, or validated; explicitly state when no documentation changes are required
    - `Work Classification` — agent selects the most appropriate classification; human confirms during spec review
 
-4. Present the draft to the human for review and approval before proceeding to Gate 1.
+4. Present the draft to the human for review and approval before proceeding to Gate 1. If multiple review questions are needed, use the Spec Guard workflow question flow rule above.
 
 5. If the request is too vague to fill these sections, do not guess. Ask for clarification or create a discovery request:
    ```bash
@@ -233,6 +236,8 @@ No implementation may begin until one of these exists.
 
 **Goal:** Make the failing test pass. Nothing more.
 
+**Documentation integrity for the current spec:** Identify documentation obligations from the current spec's `Documentation Requirements` section, linked contract, classification, and prior implementation review. Create or update every required doc for the current spec, verify required links, and validate those docs against the implemented behavior. Any doc created or updated for the current spec must be directly linked from the spec's `Documentation Requirements` section and listed in the review's `Linked Documentation` section. If no documentation changes are required, record that explicitly. Do not audit unrelated repository documentation.
+
 **Rules:**
 - Change only what is required to make the spec's tests pass
 - Do not add unrequested features, optional enhancements, or opportunistic refactors
@@ -286,6 +291,8 @@ Complete the review checklist:
 - [ ] Tests were written before implementation
 - [ ] Failure-first was confirmed or reason was recorded
 - [ ] Behavior/contract was validated, not prose
+- [ ] Current-spec documentation obligations were fully satisfied, directly linked from `Documentation Requirements`, and listed in `Linked Documentation`, or explicitly marked not applicable
+- [ ] No unrelated repository documentation was audited or changed
 - [ ] No out-of-scope work was absorbed silently
 - [ ] Scope discoveries were recorded
 - [ ] Durable documentation updated only if contract changed

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.13.0
+
+### Documentation integrity workflow
+
+- Added spec-level `Documentation Requirements` support so docs required by the current spec are tracked up front with direct repository-relative links.
+- Added `SG-ALIGN-009` analysis checks to keep spec documentation requirements aligned with implementation review `Linked Documentation` entries.
+- Updated workflow, agent, spec, and review templates so agents verify current-spec documentation obligations without auditing unrelated repository docs.
+
+### API contract end-user docs
+
+- API and REST API contract creation now creates a corresponding end-user API doc, persists its repository-relative path in the contract, and validates that the file exists.
+- End-user API docs are placed in an obvious existing docs location when available, falling back to `docs/`.
+- Suggested end-user API doc filenames use `api` instead of `contract`.
+
+### README maintenance preference
+
+- Added repo-scoped README maintenance preference persistence under `.spec-guard/`.
+- Interactive workflows can ask once whether Spec Guard should create and maintain a README when none exists.
+- README updates are kept concise and link to deeper docs; persisted opt-out prevents README creation or updates.
+
+---
+
 ## 0.12.0
 
 ### Bugfix work classification

@@ -16,6 +16,7 @@ import { discoverInteractive, buildSpecFromAnswers, interviewQuestions } from '.
 import { initiativeQuestions, saveInitiative, initiativeInteractive } from '../src/initiative.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
+import { addDocLinkToReadme } from '../src/readme-maintenance.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -1123,13 +1124,132 @@ async function copyTemplate(templatePath, outputPath, label) {
   }
 
   await mkdir(dirname(target), { recursive: true });
-  const template = await readFile(source, 'utf8');
+  let template = await readFile(source, 'utf8');
+  let apiDocPath = null;
+  if (label === 'api-contract' || label === 'rest-api-contract') {
+    apiDocPath = await selectEndUserApiDocPath(outputPath);
+    template = withEndUserApiDocPath(template, apiDocPath);
+  }
   await writeFile(target, template, { flag: 'wx' });
   console.log(`Created ${label}: ${outputPath}`);
+
+  if (apiDocPath) {
+    await createEndUserApiDoc(apiDocPath, outputPath);
+    await addDocLinkToReadme({ docPath: apiDocPath });
+    console.log(`Created end-user API doc: ${apiDocPath}`);
+  }
+
   return 0;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
+
+async function selectEndUserApiDocPath(contractOutputPath) {
+  const contractName = basename(contractOutputPath).replace(/\.md$/, '');
+  const apiDocName = `${contractName.replace(/(?:[-_]?contract)+$/i, '')}-api.md`;
+  const docDir = await findObviousDocumentationDir();
+  return join(docDir, apiDocName).replace(/\\/g, '/');
+}
+
+async function findObviousDocumentationDir() {
+  const readme = await readRepositoryReadme();
+  const tocDir = readme ? documentationDirFromReadmeToc(readme.text) : null;
+  if (tocDir) return tocDir;
+
+  for (const candidate of ['docs', 'documentation', 'doc', 'guides']) {
+    try {
+      const entries = await readdir(resolve(candidate));
+      if (entries.some(entry => entry.toLowerCase().endsWith('.md'))) return candidate;
+    } catch { /* not present */ }
+  }
+
+  return 'docs';
+}
+
+async function readRepositoryReadme() {
+  for (const name of ['README.md', 'README']) {
+    try {
+      return { path: name, text: await readFile(resolve(name), 'utf8') };
+    } catch { /* continue */ }
+  }
+  return null;
+}
+
+function documentationDirFromReadmeToc(text) {
+  const section = extractMarkdownSection(text, 'Table of Contents');
+  if (!section) return null;
+  const match = /\[[^\]]+\]\(([^)]+\.md)(?:#[^)]+)?\)/i.exec(section);
+  if (!match) return null;
+  const linkedPath = match[1].trim();
+  if (/^[/\\]/.test(linkedPath) || /^[A-Za-z]:/.test(linkedPath) || linkedPath.includes('..')) return null;
+  const dir = dirname(linkedPath).replace(/\\/g, '/');
+  return dir === '.' ? 'docs' : dir;
+}
+
+function extractMarkdownSection(text, heading) {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`^#{1,6}\\s+${escaped}\\s*$`, 'im').exec(normalized);
+  if (!match) return null;
+  const start = match.index + match[0].length;
+  const rest = normalized.slice(start);
+  const next = /^#{1,6}\s+/m.exec(rest);
+  return next ? rest.slice(0, next.index) : rest;
+}
+
+function withEndUserApiDocPath(template, apiDocPath) {
+  const section = `\n## End-User API Documentation\n\n- Documentation Path: ${apiDocPath}\n`;
+  if (/^##\s+End-User API Documentation\s*$/m.test(template)) {
+    return template.replace(/- Documentation Path:\s*.*$/m, `- Documentation Path: ${apiDocPath}`);
+  }
+  return `${template.trimEnd()}\n${section}`;
+}
+
+async function createEndUserApiDoc(apiDocPath, contractOutputPath) {
+  const title = titleFromApiDocPath(apiDocPath);
+  const target = resolve(apiDocPath);
+  try {
+    await access(target, constants.F_OK);
+    return;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  await mkdir(dirname(target), { recursive: true });
+  const contractRel = contractOutputPath.replace(/\\/g, '/');
+  await writeFile(target, `# ${title}\n\nSource Spec Guard contract: \`${contractRel}\`.\n`, { flag: 'wx' });
+}
+
+function titleFromApiDocPath(apiDocPath) {
+  const base = basename(apiDocPath).replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
+  return base
+    .replace(/\b\w/g, char => char.toUpperCase())
+    .replace(/\bApi\b/g, 'API');
+}
+
+async function addApiDocToReadmeToc(apiDocPath) {
+  const readme = await readRepositoryReadme();
+  if (!readme) return;
+  const toc = extractMarkdownSection(readme.text, 'Table of Contents');
+  if (!toc || !/\[[^\]]+\]\([^)]+\.md(?:#[^)]+)?\)/i.test(toc)) return;
+  if (toc.includes(apiDocPath)) return;
+
+  const normalized = readme.text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const heading = /^#{1,6}\s+Table of Contents\s*$/im.exec(normalized);
+  if (!heading) return;
+  const start = heading.index + heading[0].length;
+  const rest = normalized.slice(start);
+  const next = /^#{1,6}\s+/m.exec(rest);
+  const sectionEnd = next ? start + next.index : normalized.length;
+  const section = normalized.slice(start, sectionEnd);
+  const entry = `- [${titleFromApiDocPath(apiDocPath)}](${apiDocPath})`;
+  const bulletMatches = [...section.matchAll(/^\s*[-*+]\s+\[[^\]]+\]\([^)]+\.md(?:#[^)]+)?\)\s*$/gim)];
+  const insertAt = bulletMatches.length > 0
+    ? start + bulletMatches[bulletMatches.length - 1].index + bulletMatches[bulletMatches.length - 1][0].length
+    : sectionEnd;
+  const updated = `${normalized.slice(0, insertAt)}\n${entry}${normalized.slice(insertAt)}`;
+  await writeFile(resolve(readme.path), updated);
+}
 
 // Read commands: bare names default to defaultDir, full paths pass through as-is.
 function withDefaultDir(arg, defaultDir) {
