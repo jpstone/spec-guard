@@ -9,7 +9,7 @@ import { getSelectedClassifications, getSpecTitle } from './check.js';
 // SG-ALIGN-004  unchecked items remain in implementation review (Gate 5 blocked)
 // SG-ALIGN-005  Implementation Files section blank in review
 // SG-ALIGN-006  Test Files section blank in review
-// SG-ALIGN-007  One-off application UI with contract has no confirmed runtime wiring test
+// SG-ALIGN-007  One-off application UI with contract: Dependency Integration table unpopulated or checkbox unchecked
 
 const CONTRACT_STRUCTURE = {
   'REST/service API': {
@@ -156,16 +156,32 @@ export async function analyzeArtifacts({
         });
       }
 
-      // SG-ALIGN-007: UI spec with a contract must confirm runtime wiring
+      // SG-ALIGN-007: UI spec with a contract must have populated Dependency Integration table + confirmed checkbox
       if (classification === 'One-off application UI' && contractPath) {
         const depSection = extractSection(reviewText, 'Dependency Integration');
-        const confirmed = depSection && /^- \[x\]/im.test(depSection);
-        if (!confirmed) {
+        const checkboxConfirmed = depSection && /^- \[x\]/im.test(depSection);
+        // Table row is real when it has 3 pipe-delimited cells and none are just a placeholder dash
+        const realRows = depSection
+          ? (depSection.match(/^\|[^|\n]+\|[^|\n]+\|[^|\n]+\|/gm) || [])
+              .filter(r => !/Dependency.*Integration.code.*Test/i.test(r))
+              .filter(r => !/^[|\s-]+$/.test(r))
+              .filter(r => !/^\|\s*-\s*\|\s*-\s*\|\s*-\s*\|/.test(r))
+          : [];
+        const tablePopulated = realRows.length > 0;
+
+        if (!depSection || !tablePopulated) {
           diagnostics.push({
             severity: 'BLOCKER',
             ruleId: 'SG-ALIGN-007',
             path: reviewPath,
-            message: 'One-off application UI with a contract dependency must confirm runtime wiring — check the Dependency Integration box in the review, or add the section if it was removed',
+            message: 'Dependency Integration table is missing or unpopulated — for each runtime dependency list the dependency name, the integration code file/location, and the test that exercises it through the real code path',
+          });
+        } else if (!checkboxConfirmed) {
+          diagnostics.push({
+            severity: 'BLOCKER',
+            ruleId: 'SG-ALIGN-007',
+            path: reviewPath,
+            message: 'Dependency Integration checkbox is unchecked — confirm each dependency is exercised through the real integration code and returns expected status codes',
           });
         }
       }

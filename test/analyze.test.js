@@ -310,38 +310,86 @@ const UI_SPEC = VALID_SPEC
   .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
   .replace('- [ ] One-off application UI', '- [x] One-off application UI');
 
-const REVIEW_WITH_WIRING = COMPLETE_REVIEW +
-  '\n## Dependency Integration\n\n- [x] At least one test exercises each external dependency without mocking, confirming runtime wiring.\n';
+const DEP_TABLE_POPULATED =
+  '\n## Dependency Integration\n\n' +
+  '| Dependency | Integration code | Test |\n' +
+  '|------------|-----------------|------|\n' +
+  '| Todo API   | vite.config.js:server.proxy | todo.spec.js POST /api/todos → 200 |\n\n' +
+  '- [x] Each dependency above is exercised through the real integration code and returns expected status codes (not 404).\n';
 
-const REVIEW_WITHOUT_WIRING = COMPLETE_REVIEW;
+const DEP_TABLE_PLACEHOLDER =
+  '\n## Dependency Integration\n\n' +
+  '| Dependency | Integration code | Test |\n' +
+  '|------------|-----------------|------|\n' +
+  '| -          | -               | -    |\n\n' +
+  '- [x] Each dependency above is exercised through the real integration code and returns expected status codes (not 404).\n';
 
-test('analyzeArtifacts — SG-ALIGN-007 BLOCKER when One-off UI + contract but Dependency Integration unchecked', async () => {
+const DEP_TABLE_UNCHECKED =
+  '\n## Dependency Integration\n\n' +
+  '| Dependency | Integration code | Test |\n' +
+  '|------------|-----------------|------|\n' +
+  '| Todo API   | vite.config.js:server.proxy | todo.spec.js POST /api/todos → 200 |\n\n' +
+  '- [ ] Each dependency above is exercised through the real integration code and returns expected status codes (not 404).\n';
+
+const CONTRACT = 'GET /todos\nPOST /todos\n## Routes\n- GET /todos returns list';
+
+test('analyzeArtifacts — SG-ALIGN-007 BLOCKER when Dependency Integration section missing', async () => {
   const dir = tmp();
   const specPath = join(dir, 'spec.md');
   const contractPath = join(dir, 'contract.md');
   const reviewPath = join(dir, 'review.md');
   writeFileSync(specPath, UI_SPEC);
-  writeFileSync(contractPath, 'GET /todos\nPOST /todos\n## Routes\n- GET /todos returns list');
-  writeFileSync(reviewPath, REVIEW_WITHOUT_WIRING);
+  writeFileSync(contractPath, CONTRACT);
+  writeFileSync(reviewPath, COMPLETE_REVIEW);
 
   const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
   const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
-  assert.ok(diags.length > 0, 'should emit SG-ALIGN-007');
+  assert.ok(diags.length > 0, 'should emit SG-ALIGN-007 when section missing');
   assert.equal(diags[0].severity, 'BLOCKER');
 });
 
-test('analyzeArtifacts — no SG-ALIGN-007 when One-off UI + contract and Dependency Integration is checked', async () => {
+test('analyzeArtifacts — SG-ALIGN-007 BLOCKER when Dependency Integration table has only placeholder rows', async () => {
   const dir = tmp();
   const specPath = join(dir, 'spec.md');
   const contractPath = join(dir, 'contract.md');
   const reviewPath = join(dir, 'review.md');
   writeFileSync(specPath, UI_SPEC);
-  writeFileSync(contractPath, 'GET /todos\nPOST /todos\n## Routes\n- GET /todos returns list');
-  writeFileSync(reviewPath, REVIEW_WITH_WIRING);
+  writeFileSync(contractPath, CONTRACT);
+  writeFileSync(reviewPath, COMPLETE_REVIEW + DEP_TABLE_PLACEHOLDER);
 
   const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
   const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
-  assert.equal(diags.length, 0, 'should not emit SG-ALIGN-007 when wiring is confirmed');
+  assert.ok(diags.length > 0, 'should emit SG-ALIGN-007 when table unpopulated');
+  assert.equal(diags[0].severity, 'BLOCKER');
+});
+
+test('analyzeArtifacts — SG-ALIGN-007 BLOCKER when table populated but checkbox unchecked', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, UI_SPEC);
+  writeFileSync(contractPath, CONTRACT);
+  writeFileSync(reviewPath, COMPLETE_REVIEW + DEP_TABLE_UNCHECKED);
+
+  const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
+  assert.ok(diags.length > 0, 'should emit SG-ALIGN-007 when checkbox unchecked');
+  assert.equal(diags[0].severity, 'BLOCKER');
+});
+
+test('analyzeArtifacts — no SG-ALIGN-007 when table populated and checkbox checked', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  const reviewPath = join(dir, 'review.md');
+  writeFileSync(specPath, UI_SPEC);
+  writeFileSync(contractPath, CONTRACT);
+  writeFileSync(reviewPath, COMPLETE_REVIEW + DEP_TABLE_POPULATED);
+
+  const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
+  const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
+  assert.equal(diags.length, 0, 'should not emit SG-ALIGN-007 when fully populated and confirmed');
 });
 
 test('analyzeArtifacts — no SG-ALIGN-007 when One-off UI with no contract', async () => {
@@ -349,11 +397,11 @@ test('analyzeArtifacts — no SG-ALIGN-007 when One-off UI with no contract', as
   const specPath = join(dir, 'spec.md');
   const reviewPath = join(dir, 'review.md');
   writeFileSync(specPath, UI_SPEC);
-  writeFileSync(reviewPath, REVIEW_WITHOUT_WIRING);
+  writeFileSync(reviewPath, COMPLETE_REVIEW);
 
   const result = await analyzeArtifacts({ specPath, reviewPath });
   const diags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-007');
-  assert.equal(diags.length, 0, 'should not emit SG-ALIGN-007 when no contract is involved');
+  assert.equal(diags.length, 0, 'should not emit SG-ALIGN-007 when no contract involved');
 });
 
 // ─── stale gate detection ─────────────────────────────────────────────────────

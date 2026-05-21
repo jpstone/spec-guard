@@ -49,11 +49,17 @@
 
 ## Dependency Integration
 
-<!-- Required when this implementation calls an external API, service, or data layer at runtime.
-     A mocked test suite alone does not satisfy this — at least one test must use the real dependency.
-     Remove this entire section if there is genuinely no runtime dependency. -->
+<!-- For each runtime dependency, name it, link the exact code that performs the wiring
+     (e.g. proxy config, middleware mount, service start script), and name the test that
+     exercises it through that real code path — not a test-only URL override or mocked route.
+     If the wiring code does not exist yet, write a failing test first, then implement.
+     Remove this entire section only if there is genuinely no runtime dependency. -->
 
-- [ ] At least one test exercises each external dependency without mocking, confirming runtime wiring.
+| Dependency | Integration code | Test |
+|------------|-----------------|------|
+| -          | -               | -    |
+
+- [ ] Each dependency above is exercised through the real integration code and returns expected status codes (not 404).
 
 ## Scope Control
 

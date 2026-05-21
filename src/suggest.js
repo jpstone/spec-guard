@@ -155,15 +155,20 @@ const RULE_SUGGESTIONS = {
     '  or document explicitly why it does not apply.',
 
   'SG-ALIGN-007': () =>
-    'This spec is classified as One-off application UI and references a contract — at least one\n' +
-    'test must exercise the real dependency without mocking, confirming runtime wiring.\n\n' +
-    'In the implementation review, add or complete the Dependency Integration section:\n\n' +
-    '  ## Dependency Integration\n' +
-    '  - [x] At least one test exercises each external dependency without mocking, confirming runtime wiring.\n\n' +
-    'A fully-mocked test suite does not satisfy this. The wiring test must:\n' +
-    '  1. Start the real backend (or use it as middleware in the dev server)\n' +
-    '  2. Perform a real operation through the UI (e.g., click Add, then verify the item persists)\n' +
-    '  3. Not intercept or stub the API calls',
+    'This spec is One-off application UI with a contract dependency. The Dependency Integration\n' +
+    'section of the review must be populated and confirmed.\n\n' +
+    'For each runtime dependency:\n' +
+    '  1. Identify the integration code — the exact file/location that wires the dependency\n' +
+    '     at runtime (e.g. vite.config.js proxy, middleware mount, dev server script).\n' +
+    '  2. If that code does not exist: write a test that hits the real endpoint — it will\n' +
+    '     fail with 404. Implement the wiring code. The test must now return 200.\n' +
+    '  3. The test must exercise the dependency through that real code path — not via a\n' +
+    '     test-only URL override, mocked fetch, or intercepted route.\n\n' +
+    'Fill in the table in the review:\n\n' +
+    '  | Dependency          | Integration code              | Test                        |\n' +
+    '  |---------------------|-------------------------------|-----------------------------|\n' +
+    '  | Todo Persistence API| vite.config.js:server.proxy   | todo-app-ui.spec.js:POST /api/todos → 200 |\n\n' +
+    'Then check the confirmation box.',
 };
 
 export function suggestFix(diagnostic) {

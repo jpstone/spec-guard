@@ -1,14 +1,14 @@
 # Changelog
 
-## 0.10.0
+## 0.11.0
 
 ### Cross-slice integration enforcement
 
-- `SG-ALIGN-007` — BLOCKER in `spec-guard analyze` when classification is `One-off application UI`, a contract is present, and the review's `Dependency Integration` checkbox is not checked; a mocked-only test suite cannot pass Gate 5
-- `templates/implementation-review.md` — added `Dependency Integration` section with a single checkbox (no "not applicable" escape hatch); remove the section entirely if there is genuinely no runtime dependency; required when a cross-artifact dependency exists
-- `src/suggest.js` — fix instruction for SG-ALIGN-007 with concrete steps for adding a real wiring test
-- `src/run.js` — `One-off application UI` test guidance now explicitly states that at least one test must exercise each API dependency without mocking; a fully-mocked suite does not satisfy Gate 3
-- `src/initiative.js` — initiative artifact now includes a `Cross-Slice Integration` section when slices include both a UI classification and an API classification, requiring a no-mock integration test before Gate 5 of any dependent UI slice
+- `SG-ALIGN-007` — BLOCKER in `spec-guard analyze` when classification is `One-off application UI` and a contract is present: fires if the `Dependency Integration` table is missing, unpopulated (placeholder dashes), or its confirmation checkbox is unchecked; all three conditions are checked independently
+- `templates/implementation-review.md` — `Dependency Integration` section is now a structured table: `Dependency | Integration code | Test`; the agent must name the dependency, link the exact file/location that wires it at runtime (proxy config, middleware, dev server script), and name the test that exercises it through that real code path — test-only URL overrides and mocked routes do not satisfy the requirement; followed by a single confirmation checkbox
+- `src/run.js` — `One-off application UI` test guidance now requires: identify the integration code, write a test that fails (404) before the wiring exists, implement the wiring, confirm it returns 200; explicitly calls out test-only URL overrides and mocked routes as non-compliant
+- `src/suggest.js` — SG-ALIGN-007 fix instruction updated with table example and step-by-step wiring TDD loop
+- `src/initiative.js` — initiative artifact includes a `Cross-Slice Integration` section when UI and API slices coexist
 
 ---
 
