@@ -161,6 +161,36 @@ test('saveInitiative initiative artifact lists each slice with name, title, and 
   assert.ok(content.includes('todo-screen'), 'should include second slice name');
 });
 
+test('saveInitiative includes cross-slice integration note when UI and API slices coexist', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app',
+    title: 'My App',
+    description: 'A task management app',
+    slices: validSlices, // includes REST/service API + One-off application UI
+    dir,
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  assert.ok(content.includes('Cross-Slice Integration'), 'should include cross-slice integration section');
+  assert.ok(content.includes('without mocking'), 'should mention no-mock requirement');
+});
+
+test('saveInitiative omits cross-slice integration note when only API slices', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'api-only',
+    title: 'API Only',
+    description: 'Only API slices',
+    slices: [
+      { name: 'user-auth', title: 'User Auth', description: 'Auth API', classification: 'REST/service API' },
+      { name: 'todo-api', title: 'Todo API', description: 'Todo API', classification: 'Reusable non-UI API' },
+    ],
+    dir,
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'api-only.md'), 'utf8');
+  assert.ok(!content.includes('Cross-Slice Integration'), 'should not include cross-slice section for API-only initiative');
+});
+
 // ─── CLI: initiative-questions ────────────────────────────────────────────────
 
 test('initiative-questions prints question list', () => {

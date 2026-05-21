@@ -163,10 +163,22 @@ export async function initiativeInteractive() {
   return { name, title, description, slices };
 }
 
+const UI_CLASSIFICATIONS = new Set(['One-off application UI', 'Reusable UI component']);
+const API_CLASSIFICATIONS = new Set(['REST/service API', 'Reusable non-UI API']);
+
 function buildInitiativeArtifact({ title, description, slices }) {
   const rows = slices
     .map(s => `| ${s.name} | ${s.title} | ${s.classification} | ${s.description} |`)
     .join('\n');
+
+  const hasUI  = slices.some(s => UI_CLASSIFICATIONS.has(s.classification));
+  const hasAPI = slices.some(s => API_CLASSIFICATIONS.has(s.classification));
+  const integrationNote = hasUI && hasAPI
+    ? `\n## Cross-Slice Integration
+
+This initiative includes both UI and API slices. After both are implemented, at least one test must verify the full runtime wiring — the UI calling the real API without mocking. This is required before Gate 5 of any UI slice that depends on an API slice from this initiative.
+`
+    : '';
 
   return `# Initiative: ${title}
 
@@ -179,13 +191,13 @@ ${description}
 | Name | Title | Classification | Description |
 |------|-------|----------------|-------------|
 ${rows}
-
+${integrationNote}
 ## Next Steps
 
 For each slice, run:
 
 \`\`\`
-spec-guard draft <slice-name>
+npx spec-guard draft <slice-name>
 \`\`\`
 
 Or via MCP: call \`spec_guard_draft_spec\` with the slice name and description as inputs.

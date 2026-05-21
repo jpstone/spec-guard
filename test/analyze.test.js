@@ -100,6 +100,11 @@ Direct behavior with no new API or UI
 
 -
 
+## Dependency Integration
+
+- [ ] At least one test exercises each external dependency without mocking, confirming runtime wiring.
+- [x] No external API or service dependency — not applicable.
+
 ## Scope Control
 
 - [x] No out-of-scope work was absorbed silently.
