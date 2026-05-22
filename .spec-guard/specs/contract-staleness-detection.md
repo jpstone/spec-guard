@@ -60,7 +60,7 @@ When spec-guard analyze <name> runs, if any contract file whose path appears in 
 
 ## Open Questions
 
-- Path extraction from Dependencies prose: the section is free-form text. Deciding how aggressively to parse (markdown links only vs. plain paths vs. full text scan) affects both false positives on non-contract paths and false negatives on unconventional formatting. The extractDocLinks pattern from SG-ALIGN-009 is a candidate starting point but filters out ../ paths — may need a contract-specific variant.
+- N/A: Path extraction from Dependencies prose: the section is free-form text. Deciding how aggressively to parse (markdown links only vs. plain paths vs. full text scan) affects both false positives on non-contract paths and false negatives on unconventional formatting. The extractDocLinks pattern from SG-ALIGN-009 is a candidate starting point but filters out ../ paths — may need a contract-specific variant.
 
 ## Work Classification
 
