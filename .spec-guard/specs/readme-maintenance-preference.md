@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -6,7 +6,7 @@ README Maintenance Preference
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
@@ -48,7 +48,7 @@ In a repo with no README and no recorded README preference, Spec Guard asks once
 
 ## Prior Implementation Review
 
-- `.spec-guard/reviews/api-contract-end-user-docs.md` — identifies existing behavior for creating end-user API docs and updating README table-of-contents links from API contract workflows.
+- `.spec-guard/reviews/api-contract-end-user-docs.md` â€” identifies existing behavior for creating end-user API docs and updating README table-of-contents links from API contract workflows.
 
 ## Dependencies
 

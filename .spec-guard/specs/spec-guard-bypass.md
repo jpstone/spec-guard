@@ -1,8 +1,8 @@
-# Spec: Spec Guard Bypass
+﻿# Spec: Spec Guard Bypass
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

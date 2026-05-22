@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -6,7 +6,7 @@ Spec Guard Question Sequencing
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
@@ -56,8 +56,8 @@ When an agent needs to ask more than one question during a Spec Guard workflow, 
 
 ## Prior Implementation Review
 
-- `.spec-guard/reviews/spec-guard-bypass.md` — identifies AGENTS.md and WORKFLOW.md as existing agent/workflow guidance files and `test/spec-guard-bypass-instructions.test.js` as a documentation-instruction test pattern.
-- `.spec-guard/reviews/initiative-decomposition.md` — identifies initiative decomposition question guidance in AGENTS.md and related question flow behavior.
+- `.spec-guard/reviews/spec-guard-bypass.md` â€” identifies AGENTS.md and WORKFLOW.md as existing agent/workflow guidance files and `test/spec-guard-bypass-instructions.test.js` as a documentation-instruction test pattern.
+- `.spec-guard/reviews/initiative-decomposition.md` â€” identifies initiative decomposition question guidance in AGENTS.md and related question flow behavior.
 
 ## Dependencies
 

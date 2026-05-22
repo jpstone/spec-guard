@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -6,7 +6,7 @@ Bugfix Evidence Permanence
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
@@ -38,8 +38,8 @@ When a spec is classified as Bugfix, `spec-guard check` reports SG-BUG-001 if th
 - [ ] `templates/spec.md` includes a `## Test Evidence` section with a permanent checkbox and a temporary checkbox (with a removal-condition field).
 - [ ] `spec-guard check` reports a SG-BUG-001 BLOCKER when classification is Bugfix and `Test Evidence` is absent.
 - [ ] `spec-guard check` reports a SG-BUG-001 BLOCKER when classification is Bugfix and `Test Evidence` is present but neither option is checked.
-- [ ] A Bugfix spec with `Test Evidence` — permanent option checked — passes SG-BUG-001 with no diagnostic.
-- [ ] A Bugfix spec with `Test Evidence` — temporary option checked — passes SG-BUG-001 with no diagnostic.
+- [ ] A Bugfix spec with `Test Evidence` â€” permanent option checked â€” passes SG-BUG-001 with no diagnostic.
+- [ ] A Bugfix spec with `Test Evidence` â€” temporary option checked â€” passes SG-BUG-001 with no diagnostic.
 - [ ] Non-Bugfix specs are not affected by SG-BUG-001.
 - [ ] `AGENTS.md` documents that the `Test Evidence` field must be filled before Gate 4 for Bugfix specs.
 
@@ -59,9 +59,9 @@ When a spec is classified as Bugfix, `spec-guard check` reports SG-BUG-001 if th
 
 ## Documentation Requirements
 
-- [Agent Instructions](AGENTS.md) — update Bugfix row in Writing Tests table to reference the `Test Evidence` field and require it before Gate 4.
-- [Spec Template](templates/spec.md) — add `## Test Evidence` section.
-- [Validation Rules](docs/validation-rules.md) — add SG-BUG-001 entry.
+- [Agent Instructions](AGENTS.md) â€” update Bugfix row in Writing Tests table to reference the `Test Evidence` field and require it before Gate 4.
+- [Spec Template](templates/spec.md) â€” add `## Test Evidence` section.
+- [Validation Rules](docs/validation-rules.md) â€” add SG-BUG-001 entry.
 
 ## Implementation Planning
 

@@ -1,8 +1,8 @@
-# Spec: Bugfix Classification
+﻿# Spec: Bugfix Classification
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

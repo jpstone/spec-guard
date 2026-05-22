@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -6,7 +6,7 @@ Spec Documentation Requirements Integrity
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
@@ -51,15 +51,15 @@ During implementation and review of a spec, the agent identifies all documentati
 
 ## Prior Implementation Review
 
-- `.spec-guard/reviews/api-contract-end-user-docs.md` — identifies existing API contract end-user documentation creation, persisted documentation path behavior, and API doc validation.
-- `.spec-guard/reviews/readme-maintenance-preference.md` — identifies existing README preference persistence and README maintenance behavior.
+- `.spec-guard/reviews/api-contract-end-user-docs.md` â€” identifies existing API contract end-user documentation creation, persisted documentation path behavior, and API doc validation.
+- `.spec-guard/reviews/readme-maintenance-preference.md` â€” identifies existing README preference persistence and README maintenance behavior.
 
 ## Documentation Requirements
 
-- [Agent Instructions](AGENTS.md) — document agent obligations for current-spec documentation requirements.
-- [Workflow](WORKFLOW.md) — document workflow obligations for current-spec documentation integrity.
-- [Spec Template](templates/spec.md) — add the `Documentation Requirements` section for future specs.
-- [Implementation Review Template](templates/implementation-review.md) — require linked documentation alignment and documentation update validation.
+- [Agent Instructions](AGENTS.md) â€” document agent obligations for current-spec documentation requirements.
+- [Workflow](WORKFLOW.md) â€” document workflow obligations for current-spec documentation integrity.
+- [Spec Template](templates/spec.md) â€” add the `Documentation Requirements` section for future specs.
+- [Implementation Review Template](templates/implementation-review.md) â€” require linked documentation alignment and documentation update validation.
 
 ## Dependencies
 

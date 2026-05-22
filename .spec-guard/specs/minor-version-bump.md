@@ -1,8 +1,8 @@
-# Spec: Minor Version Bump
+﻿# Spec: Minor Version Bump
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

@@ -1,20 +1,20 @@
-# Spec: Initiative Decomposition
+﻿# Spec: Initiative Decomposition
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
-Developers often have a broad app or product idea that spans many individual features. Spec Guard currently has no structured way to capture that top-level concept or guide an agent through decomposing it into individual specs. Without this, the agent has no systematic mechanism to break a large idea into properly classified, trackable feature slices — and no artifact records that the decomposition happened.
+Developers often have a broad app or product idea that spans many individual features. Spec Guard currently has no structured way to capture that top-level concept or guide an agent through decomposing it into individual specs. Without this, the agent has no systematic mechanism to break a large idea into properly classified, trackable feature slices â€” and no artifact records that the decomposition happened.
 
 ## In Scope
 
-- `spec_guard_initiative_questions` MCP tool — returns a structured question list for gathering initiative context from the developer
-- `spec_guard_save_initiative` MCP tool — accepts initiative name, title, description, and an approved slice list; validates classifications and names; writes `.spec-guard/initiatives/<name>.md`; returns slice info for use with `spec_guard_draft_spec`
-- `spec-guard initiative-questions` CLI command — prints the structured initiative question list; mirrors `spec_guard_initiative_questions`
-- `spec-guard initiative <name>` CLI command — interactive wizard that gathers initiative context and slice definitions, then saves the artifact; mirrors `spec_guard_save_initiative`; follows the same pattern as `spec-guard draft`
-- `templates/initiative.md` — initiative artifact template
+- `spec_guard_initiative_questions` MCP tool â€” returns a structured question list for gathering initiative context from the developer
+- `spec_guard_save_initiative` MCP tool â€” accepts initiative name, title, description, and an approved slice list; validates classifications and names; writes `.spec-guard/initiatives/<name>.md`; returns slice info for use with `spec_guard_draft_spec`
+- `spec-guard initiative-questions` CLI command â€” prints the structured initiative question list; mirrors `spec_guard_initiative_questions`
+- `spec-guard initiative <name>` CLI command â€” interactive wizard that gathers initiative context and slice definitions, then saves the artifact; mirrors `spec_guard_save_initiative`; follows the same pattern as `spec-guard draft`
+- `templates/initiative.md` â€” initiative artifact template
 - `spec-guard init` updated to create the `.spec-guard/initiatives/` directory
 
 ## Out of Scope

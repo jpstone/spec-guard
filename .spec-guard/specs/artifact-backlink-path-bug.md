@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -6,7 +6,7 @@ Artifact Backlink Path Bug
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
@@ -20,7 +20,7 @@ Draft
 
 ## Behavior Delta
 
-- BEFORE: artifact link path is relative to `process.cwd()` → GitHub link is broken. → AFTER: artifact link path is relative to the spec file's directory → GitHub link resolves correctly.
+- BEFORE: artifact link path is relative to `process.cwd()` â†’ GitHub link is broken. â†’ AFTER: artifact link path is relative to the spec file's directory â†’ GitHub link resolves correctly.
 
 ## In Scope
 
@@ -63,7 +63,7 @@ When an artifact is created for a spec, the link written into the spec resolves 
 
 ## Documentation Requirements
 
-No documentation changes required — this is a bug in path computation only.
+No documentation changes required â€” this is a bug in path computation only.
 
 ## Implementation Planning
 
@@ -92,4 +92,4 @@ None.
 ## Test Evidence
 
 - [x] Permanent regression coverage.
-- [ ] Temporary — remove after: 
+- [ ] Temporary â€” remove after: 
