@@ -61,7 +61,9 @@ Reference the review in the spec's `Prior Implementation Review` field so the fu
 
 For the governing spec currently being implemented, verify 100% of that spec's documentation obligations. Use the spec's `Documentation Requirements` section as the source of truth for docs the current spec requires to be created, updated, linked, or validated. Also account for obligations from the linked contract, work classification, and prior implementation review.
 
-Any documentation file created or updated for the current spec must be listed in the spec's `Documentation Requirements` section as a direct repository-relative link, and the same file must appear in the implementation review's `Linked Documentation` section. If no documentation changes are required, the spec or review must explicitly say so. Do not audit unrelated repository documentation.
+Any documentation file created or updated for the current spec must be listed in the spec's `Documentation Requirements` section and in the implementation review's `Linked Documentation` section. If no documentation changes are required, the spec or review must explicitly say so. Do not audit unrelated repository documentation.
+
+**Link path format:** Use paths relative to the containing file, not the repository root. For a spec at `.spec-guard/specs/foo.md` or a review at `.spec-guard/reviews/foo.md`, write `../../docs/guide.md` rather than `docs/guide.md`. GitHub resolves markdown links relative to the file that contains them; repo-root-relative paths produce broken links. Both formats are accepted by SG-ALIGN-009 validation.
 
 ---
 

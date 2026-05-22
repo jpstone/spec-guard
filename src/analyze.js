@@ -1,6 +1,6 @@
 import { constants } from 'node:fs';
 import { access, readFile, stat } from 'node:fs/promises';
-import { resolve, basename, dirname, join } from 'node:path';
+import { resolve, relative, basename, dirname, join } from 'node:path';
 import { getSelectedClassifications, getSpecTitle } from './check.js';
 
 // ─── Rule IDs ──────────────────────────────────────────────────────────────────
@@ -199,8 +199,8 @@ export async function analyzeArtifacts({
       // SG-ALIGN-009: current spec documentation requirements must align with review linked docs
       const specDocSection = extractSection(specText, 'Documentation Requirements');
       const reviewDocSection = extractSection(reviewText, 'Linked Documentation');
-      const specDocLinks = extractDocLinks(specDocSection || '');
-      const reviewDocLinks = extractDocLinks(reviewDocSection || '');
+      const specDocLinks = extractDocLinks(specDocSection || '', specPath);
+      const reviewDocLinks = extractDocLinks(reviewDocSection || '', reviewPath);
 
       for (const docPath of specDocLinks) {
         if (!reviewDocLinks.includes(docPath)) {
@@ -356,22 +356,38 @@ function inferRepoRootFromContractPath(contractPath) {
   return dirname(resolve(contractPath));
 }
 
-function extractDocLinks(text) {
+function inferRepoRootFromSpecPath(filePath) {
+  const normalized = resolve(filePath).replace(/\\/g, '/');
+  const markerIndex = normalized.indexOf('/.spec-guard/');
+  if (markerIndex >= 0) return normalized.slice(0, markerIndex);
+  // fallback: go up two directories (.spec-guard/<subdir>/<file>)
+  return dirname(dirname(dirname(resolve(filePath))));
+}
+
+function extractDocLinks(text, filePath = null) {
   if (!text) return [];
   const links = new Set();
   const normalized = text.replace(/\\/g, '/');
   const markdownLinks = normalized.matchAll(/\[[^\]]+\]\(([^)#]+\.md)(?:#[^)]+)?\)/gi);
-  for (const match of markdownLinks) addDocLink(links, match[1]);
+  for (const match of markdownLinks) addDocLink(links, match[1], filePath);
 
   const plainPaths = normalized.matchAll(/(?:^|[\s`(])((?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.md)(?:#[A-Za-z0-9_.-]+)?/gim);
-  for (const match of plainPaths) addDocLink(links, match[1]);
+  for (const match of plainPaths) addDocLink(links, match[1], filePath);
 
   return [...links];
 }
 
-function addDocLink(links, rawPath) {
-  const path = rawPath.trim().replace(/^\.\//, '').replace(/[,.;:]+$/, '');
-  if (!path || path === '-' || /^[/\\]/.test(path) || /^[A-Za-z]:/.test(path) || path.includes('..')) return;
+function addDocLink(links, rawPath, filePath = null) {
+  let path = rawPath.trim().replace(/^\.\//, '').replace(/[,.;:]+$/, '');
+  if (!path || path === '-' || /^[/\\]/.test(path) || /^[A-Za-z]:/.test(path)) return;
+  if (path.includes('..')) {
+    if (!filePath) return;
+    const repoRoot = inferRepoRootFromSpecPath(filePath);
+    const resolved = resolve(dirname(resolve(filePath)), path);
+    const key = relative(repoRoot, resolved).replace(/\\/g, '/');
+    if (key.includes('..')) return; // escaped repo root — skip
+    path = key;
+  }
   if (path.startsWith('.spec-guard/')) return;
   links.add(path);
 }
