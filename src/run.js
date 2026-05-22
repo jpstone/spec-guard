@@ -12,6 +12,7 @@ import { resolve, dirname, basename, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { checkSpecText, getSelectedClassifications, getSpecTitle, formatDiagnostic } from './check.js';
+import { analyzeArtifacts } from './analyze.js';
 import { ensureReadmePreference, maintainReadme } from './readme-maintenance.js';
 import { updateSpecStatus } from './spec-status.js';
 
@@ -260,6 +261,19 @@ export async function runInteractive(specPath, options = {}) {
 
     gate('Gate 3 passed: Planning confirmed');
     state.gatesPassed.push('gate3');
+
+    // ── Pre-implementation contract check (advisory) ─────────────────────────
+    if (state.contractPath) {
+      const dryRunResult = await analyzeArtifacts({ specPath, contractPath: state.contractPath, dryRun: true });
+      if (dryRunResult.diagnostics.length > 0) {
+        print();
+        info('Pre-implementation contract check (advisory — does not block):');
+        for (const d of dryRunResult.diagnostics) {
+          info(`  ${formatDiagnostic(d)}`);
+        }
+        print();
+      }
+    }
 
     // ── PHASE 4: TEST FIRST ─────────────────────────────────────────────────
     header('Phase 4: Test First');

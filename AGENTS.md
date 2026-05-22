@@ -362,6 +362,7 @@ spec-guard run <name>                # orchestrated 6-phase run
 spec-guard check <name>              # Gate 1
 spec-guard suggest <name>            # Gate 1 + fix instructions
 spec-guard analyze <name>            # cross-artifact alignment (Gate 5→6)
+spec-guard analyze <name> --dry-run  # pre-implementation contract check (advisory, auto-runs at Phase 3)
 
 # Monitoring
 spec-guard watch <name>              # live feedback while editing
@@ -390,7 +391,7 @@ spec_guard_classify              → confirm work classification
 spec_guard_test_guidance         → test type + contract checklist for classification
 spec_guard_gate_status           → which gates have passed
 spec_guard_confirm_gate          → record agent gate confirmation (Gates 3–5)
-spec_guard_analyze               → cross-artifact alignment (Gate 5→6)
+spec_guard_analyze               → cross-artifact alignment (Gate 5→6); pass dry_run: true for pre-implementation contract-only check (advisory)
 spec_guard_create_artifact       → create any spec-guard artifact from template
 spec_guard_validate_directory    → validate all specs in a directory
 spec_guard_status                → overview of all specs

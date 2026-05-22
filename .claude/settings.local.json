@@ -30,7 +30,9 @@
       "PowerShell(npx spec-guard check bugfix-evidence-permanence --warnings; Write-Host \"EXIT:$LASTEXITCODE\")",
       "PowerShell(node --test test/bugfix-evidence-permanence.test.js 2>&1)",
       "PowerShell(npx spec-guard review --spec bugfix-evidence-permanence bugfix-evidence-permanence; Write-Host \"EXIT:$LASTEXITCODE\")",
-      "PowerShell(npx spec-guard analyze bugfix-evidence-permanence; Write-Host \"EXIT:$LASTEXITCODE\")"
+      "PowerShell(npx spec-guard analyze bugfix-evidence-permanence; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(npx spec-guard check analyze-dry-run --warnings; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(node --test --test-name-pattern \"dry.run|dry_run\" test/analyze.test.js test/cli.test.js test/mcp.test.js 2>&1)"
     ]
   }
 }

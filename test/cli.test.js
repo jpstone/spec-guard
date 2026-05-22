@@ -608,3 +608,28 @@ test('interview-questions --json returns parseable JSON with pre_classification 
   assert.ok(Array.isArray(parsed.pre_classification), 'should have pre_classification array');
   assert.ok(Array.isArray(parsed.universal_optional), 'should have universal_optional array');
 });
+
+// ─── analyze --dry-run ────────────────────────────────────────────────────────
+
+test('analyze --dry-run exits 0 even when contract warnings are present', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  const contractPath = join(directory, '.spec-guard', 'contracts', 'my-contract.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+  writeFileSync(contractPath, '# Contract\n\n<!-- blank template -->\n');
+
+  const result = runCli(['analyze', 'my-spec', '--contract', contractPath, '--dry-run'], { cwd: directory });
+  assert.equal(result.status, 0, `expected exit 0 but got ${result.status}:\n${result.stdout}\n${result.stderr}`);
+});
+
+test('analyze --dry-run output is labeled as pre-implementation check', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+
+  const result = runCli(['analyze', 'my-spec', '--dry-run'], { cwd: directory });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /pre-implementation|dry.run/i);
+});

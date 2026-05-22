@@ -192,13 +192,14 @@ const TOOLS = [
   },
   {
     name: 'spec_guard_analyze',
-    description: 'Check cross-artifact alignment: does the contract match the spec classification? Does the implementation review cover every acceptance criterion and required test? Returns SG-ALIGN-* diagnostics. Run this before closing out implementation (between Gate 4 and Gate 5).',
+    description: 'Check cross-artifact alignment: does the contract match the spec classification? Does the implementation review cover every acceptance criterion and required test? Returns SG-ALIGN-* diagnostics. Run this before closing out implementation (between Gate 4 and Gate 5). Pass dry_run: true for a pre-implementation contract-only check (advisory, skips all review rules).',
     inputSchema: {
       type: 'object',
       properties: {
         spec_path:     { type: 'string', description: 'Path to the spec file' },
         contract_path: { type: 'string', description: 'Path to the contract file (auto-discovered if omitted)' },
         review_path:   { type: 'string', description: 'Path to the implementation review (auto-discovered if omitted)' },
+        dry_run:       { type: 'boolean', description: 'Run contract-only alignment checks before implementation; skips all review rules; always returns clean result regardless of findings' },
       },
       required: ['spec_path'],
     },
@@ -725,11 +726,12 @@ async function toolDraftSpec({
   return result;
 }
 
-async function toolAnalyze({ spec_path, contract_path = null, review_path = null }) {
+async function toolAnalyze({ spec_path, contract_path = null, review_path = null, dry_run = false }) {
   return analyzeArtifacts({
     specPath: spec_path,
     contractPath: contract_path,
-    reviewPath: review_path,
+    reviewPath: dry_run ? null : review_path,
+    dryRun: dry_run,
   });
 }
 

@@ -289,17 +289,18 @@ async function checkCommand(args) {
 
 async function analyzeCommand(args) {
   const flags = parseFlags(args);
+  const dryRun = flags['dry-run'] === true;
 
   if (!flags.positional[0]) {
-    console.error('Usage: spec-guard analyze <spec> [--contract path] [--review path] [--json]');
+    console.error('Usage: spec-guard analyze <spec> [--contract path] [--review path] [--dry-run] [--json]');
     return 2;
   }
 
   const specPath = withDefaultDir(flags.positional[0], SG.specs);
   const contractPath = flags.contract || await inferContractPath(specPath);
-  const reviewPath = flags.review || inferReviewPath(specPath);
+  const reviewPath = dryRun ? null : (flags.review || inferReviewPath(specPath));
 
-  const result = await analyzeArtifacts({ specPath, contractPath, reviewPath });
+  const result = await analyzeArtifacts({ specPath, contractPath, reviewPath, dryRun });
 
   if (result.error) {
     console.error(`[BLOCKER] SG-USAGE-001 ${specPath}: ${result.error}`);
@@ -308,19 +309,23 @@ async function analyzeCommand(args) {
 
   if (flags.json) {
     console.log(JSON.stringify(result, null, 2));
-    return result.clean ? 0 : 1;
+    return dryRun ? 0 : (result.clean ? 0 : 1);
   }
 
-  console.log(`\nSpec Guard Analysis: ${result.title}`);
+  if (dryRun) {
+    console.log(`\nSpec Guard Pre-Implementation Check (dry-run): ${result.title}`);
+  } else {
+    console.log(`\nSpec Guard Analysis: ${result.title}`);
+  }
   console.log(`  Spec:       ${specPath}`);
   if (contractPath) console.log(`  Contract:   ${contractPath}`);
-  if (reviewPath)   console.log(`  Review:     ${reviewPath}`);
+  if (!dryRun && reviewPath) console.log(`  Review:     ${reviewPath}`);
   console.log(`  Classification: ${result.classification || '—'}`);
   console.log(`  Criteria: ${result.criteriaCount}   Required tests: ${result.testsCount}`);
   console.log();
 
   if (result.diagnostics.length === 0) {
-    console.log('  ✓  All artifacts aligned.');
+    console.log(dryRun ? '  ✓  No pre-implementation issues found.' : '  ✓  All artifacts aligned.');
   } else {
     for (const d of result.diagnostics) {
       console.log(formatDiagnostic(d));
@@ -329,7 +334,7 @@ async function analyzeCommand(args) {
 
   const w = result.warningCount, b = result.blockerCount;
   console.log(`\n${b > 0 ? b + ' blocker(s)' : ''}${b > 0 && w > 0 ? ', ' : ''}${w > 0 ? w + ' warning(s)' : ''}${result.clean ? '✓ clean' : ''}\n`);
-  return result.clean ? 0 : 1;
+  return dryRun ? 0 : (result.clean ? 0 : 1);
 }
 
 // ─── suggest ──────────────────────────────────────────────────────────────────

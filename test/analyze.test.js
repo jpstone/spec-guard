@@ -530,6 +530,61 @@ test('analyzeArtifacts — no SG-STALE-001 when no run state exists', async () =
   assert.equal(stale.length, 0);
 });
 
+// ─── dry-run mode ─────────────────────────────────────────────────────────────
+
+test('analyzeArtifacts — dry_run: true result includes dry_run field', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  writeFileSync(specPath, VALID_SPEC);
+
+  const result = await analyzeArtifacts({ specPath, dryRun: true });
+  assert.equal(result.dry_run, true);
+});
+
+test('analyzeArtifacts — dry_run: true skips review-dependent rules', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const reviewPath = join(dir, 'review.md');
+  // Review with unchecked boxes and missing criteria — would fire SG-ALIGN-001 and SG-ALIGN-004 normally
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(reviewPath, COMPLETE_REVIEW
+    .replace('- [x] Valid credentials redirect to dashboard\n', '')
+    .replace('- [x] No out-of-scope work was absorbed silently.\n', '- [ ] No out-of-scope work was absorbed silently.\n')
+  );
+
+  const result = await analyzeArtifacts({ specPath, reviewPath, dryRun: true });
+  const reviewRules = ['SG-ALIGN-001', 'SG-ALIGN-002', 'SG-ALIGN-004', 'SG-ALIGN-005', 'SG-ALIGN-006', 'SG-ALIGN-007', 'SG-ALIGN-009'];
+  const reviewDiags = result.diagnostics.filter(d => reviewRules.includes(d.ruleId));
+  assert.equal(reviewDiags.length, 0, `dry-run should skip review rules but got: ${reviewDiags.map(d => d.ruleId).join(', ')}`);
+});
+
+test('analyzeArtifacts — dry_run: true still runs contract checks (SG-ALIGN-003)', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const contractPath = join(dir, 'contract.md');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(contractPath, '# Contract\n\n<!-- blank template -->\n');
+
+  const result = await analyzeArtifacts({ specPath, contractPath, dryRun: true });
+  const contractDiags = result.diagnostics.filter(d => d.ruleId === 'SG-ALIGN-003');
+  assert.ok(contractDiags.length > 0, 'dry-run should still run SG-ALIGN-003');
+});
+
+test('analyzeArtifacts — dry_run: true skips SG-STALE-001', async () => {
+  const dir = tmp();
+  const specPath = join(dir, 'spec.md');
+  const runStatePath = join(dir, 'run.json');
+  writeFileSync(specPath, VALID_SPEC);
+  writeFileSync(runStatePath, JSON.stringify({
+    gatesPassed: ['gate1', 'gate2', 'gate3'],
+    specModifiedAt: 0, // epoch — file will always be newer
+  }));
+
+  const result = await analyzeArtifacts({ specPath, runStatePath, dryRun: true });
+  const stale = result.diagnostics.filter(d => d.ruleId === 'SG-STALE-001');
+  assert.equal(stale.length, 0, 'dry-run should skip SG-STALE-001');
+});
+
 // ─── metadata ─────────────────────────────────────────────────────────────────
 
 test('analyzeArtifacts — returns title and classification', async () => {

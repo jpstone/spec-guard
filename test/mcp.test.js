@@ -431,6 +431,26 @@ test('MCP: spec_guard_analyze — returns error when spec not found', () => {
   assert(result.error);
 });
 
+test('MCP: spec_guard_analyze — dry_run: true includes dry_run field and skips review rules', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sg-analyze-'));
+  const { path: specPath } = tempSpec(`${validSpec}\n## Documentation Requirements\n\n- None.\n`);
+  const reviewPath = join(dir, 'review.md');
+  // Write a review with unchecked boxes that would fire SG-ALIGN-004
+  writeFileSync(reviewPath, '# Implementation Review\n\n## Behavior / Contract Validated\n\n- [ ] unchecked\n');
+
+  const response = mcpTool('spec_guard_analyze', {
+    spec_path: specPath,
+    review_path: reviewPath,
+    dry_run: true,
+  });
+  const result = JSON.parse(response.result.content[0].text);
+  assert.equal(result.dry_run, true);
+  const reviewDiags = (result.diagnostics || []).filter(d =>
+    ['SG-ALIGN-001','SG-ALIGN-002','SG-ALIGN-004','SG-ALIGN-005','SG-ALIGN-006','SG-ALIGN-009'].includes(d.ruleId)
+  );
+  assert.equal(reviewDiags.length, 0, `dry-run should skip review rules but got: ${reviewDiags.map(d => d.ruleId).join(', ')}`);
+});
+
 // ─── spec_guard_interview_questions ───────────────────────────────────────────
 
 test('MCP: spec_guard_interview_questions — returns pre_classification questions', () => {

@@ -5,7 +5,7 @@
 ### `analyze`
 
 ```bash
-spec-guard analyze [--contract path] [--review path] [--json] <spec>
+spec-guard analyze [--contract path] [--review path] [--dry-run] [--json] <spec>
 ```
 
 Cross-artifact consistency check. Compares the spec against its contract and implementation review:
@@ -20,7 +20,8 @@ If `--contract` or `--review` are not given, Spec Guard infers the paths from th
 
 - `--contract path` — explicit contract file path
 - `--review path` — explicit review file path
-- `--json` — output diagnostics as NDJSON
+- `--dry-run` — pre-implementation contract-only check; skips all review rules; always exits 0 (advisory). Also invoked automatically by `spec-guard run` at Phase 3 when a contract is present.
+- `--json` — output diagnostics as NDJSON; includes `dry_run: true` when `--dry-run` is used
 
 **Exit codes:**
 

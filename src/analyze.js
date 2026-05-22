@@ -29,11 +29,18 @@ const CONTRACT_STRUCTURE = {
   },
 };
 
+const REVIEW_RULES = new Set([
+  'SG-ALIGN-001', 'SG-ALIGN-002', 'SG-ALIGN-004',
+  'SG-ALIGN-005', 'SG-ALIGN-006', 'SG-ALIGN-007',
+  'SG-ALIGN-009', 'SG-STALE-001',
+]);
+
 export async function analyzeArtifacts({
   specPath,
   contractPath = null,
   reviewPath = null,
   runStatePath = null,
+  dryRun = false,
 }) {
   const diagnostics = [];
 
@@ -51,6 +58,10 @@ export async function analyzeArtifacts({
   const title = getSpecTitle(specText) || specPath;
 
   // ── Stale gate detection ─────────────────────────────────────────────────────
+
+  if (dryRun) {
+    // dry-run skips all review-dependent and stale-gate checks — contract only
+  } else {
 
   const name = basename(specPath).replace(/\.md$/, '');
   const resolvedRunState = runStatePath || join('.spec-guard', 'runs', `${name}-run.json`);
@@ -70,6 +81,8 @@ export async function analyzeArtifacts({
       }
     }
   } catch { /* no run state or unreadable — skip */ }
+
+  } // end !dryRun block for stale/review checks
 
   // ── Contract alignment ───────────────────────────────────────────────────────
 
@@ -133,7 +146,7 @@ export async function analyzeArtifacts({
 
   // ── Review alignment ─────────────────────────────────────────────────────────
 
-  if (reviewPath) {
+  if (!dryRun && reviewPath) {
     let reviewText;
     try {
       reviewText = await readFile(resolve(reviewPath), 'utf8');
@@ -285,6 +298,7 @@ export async function analyzeArtifacts({
     clean: blockers === 0 && warnings === 0,
     blockerCount: blockers,
     warningCount: warnings,
+    ...(dryRun ? { dry_run: true } : {}),
   };
 }
 
