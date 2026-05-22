@@ -89,16 +89,11 @@ If the spec doesn't exist: author one (see below). Do not guess.
 
 ## Initiative Decomposition — When to Use It
 
-Use the initiative flow when a developer describes a **multi-feature app or product** rather than a single capability. Signals include:
+Use the initiative flow **only when `.spec-guard/specs/` contains no `.md` files** — i.e., this is a greenfield project with no specs yet.
 
-- "I want to build an app that does X, Y, and Z"
-- "We're launching a new product with these features…"
-- "Here's the full scope of what this project needs to do"
-- The description implies more than two or three distinct user-facing capabilities
+Use the standard spec flow (below) for all other requests: single features, changes, or deliverables on an existing project (specs already present), and any request regardless of scope when specs already exist.
 
-Use the standard spec flow (below) when the request is a **single feature, change, or deliverable** — even a complex one.
-
-**If you are unsure:** ask — "Is this a single feature, or a larger initiative with multiple independent parts?"
+The CLI and MCP tools enforce this deterministically: `spec-guard initiative` and `spec_guard_save_initiative` return an error if any `.md` files exist in `.spec-guard/specs/`. The `spec_guard_initiative_questions` tool returns a `specs_exist` boolean you can check before asking the user questions.
 
 ### Initiative flow:
 
@@ -345,6 +340,32 @@ WORKFLOW.md        ← full process flow — required reading (project root)
 ```
 
 Write commands (`new`, `draft`, `blocker`, `scope-discovery`, `review`, `discovery`, `deviation`) take a bare name and always write to the appropriate `.spec-guard/` subdirectory. When creating an artifact for a governing spec, pass `--spec <spec-name>` where the command supports it so the originating spec records a direct repository-relative link to the new artifact under `Related Artifacts`. Read/validate commands (`check`, `run`, `analyze`, `suggest`, `classify`, `watch`) default to `.spec-guard/specs/` for bare names but accept full paths.
+
+---
+
+## README Lifecycle
+
+`spec-guard init` is responsible for creating `README.md`. It appends a `## Spec Guard` section at the bottom (containing a link to the artifact index). If `--no-readme` is passed, no README is created or modified.
+
+`spec-guard run` updates an existing README on each run — it prepends a project title and overview section derived from the spec, keeping the Spec Guard section at the bottom. If no README exists, the workflow skips README operations silently with no error.
+
+There is no interactive README preference question. The presence or absence of `README.md` is the only signal the workflow uses.
+
+`.spec-guard/README.md` is the artifact index. It is auto-maintained by every artifact-write command and always reflects the current state of all artifacts. Do not manually edit it.
+
+---
+
+## Spec Status Values
+
+| Status | Meaning |
+|---|---|
+| `Draft` | Active — being authored or awaiting implementation |
+| `Ready` | Spec valid; confirmed by Gate 4 (tests written and failing) |
+| `Blocked` | Cannot proceed — a blocker artifact records the reason |
+| `Implemented` | All 6 gates passed; confirmed by Gate 6 |
+| `Deferred` | Deliberately parked — drafted and considered, but indefinitely on hold with no current intention to implement. Not blocked by a specific problem; simply deprioritized. To reactivate, change the status back to `Draft`. |
+
+`Deferred` is informational only. `spec-guard check` validates Deferred specs normally; gate rules still apply if gates were previously confirmed. Do not implement a Deferred spec without an explicit decision to reactivate it.
 
 ---
 

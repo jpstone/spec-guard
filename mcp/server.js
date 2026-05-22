@@ -37,7 +37,7 @@ import { gate1, gate2, gate5, runCheck, TEST_GUIDANCE } from '../src/run.js';
 import { buildSpecFromAnswers, interviewQuestions } from '../src/discover.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics } from '../src/suggest.js';
-import { initiativeQuestions, saveInitiative } from '../src/initiative.js';
+import { initiativeQuestions, initiativeQuestionsWithContext, saveInitiative } from '../src/initiative.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -289,6 +289,12 @@ const TOOLS = [
           },
         },
         output_dir: { type: 'string', description: 'Directory to write the initiative artifact into (default: current directory)' },
+        deployment_target: { type: 'string', description: 'Intended deployment target or environment (e.g. "Vercel + Supabase"). Use "TBD" if unknown.' },
+        external_dependencies: {
+          type: 'array',
+          description: 'External services that need substitutes during development/testing (e.g. ["stripe", "sendgrid"]). Leave empty if none.',
+          items: { type: 'string' },
+        },
       },
       required: ['name', 'title', 'description', 'slices'],
     },
@@ -865,12 +871,12 @@ async function toolWorkflowNextStep({ spec_path, gates_passed = [] }) {
   };
 }
 
-async function toolInitiativeQuestions() {
-  return initiativeQuestions();
+async function toolInitiativeQuestions({ output_dir: dir = '.' } = {}) {
+  return initiativeQuestionsWithContext({ dir });
 }
 
-async function toolSaveInitiative({ name, title, description, slices, output_dir: dir = '.' }) {
-  return saveInitiative({ name, title, description, slices, dir });
+async function toolSaveInitiative({ name, title, description, slices, output_dir: dir = '.', deployment_target = null, external_dependencies = [] }) {
+  return saveInitiative({ name, title, description, slices, dir, deployment_target, external_dependencies });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

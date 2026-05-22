@@ -241,17 +241,19 @@ test('new api-contract does not modify README table of contents when API doc is 
   assert.equal(readFileSync(readmePath, 'utf8'), readme);
 });
 
-test('new api-contract does not update README when README maintenance preference is opt-out', () => {
+test('new api-contract updates README doc links regardless of old repo-preferences opt-out (preference no longer consulted)', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const readmePath = join(directory, 'README.md');
-  const readme = '# Project\n\n## Table of Contents\n\n- [Guide](docs/guide.md)\n';
-  writeFileSync(readmePath, readme);
+  // Write a README with a table-of-contents section so maintainReadme has a place to add links
+  writeFileSync(readmePath, '# Project\n\n## Table of Contents\n\n- [Guide](docs/guide.md)\n');
   writeFileSync(join(directory, '.spec-guard', 'repo-preferences.json'), JSON.stringify({ readme: { maintain: false } }, null, 2));
 
   runCli(['new', 'api-contract', 'billing'], { cwd: directory });
 
-  assert.equal(readFileSync(readmePath, 'utf8'), readme);
+  // maintainReadme now updates regardless of the old preference
+  const content = readFileSync(readmePath, 'utf8');
+  assert.ok(content.includes('billing-api.md'), 'README should be updated with new API doc link');
 });
 
 test('new brownfield-spec creates in .spec-guard/specs/', () => {
@@ -632,4 +634,71 @@ test('analyze --dry-run output is labeled as pre-implementation check', () => {
   const result = runCli(['analyze', 'my-spec', '--dry-run'], { cwd: directory });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /pre-implementation|dry.run/i);
+});
+
+// ─── init-readme-setup ────────────────────────────────────────────────────────
+
+// AC: spec-guard init creates README.md containing only the Spec Guard section
+//     when no README exists.
+test('init creates README.md with Spec Guard section when no README exists', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const readmePath = join(directory, 'README.md');
+  assert.ok(existsSync(readmePath), 'README.md should be created');
+  const content = readFileSync(readmePath, 'utf8');
+  assert.match(content, /## Spec Guard/);
+  assert.match(content, /https:\/\/github\.com\/jpstone\/spec-guard/);
+  assert.match(content, /\.spec-guard\/README\.md/);
+});
+
+// AC: spec-guard init appends the Spec Guard section to an existing README
+//     that does not already contain the section.
+test('init appends Spec Guard section to existing README without the section', () => {
+  const directory = tempDir();
+  writeFileSync(join(directory, 'README.md'), '# My Project\n\nExisting content.\n');
+  runCli(['init'], { cwd: directory });
+  const content = readFileSync(join(directory, 'README.md'), 'utf8');
+  assert.match(content, /# My Project/);
+  assert.match(content, /## Spec Guard/);
+});
+
+// AC: spec-guard init makes no change when ## Spec Guard section already exists
+//     (idempotent).
+test('init does not duplicate Spec Guard section when it already exists (idempotent)', () => {
+  const directory = tempDir();
+  const existing = '# My Project\n\n## Spec Guard\n\nThis project uses [Spec Guard](https://github.com/jpstone/spec-guard)\n';
+  writeFileSync(join(directory, 'README.md'), existing);
+  runCli(['init'], { cwd: directory });
+  const content = readFileSync(join(directory, 'README.md'), 'utf8');
+  const count = (content.match(/## Spec Guard/g) || []).length;
+  assert.equal(count, 1, 'Spec Guard section should appear exactly once');
+});
+
+// AC: spec-guard init --no-readme does not create or modify README.md
+//     regardless of current state.
+test('init --no-readme does not create README.md', () => {
+  const directory = tempDir();
+  runCli(['init', '--no-readme'], { cwd: directory });
+  assert.ok(!existsSync(join(directory, 'README.md')), 'README.md should not be created with --no-readme');
+});
+
+test('init --no-readme does not modify existing README.md', () => {
+  const directory = tempDir();
+  const original = '# My Project\n\nLeave me alone.\n';
+  writeFileSync(join(directory, 'README.md'), original);
+  runCli(['init', '--no-readme'], { cwd: directory });
+  assert.equal(readFileSync(join(directory, 'README.md'), 'utf8'), original,
+    'README.md should be unchanged with --no-readme');
+});
+
+// AC: the workflow (spec-guard run --check-only) does not create README when
+//     none exists (workflow no longer creates README).
+test('spec-guard run --check-only does not create README.md when none exists', () => {
+  const directory = tempDir();
+  runCli(['init', '--no-readme'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+  runCli(['run', '--check-only', 'my-spec'], { cwd: directory });
+  assert.ok(!existsSync(join(directory, 'README.md')),
+    'workflow should not create README.md when none exists');
 });

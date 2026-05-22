@@ -6,7 +6,7 @@ Contract Staleness Detection (SG-STALE-002)
 
 ## Status
 
-Draft
+Deferred
 
 ## Problem / Goal
 

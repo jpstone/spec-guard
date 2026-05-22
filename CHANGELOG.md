@@ -1,5 +1,58 @@
 # Changelog
 
+## 2.0.0
+
+### Breaking: initiative flow now requires a greenfield project
+
+- `spec-guard initiative` and `spec_guard_save_initiative` return an error if any `.md` files exist in `.spec-guard/specs/`. The initiative flow is only permitted on projects with no existing specs.
+- `spec_guard_initiative_questions` / `spec-guard initiative-questions --json` now include a `specs_exist: boolean` field so agents can detect the condition before presenting questions to the user.
+- **Migration:** existing projects that previously used `spec-guard initiative` on a project with specs will need to use `spec-guard draft` for individual specs instead.
+
+### Breaking: `maintainReadme` no longer creates README files
+
+- `maintainReadme` in `src/readme-maintenance.js` now returns `{ updated: false }` when no README is found rather than creating one. README creation is now exclusively `spec-guard init`'s responsibility.
+- The `ensureReadmePreference` ask-and-store flow is removed from `spec-guard run`. The workflow unconditionally calls `maintainReadme`; if no README exists it silently skips.
+- The `repo-preferences.json` README opt-out preference is no longer consulted. Presence or absence of README.md is the only signal.
+- **Migration:** projects that relied on the workflow to create README.md should run `spec-guard init` once to create it.
+
+### New: `spec-guard init` creates and maintains README.md
+
+- `spec-guard init` creates `README.md` at the project root if none exists, containing only a `## Spec Guard` section with links to the repo and `.spec-guard/README.md`.
+- If `README.md` already exists without a `## Spec Guard` section, the section is appended at the bottom. Idempotent if section already present.
+- `spec-guard init --no-readme` skips README creation entirely. This is the only opt-out mechanism; there is no stored preference.
+- The workflow inserts project-level content (title, overview, doc links) above the `## Spec Guard` section on each run, keeping the Spec Guard section at the bottom.
+
+### New: `.spec-guard/README.md` artifact index
+
+- `spec-guard init` creates `.spec-guard/README.md` — a living index of all Spec Guard artifacts.
+- Every artifact-write command (`draft`, `blocker`, `review`, `initiative`, `new`, `scope-discovery`, `deviation`, `discovery`) regenerates the index from current disk state after each write.
+- The index contains eight artifact type headings (Specs, Contracts, Reviews, Initiatives, Blockers, Deviations, Scope Discoveries, Discoveries) in a fixed order.
+- The Specs heading is subdivided into five H3 status sub-headers: Draft, Ready, Blocked, Implemented, Deferred — all five always present regardless of population.
+- Entries are sorted alphabetically by title (case-insensitive). Reviews display as `Implementation Review: <linked spec title>`.
+
+### New: `Deferred` spec status
+
+- `Deferred` is now a valid spec status value. `spec-guard check` accepts it without producing `SG-SPEC-006`.
+- `templates/spec.md` documents `Deferred` as a valid status option.
+- Deferred is informational only — check and gate rules apply the same as for any other status. To reactivate, change the status back to `Draft`.
+
+### New: initiative deployment portability slice
+
+- `spec_guard_save_initiative` / `spec-guard initiative` always injects a `deployment-portability` slice as the first slice in every initiative.
+- A `deployment_target` optional field controls the slice description: when a known target is provided (e.g. `"Vercel + Supabase"`), the slice documents specific constraints; when absent or `"TBD"`, the slice establishes portability discipline with a placeholder.
+- The initiative artifact records `## Deployment Target` for reference.
+
+### New: initiative external dependency substitution infrastructure
+
+- `spec_guard_save_initiative` / `spec-guard initiative` accept an `external_dependencies` array. When non-empty, three infrastructure slices are injected after the portability slice and before feature slices:
+  1. `substitution-strategy` — project-wide strategy for substituting external service boundaries
+  2. `real-dep-env` — canonical record of the real-dependency development environment (one per project, covers all boundaries)
+  3. One `<dep>-substitution` slice per unique dependency
+- Duplicate dependency names are deduplicated before injection.
+- The initiative artifact records `## External Dependencies` for reference.
+
+---
+
 ## 1.1.1
 
 ### Bugfix: file-relative paths in Documentation Requirements / Linked Documentation

@@ -190,3 +190,9 @@ npm run run:example             # gate 1+2 non-interactive check
 ## License
 
 MIT.
+
+## Spec Guard
+
+This project uses [Spec Guard](https://github.com/jpstone/spec-guard)
+
+[Spec Guard Artifacts](.spec-guard/README.md)

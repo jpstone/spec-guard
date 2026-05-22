@@ -40,10 +40,8 @@ test('ensureReadmePreference asks once when no README and persists opt-out', asy
   assert.equal(existsSync(join(directory, 'README.md')), false);
 });
 
-test('ensureReadmePreference persists opt-in and maintainReadme creates concise README with useful doc links', async () => {
+test('maintainReadme returns updated: false when no README exists (no longer creates)', async () => {
   const directory = tempDir();
-
-  await ensureReadmePreference({ root: directory, ask: async () => true });
   const result = await maintainReadme({
     root: directory,
     title: 'Billing Service',
@@ -51,15 +49,26 @@ test('ensureReadmePreference persists opt-in and maintainReadme creates concise 
     docLinks: ['docs/billing-api.md'],
   });
 
-  const readme = readFileSync(join(directory, 'README.md'), 'utf8');
-  assert.equal(result.updated, true);
-  assert.match(readme, /^# Billing Service/m);
-  assert.match(readme, /Handles invoices and customer billing operations\./);
-  assert.match(readme, /\[Billing API\]\(docs\/billing-api\.md\)/);
-  assert.ok(readme.length < 1200, 'README should stay concise and at-a-glance');
+  assert.equal(result.updated, false, 'should not create README — only init does that now');
+  assert.equal(existsSync(join(directory, 'README.md')), false, 'README.md should not be created');
 });
 
-test('maintainReadme does not create or update README when preference is opt-out', async () => {
+test('maintainReadme updates existing README with doc links when README is present', async () => {
+  const directory = tempDir();
+  writeFileSync(join(directory, 'README.md'), '# My Project\n\n## Overview\n\nSome content.\n');
+  const result = await maintainReadme({
+    root: directory,
+    title: 'My Project',
+    purpose: 'Does things.',
+    docLinks: ['docs/billing-api.md'],
+  });
+
+  const readme = readFileSync(join(directory, 'README.md'), 'utf8');
+  assert.equal(result.updated, true);
+  assert.match(readme, /\[Billing Api\]\(docs\/billing-api\.md\)/i);
+});
+
+test('maintainReadme updates README regardless of old repo-preferences opt-out (preference no longer consulted)', async () => {
   const directory = tempDir();
   mkdirSync(join(directory, '.spec-guard'), { recursive: true });
   writeFileSync(join(directory, README_PREFERENCE_PATH), JSON.stringify({ readme: { maintain: false } }, null, 2));
@@ -73,8 +82,10 @@ test('maintainReadme does not create or update README when preference is opt-out
     docLinks: ['docs/new-api.md'],
   });
 
-  assert.equal(result.updated, false);
-  assert.equal(readFileSync(join(directory, 'README.md'), 'utf8'), existing);
+  // maintainReadme no longer checks preferences — it updates if README exists
+  assert.equal(result.updated, true, 'should update README regardless of old preference');
+  assert.ok(readFileSync(join(directory, 'README.md'), 'utf8').includes('docs/new-api.md'),
+    'doc link should be added to README');
 });
 
 test('readReadmePreference returns persisted repo-scoped preference', async () => {
