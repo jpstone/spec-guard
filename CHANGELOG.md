@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0
+
+### Spec artifact backlinks
+
+- Creating a spec-linked artifact (contract, implementation review, blocker, deviation, scope discovery, or discovery) now records a direct repository-relative link to that artifact in the originating spec's `Related Artifacts` section.
+- Link recording is idempotent — re-running artifact creation or link recording does not duplicate existing links.
+- Artifact creation commands that have no identifiable originating spec preserve prior behavior.
+- Updated `AGENTS.md`, `WORKFLOW.md`, and `docs/cli.md` to document the lifecycle traceability requirement.
+
+### Implementation planning phase
+
+- Added a dedicated implementation planning phase between Classify & Contract and Test First — the workflow is now a six-gate loop.
+- Specs record whether implementation planning is required and, when required, the human-confirmed stack or tech-layer choice (`Confirmed Plan`).
+- Agent instructions require suggesting a context-appropriate stack or layer when planning is required, then waiting for the human to accept or override before proceeding.
+- **SG-PLAN-001** — BLOCKER reported by `spec-guard check` when a spec requires implementation planning but `Confirmed Plan` is not recorded.
+- `templates/spec.md` updated with `Implementation Planning` section fields.
+- Updated `AGENTS.md`, `WORKFLOW.md`, and `README.md` to describe the new gate, agent obligations, and six-gate workflow.
+
+---
+
 ## 0.14.0
 
 ### Spec status transitions
