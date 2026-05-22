@@ -1,6 +1,6 @@
 {
   "name": "@jpstone/spec-guard",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Spec-first, behavior-tested, agent-safe methodology, workflow runner, and MCP server.",
   "type": "module",
   "bin": {

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0
+
+### Pre-implementation contract check (`analyze --dry-run`)
+
+- `spec-guard analyze <name> --dry-run` runs contract alignment checks only (SG-ALIGN-003, SG-ALIGN-008), skips all review-dependent rules, and always exits 0 — results are advisory, never blocking.
+- Output is labeled as a pre-implementation check to distinguish it from the full Gate 6 run.
+- `spec_guard_analyze` MCP tool accepts `dry_run: true` with the same behavior; result includes `dry_run: true` field.
+- `spec-guard run` orchestrator auto-invokes dry-run analysis at Phase 3 when a contract is inferred, printing any diagnostics as advisory output before Phase 4 begins.
+- Added `REVIEW_RULES` constant set to `src/analyze.js`; SG-STALE-001 and all review-dependent rules are members and are skipped in dry-run mode.
+- Updated `AGENTS.md` and `docs/cli.md` to document the flag and auto-invocation behavior.
+
+---
+
 ## 1.0.1
 
 ### Bugfix: artifact backlink paths broken on GitHub
