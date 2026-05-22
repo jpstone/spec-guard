@@ -13,7 +13,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { checkSpecText, getSelectedClassifications, getSpecTitle, formatDiagnostic } from './check.js';
 import { analyzeArtifacts } from './analyze.js';
-import { ensureReadmePreference, maintainReadme } from './readme-maintenance.js';
+import { maintainReadme } from './readme-maintenance.js';
 import { updateSpecStatus } from './spec-status.js';
 
 // ─── Phase/Gate definitions ───────────────────────────────────────────────────
@@ -153,15 +153,10 @@ export async function runInteractive(specPath, options = {}) {
     const specText = await readFile(resolve(specPath), 'utf8');
     const title = getSpecTitle(specText) || basename(specPath);
 
-    const readmePreference = await ensureReadmePreference({
-      ask: async (prompt) => confirm(`  ${prompt}`),
+    await maintainReadme({
+      title,
+      purpose: summarizeForReadme(extractSection(specText, 'Problem / Goal')),
     });
-    if (readmePreference.maintainReadme === true) {
-      await maintainReadme({
-        title,
-        purpose: summarizeForReadme(extractSection(specText, 'Problem / Goal')),
-      });
-    }
 
     header(`Spec Guard Run: ${title}`);
     info(`Spec: ${specPath}`);

@@ -13,11 +13,12 @@ import {
 } from '../src/check.js';
 import { runInteractive, runCheck, PHASES, gate1, gate2, TEST_GUIDANCE } from '../src/run.js';
 import { discoverInteractive, buildSpecFromAnswers, interviewQuestions } from '../src/discover.js';
-import { initiativeQuestions, saveInitiative, initiativeInteractive } from '../src/initiative.js';
+import { initiativeQuestions, initiativeQuestionsWithContext, saveInitiative, initiativeInteractive } from '../src/initiative.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
 import { addDocLinkToReadme } from '../src/readme-maintenance.js';
 import { updateSpecStatus } from '../src/spec-status.js';
+import { regenerateArtifactIndex } from '../src/artifact-index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -48,6 +49,13 @@ const NEW_DEFAULT_DIRS = Object.freeze({
   'task-plan':            SG.specs,
   'compound-work':        SG.specs,
 });
+
+const SPEC_GUARD_SECTION = `## Spec Guard
+
+This project uses [Spec Guard](https://github.com/jpstone/spec-guard)
+
+[Spec Guard Artifacts](.spec-guard/README.md)
+`;
 
 const GITHUB_WORKFLOW = `name: Spec Guard
 
@@ -244,6 +252,7 @@ async function discoverCommand(args) {
 
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, specText, { flag: 'wx' });
+  await regenerateArtifactIndex();
 
   console.log();
   console.log(`  Created: ${outputPath}`);
@@ -438,10 +447,12 @@ async function validateCommand(args) {
 // ─── init ────────────────────────────────────────────────────────────────────
 
 async function initCommand(args) {
-  if (args.length > 0) {
-    console.error('Usage: spec-guard init');
+  const flags = parseFlags(args);
+  if (flags.positional.length > 0) {
+    console.error('Usage: spec-guard init [--no-readme]');
     return 2;
   }
+  const noReadme = flags['readme'] === false;
 
   const directories = [
     ['.spec-guard', 'specs'],
@@ -500,6 +511,27 @@ async function initCommand(args) {
     console.log(`  Created: .github/workflows/spec-guard.yml`);
   }
 
+  // README — unless --no-readme was passed
+  if (!noReadme) {
+    const readmePath = resolve('README.md');
+    let readmeText = null;
+    try {
+      readmeText = await readFile(readmePath, 'utf8');
+    } catch { /* does not exist — create below */ }
+
+    if (readmeText === null) {
+      await writeFile(readmePath, SPEC_GUARD_SECTION, 'utf8');
+      console.log(`  Created: README.md`);
+    } else if (!readmeText.includes('## Spec Guard')) {
+      const separator = readmeText.endsWith('\n') ? '\n' : '\n\n';
+      await writeFile(readmePath, readmeText + separator + SPEC_GUARD_SECTION, 'utf8');
+      console.log(`  Updated: README.md (appended Spec Guard section)`);
+    }
+    // else: section already present — idempotent, do nothing
+  }
+
+  await regenerateArtifactIndex();
+
   console.log(`Initialized Spec Guard`);
   return 0;
 }
@@ -539,6 +571,9 @@ async function newCommand(args) {
   const result = await copyTemplate(templatePath, outputPath, kind);
   if (result === 0 && specPath && isSpecLinkedNewArtifact(kind)) {
     await addArtifactLinkToSpec(specPath, outputPath, artifactLabelForKind(kind));
+  }
+  if (result === 0) {
+    await regenerateArtifactIndex();
   }
   return result;
 }
@@ -924,7 +959,9 @@ async function interviewQuestionsCommand(args) {
 
 async function initiativeQuestionsCommand(args) {
   const flags = parseFlags(args);
-  const questions = initiativeQuestions();
+  const questions = flags.json
+    ? await initiativeQuestionsWithContext()
+    : initiativeQuestions();
 
   if (flags.json) {
     console.log(JSON.stringify(questions));
@@ -978,7 +1015,14 @@ async function initiativeCommand(args) {
       console.error(`[BLOCKER] SG-USAGE-001: cannot read JSON input: ${err.message}`);
       return 2;
     }
-    answers = { name: rawName, title: data.title || '', description: data.description || '', slices: data.slices || [] };
+    answers = {
+      name: rawName,
+      title: data.title || '',
+      description: data.description || '',
+      slices: data.slices || [],
+      deployment_target: data.deployment_target || null,
+      external_dependencies: data.external_dependencies || [],
+    };
   } else {
     if (!process.stdin.isTTY) {
       console.error('[BLOCKER] SG-USAGE-001: interactive mode requires a terminal. Use --from-json <path> to run non-interactively.');
@@ -998,6 +1042,8 @@ async function initiativeCommand(args) {
     console.error(`[BLOCKER] SG-USAGE-001: ${result.error}`);
     return 1;
   }
+
+  await regenerateArtifactIndex();
 
   console.log();
   console.log(`  Created: ${result.path}`);
@@ -1160,6 +1206,9 @@ async function copyTemplateCommand(args, templatePath, commandName, label, defau
   }
   if (result === 0 && specPath && (commandName === 'blocker' || commandName === 'deviation')) {
     await updateSpecStatus(specPath, 'Blocked');
+  }
+  if (result === 0) {
+    await regenerateArtifactIndex();
   }
   return result;
 }
