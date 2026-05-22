@@ -1,4 +1,4 @@
-# Implementation Review
+﻿# Implementation Review
 
 ## Linked Spec
 
@@ -65,8 +65,8 @@ Gate 4 recorded: 6 of 7 tests failed before implementation. The 7th (`dry_run: t
 
 ## Linked Documentation
 
-- [docs/cli.md](docs/cli.md) — `--dry-run` flag documented on the `analyze` command
-- [AGENTS.md](AGENTS.md) — CLI Quick Reference and `spec_guard_analyze` tool description updated
+- [docs/cli.md](../../docs/cli.md) — `--dry-run` flag documented on the `analyze` command
+- [AGENTS.md](../../AGENTS.md) — CLI Quick Reference and `spec_guard_analyze` tool description updated
 
 ## Dependency Integration
 

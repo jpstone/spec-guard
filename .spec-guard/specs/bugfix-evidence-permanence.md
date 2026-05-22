@@ -59,9 +59,9 @@ When a spec is classified as Bugfix, `spec-guard check` reports SG-BUG-001 if th
 
 ## Documentation Requirements
 
-- [Agent Instructions](AGENTS.md) â€” update Bugfix row in Writing Tests table to reference the `Test Evidence` field and require it before Gate 4.
-- [Spec Template](templates/spec.md) â€” add `## Test Evidence` section.
-- [Validation Rules](docs/validation-rules.md) â€” add SG-BUG-001 entry.
+- [Agent Instructions](../../AGENTS.md) â€” update Bugfix row in Writing Tests table to reference the `Test Evidence` field and require it before Gate 4.
+- [Spec Template](../../templates/spec.md) â€” add `## Test Evidence` section.
+- [Validation Rules](../../docs/validation-rules.md) â€” add SG-BUG-001 entry.
 
 ## Implementation Planning
 

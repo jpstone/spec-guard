@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -77,9 +77,9 @@ No prior implementation review exists for `spec-artifact-backlinks`. Related pri
 - [implementation review](.spec-guard/reviews/spec-artifact-backlinks.md)
 
 ## Documentation Requirements
-- [Agent Instructions](AGENTS.md) — document that spec-linked artifact creation must preserve direct links from the originating spec to created artifacts.
-- [Workflow](WORKFLOW.md) — document the lifecycle traceability requirement for spec-linked artifacts.
-- [CLI Documentation](docs/cli.md) — document relevant command behavior for linking created artifacts to a spec.
+- [Agent Instructions](../../AGENTS.md) — document that spec-linked artifact creation must preserve direct links from the originating spec to created artifacts.
+- [Workflow](../../WORKFLOW.md) — document the lifecycle traceability requirement for spec-linked artifacts.
+- [CLI Documentation](../../docs/cli.md) — document relevant command behavior for linking created artifacts to a spec.
 
 ## Implementation Planning
 

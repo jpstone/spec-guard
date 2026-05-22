@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -52,7 +52,7 @@ Newly drafted specs begin as `Draft`. Once a spec is approved and passes the req
 
 ## Documentation Requirements
 
-- [Workflow](WORKFLOW.md) — document status transition behavior and gate authority.
+- [Workflow](../../WORKFLOW.md) — document status transition behavior and gate authority.
 
 ## Dependencies
 

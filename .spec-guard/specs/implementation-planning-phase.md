@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -48,10 +48,10 @@ During the Spec Guard workflow, when a spec requires implementation-planning dec
 
 ## Documentation Requirements
 
-- [Agent Instructions](AGENTS.md) — document agent obligations for identifying required implementation planning, suggesting a context-appropriate stack/layer, and obtaining human acceptance or override.
-- [Workflow](WORKFLOW.md) — document the new implementation-planning phase/checkpoint and gate placement before Test First.
-- [Spec Template](templates/spec.md) — add fields for whether implementation planning is required and any confirmed implementation-plan details.
-- [README](README.md) — update the public overview, gate list, MCP tool descriptions, agent prohibitions, and development test count for the six-gate workflow.
+- [Agent Instructions](../../AGENTS.md) — document agent obligations for identifying required implementation planning, suggesting a context-appropriate stack/layer, and obtaining human acceptance or override.
+- [Workflow](../../WORKFLOW.md) — document the new implementation-planning phase/checkpoint and gate placement before Test First.
+- [Spec Template](../../templates/spec.md) — add fields for whether implementation planning is required and any confirmed implementation-plan details.
+- [README](../../README.md) — update the public overview, gate list, MCP tool descriptions, agent prohibitions, and development test count for the six-gate workflow.
 
 ## Dependencies
 

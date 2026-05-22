@@ -1,4 +1,4 @@
-# Implementation Review
+﻿# Implementation Review
 
 ## Linked Spec
 
@@ -63,10 +63,10 @@ Direct behavior with no new API or UI
 
 ## Linked Documentation
 
-- [Agent Instructions](AGENTS.md)
-- [Workflow](WORKFLOW.md)
-- [Spec Template](templates/spec.md)
-- [README](README.md)
+- [Agent Instructions](../../AGENTS.md)
+- [Workflow](../../WORKFLOW.md)
+- [Spec Template](../../templates/spec.md)
+- [README](../../README.md)
 
 ## Dependency Integration
 

@@ -1,4 +1,4 @@
-# Implementation Review
+﻿# Implementation Review
 
 ## Linked Spec
 
@@ -57,7 +57,7 @@ Direct behavior with no new API or UI
 
 ## Linked Documentation
 
-- [Workflow](WORKFLOW.md)
+- [Workflow](../../WORKFLOW.md)
 
 ## Dependency Integration
 

@@ -56,10 +56,10 @@ During implementation and review of a spec, the agent identifies all documentati
 
 ## Documentation Requirements
 
-- [Agent Instructions](AGENTS.md) â€” document agent obligations for current-spec documentation requirements.
-- [Workflow](WORKFLOW.md) â€” document workflow obligations for current-spec documentation integrity.
-- [Spec Template](templates/spec.md) â€” add the `Documentation Requirements` section for future specs.
-- [Implementation Review Template](templates/implementation-review.md) â€” require linked documentation alignment and documentation update validation.
+- [Agent Instructions](../../AGENTS.md) â€” document agent obligations for current-spec documentation requirements.
+- [Workflow](../../WORKFLOW.md) â€” document workflow obligations for current-spec documentation integrity.
+- [Spec Template](../../templates/spec.md) â€” add the `Documentation Requirements` section for future specs.
+- [Implementation Review Template](../../templates/implementation-review.md) â€” require linked documentation alignment and documentation update validation.
 
 ## Dependencies
 

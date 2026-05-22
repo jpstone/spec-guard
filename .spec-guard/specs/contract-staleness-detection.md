@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -52,7 +52,7 @@ When spec-guard analyze <name> runs, if any contract file whose path appears in 
 
 ## Documentation Requirements
 
-- [docs/validation-rules.md](docs/validation-rules.md) — add SG-STALE-002 entry.
+- [docs/validation-rules.md](../../docs/validation-rules.md) — add SG-STALE-002 entry.
 
 ## Dependencies
 

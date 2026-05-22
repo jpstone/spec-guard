@@ -1,4 +1,4 @@
-# Implementation Review
+﻿# Implementation Review
 
 ## Linked Spec
 
@@ -67,9 +67,9 @@ Direct behavior with no new API or UI
 
 ## Linked Documentation
 
-- [Agent Instructions](AGENTS.md)
-- [Spec Template](templates/spec.md)
-- [Validation Rules](docs/validation-rules.md)
+- [Agent Instructions](../../AGENTS.md)
+- [Spec Template](../../templates/spec.md)
+- [Validation Rules](../../docs/validation-rules.md)
 
 ## Dependency Integration
 

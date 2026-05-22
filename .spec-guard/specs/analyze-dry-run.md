@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -61,8 +61,8 @@ No prior implementation review — new flag on an existing command.
 
 ## Documentation Requirements
 
-- [CLI Documentation](docs/cli.md) — document `--dry-run` flag on the `analyze` command.
-- [Agent Instructions](AGENTS.md) — note that dry-run runs automatically at Phase 3 and results are advisory.
+- [CLI Documentation](../../docs/cli.md) — document `--dry-run` flag on the `analyze` command.
+- [Agent Instructions](../../AGENTS.md) — note that dry-run runs automatically at Phase 3 and results are advisory.
 
 ## Implementation Planning
 
