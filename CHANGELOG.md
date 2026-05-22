@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1
+
+### Bugfix: file-relative paths in Documentation Requirements / Linked Documentation
+
+- `extractDocLinks` and `addDocLink` in `src/analyze.js` previously filtered all paths containing `..`, making file-relative links (e.g. `../../docs/cli.md`) unusable for SG-ALIGN-009 validation. Same root cause as the prior artifact-backlink-path-bug.
+- Added `inferRepoRootFromSpecPath(filePath)`: resolves repo root from any file under `.spec-guard/` using the `/.spec-guard/` path marker.
+- `addDocLink` now normalizes `..` paths by resolving them relative to the containing file and computing a repo-root-relative comparison key. Paths escaping the repo root are still silently skipped. Existing repo-root-relative paths are unchanged (backward compatible).
+- `extractDocLinks` and its callers in `analyzeArtifacts` updated to pass file path context.
+- `AGENTS.md` updated: agents must use file-relative paths (e.g. `../../docs/cli.md`) for Documentation Requirements and Linked Documentation links so GitHub link resolution works correctly.
+
+---
+
 ## 1.1.0
 
 ### Pre-implementation contract check (`analyze --dry-run`)
