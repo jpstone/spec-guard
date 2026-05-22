@@ -147,7 +147,8 @@ test('Bugfix is a valid classification choice and passes validation', () => {
   assert(CLASSIFICATIONS.includes('Bugfix'));
   const text = validSpec
     .replace('- [x] Direct behavior with no new API or UI', '- [ ] Direct behavior with no new API or UI')
-    .replace('- [ ] Operational/document deliverable', '- [ ] Operational/document deliverable\n- [x] Bugfix');
+    .replace('- [ ] Operational/document deliverable', '- [ ] Operational/document deliverable\n- [x] Bugfix')
+    + '\n## Test Evidence\n\n- [x] Permanent regression coverage.\n- [ ] Temporary — remove after: \n';
   const diagnostics = checkSpecText(text, 'bugfix.md');
   const blockers = diagnostics.filter(d => d.severity === 'BLOCKER');
   assert.deepEqual(blockers, []);

@@ -83,3 +83,11 @@ Confirmed Plan:
 - [ ] Operational/document deliverable
 - [ ] Bugfix
 
+## Test Evidence
+
+<!-- Bugfix classification only. Check one before Gate 4.
+     For all other classifications, leave this section blank or remove it. -->
+
+- [ ] Permanent regression coverage.
+- [ ] Temporary — remove after: 
+

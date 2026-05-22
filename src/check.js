@@ -45,6 +45,7 @@ export function checkSpecText(text, path = '<input>') {
   diagnostics.push(...checkContractRequirement(normalized, path));
   diagnostics.push(...checkUIInputs(normalized, path));
   diagnostics.push(...checkImplementationPlanning(normalized, path));
+  diagnostics.push(...checkBugfixEvidence(normalized, path));
 
   return diagnostics;
 }
@@ -288,6 +289,33 @@ function checkImplementationPlanning(text, path) {
     path,
     message: 'implementation planning is required but no confirmed implementation plan details are recorded',
   }];
+}
+
+function checkBugfixEvidence(text, path) {
+  const classifications = getSelectedClassifications(text);
+  if (!classifications.includes('Bugfix')) return [];
+
+  if (!hasHeading(text, 'Test Evidence')) {
+    return [{
+      severity: 'BLOCKER',
+      ruleId: 'SG-BUG-001',
+      path,
+      message: 'Bugfix spec is missing a Test Evidence section — record whether test evidence is permanent or temporary before Gate 4',
+    }];
+  }
+
+  const section = getSection(text, 'Test Evidence');
+  const hasChecked = /^- \[[xX]\]/m.test(section);
+  if (!hasChecked) {
+    return [{
+      severity: 'BLOCKER',
+      ruleId: 'SG-BUG-001',
+      path,
+      message: 'Bugfix spec has a Test Evidence section but no option is checked — check permanent or temporary before Gate 4',
+    }];
+  }
+
+  return [];
 }
 
 function checkVagueCriteria(text, path) {

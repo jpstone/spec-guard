@@ -178,18 +178,32 @@ test('spec-linked artifact creation records direct links in the originating spec
 
   const spec = readFileSync(specPath, 'utf8');
   for (const artifact of [
-    '.spec-guard/contracts/my-api.md',
-    '.spec-guard/reviews/my-review.md',
-    '.spec-guard/blockers/my-blocker.md',
-    '.spec-guard/deviations/my-deviation.md',
-    '.spec-guard/scope-discoveries/my-scope.md',
-    '.spec-guard/discoveries/my-discovery.md',
-    '.spec-guard/reviews/my-review-2.md',
+    '../contracts/my-api.md',
+    '../reviews/my-review.md',
+    '../blockers/my-blocker.md',
+    '../deviations/my-deviation.md',
+    '../scope-discoveries/my-scope.md',
+    '../discoveries/my-discovery.md',
+    '../reviews/my-review-2.md',
   ]) {
     assert.equal(spec.split(artifact).length - 1, 1, `${artifact} should appear exactly once`);
   }
   assert.match(spec, /## Related Artifacts/);
   assert.match(spec, /## Documentation Requirements\s+- No documentation changes required\./);
+});
+
+test('artifact backlinks use paths relative to the spec file, not the repo root', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+
+  runCli(['review', '--spec', 'my-spec', 'my-review'], { cwd: directory });
+
+  const spec = readFileSync(specPath, 'utf8');
+  // Link must be relative to .spec-guard/specs/ — ../reviews/my-review.md, not .spec-guard/reviews/my-review.md
+  assert.match(spec, /\(\.\.\/reviews\/my-review\.md\)/);
+  assert.doesNotMatch(spec, /\(\.spec-guard\/reviews\/my-review\.md\)/);
 });
 
 test('new api-contract creates end-user API doc in existing documentation location and records path', () => {

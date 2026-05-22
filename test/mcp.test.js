@@ -253,6 +253,27 @@ test('MCP: spec_guard_create_artifact records a direct link in the originating s
   assert.match(spec, /## Documentation Requirements\s+- None\./);
 });
 
+test('MCP: spec_guard_create_artifact link is relative to spec file directory, not repo root', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sg-artifact-'));
+  mkdirSync(join(dir, '.spec-guard', 'specs'), { recursive: true });
+  const specPath = join(dir, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, `${validSpec}\n## Documentation Requirements\n\n- None.\n`);
+  const outputPath = join(dir, '.spec-guard', 'reviews', 'review.md');
+
+  const response = mcpTool('spec_guard_create_artifact', {
+    kind: 'review',
+    output_path: outputPath,
+    spec_path: specPath,
+  });
+  const result = JSON.parse(response.result.content[0].text);
+  assert.equal(result.success, true);
+
+  const spec = readFileSync(specPath, 'utf8');
+  // Link must be relative to .spec-guard/specs/ — ../reviews/review.md, not .spec-guard/reviews/review.md
+  assert.match(spec, /\(\.\.\/reviews\/review\.md\)/);
+  assert.doesNotMatch(spec, /\(\.spec-guard\/reviews\/review\.md\)/);
+});
+
 // ─── spec_guard_gate_status ──────────────────────────────────────────────────
 
 test('MCP: spec_guard_gate_status returns all 6 gates', () => {

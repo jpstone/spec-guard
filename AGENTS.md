@@ -203,7 +203,7 @@ The classification determines the *type* of test to use:
 | Reusable UI component | Unit/component tests + UI automation tests if the contract includes behavior a unit test environment cannot accurately simulate |
 | One-off application UI | UI automation tests for user-visible behavior |
 | Direct behavior, no new API/UI | Tests derived from acceptance criteria — no new API or UI surface; use whatever mechanism verifies the criterion |
-| Bugfix | Failure-first bug reproduction; ask whether evidence should be permanent or temporary; temporary tests/checks may be removed only after passing and human confirmation: "Have you verified that the reported bug is fixed and no longer reproduces?" |
+| Bugfix | Failure-first bug reproduction; ask whether evidence should be permanent or temporary and record the answer in the spec's `Test Evidence` section before Gate 4 (`spec-guard check` will report SG-BUG-001 if it is missing or unchecked); temporary tests/checks may be removed only after passing and human confirmation: "Have you verified that the reported bug is fixed and no longer reproduces?" |
 | Operational/document deliverable | Process/document checks |
 
 If the request spans multiple rows: split into slices. `spec-guard new compound-work <name>`. Classify and implement each slice separately.

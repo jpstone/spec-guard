@@ -112,6 +112,7 @@ export function buildSpecFromAnswers({
   classification = null,
   designDirection = '',
   componentLibrary = '',
+  testEvidence = null,
 } = {}) {
   const bulletLines = (arr) =>
     arr.length > 0
@@ -189,6 +190,13 @@ export function buildSpecFromAnswers({
     '',
     classificationList,
     '',
+    ...(classification === 'Bugfix' ? [
+      '## Test Evidence',
+      '',
+      `- [${testEvidence === 'permanent' ? 'x' : ' '}] Permanent regression coverage.`,
+      `- [${testEvidence === 'temporary' ? 'x' : ' '}] Temporary — remove after: `,
+      '',
+    ] : []),
   ];
 
   return parts.join('\n');

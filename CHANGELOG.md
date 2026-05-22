@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.1
+
+### Bugfix: artifact backlink paths broken on GitHub
+
+- `addArtifactLinkToSpec` in both `bin/spec-guard.js` and `mcp/server.js` computed artifact link paths relative to `process.cwd()` (repo root). GitHub resolves relative markdown links relative to the file containing the link, so links like `.spec-guard/reviews/foo.md` written into `.spec-guard/specs/foo.md` resolved to non-existent paths.
+- Fixed by anchoring to `dirname(resolvedSpec)` instead — links now produce correct relative paths (e.g. `../reviews/foo.md`) that work in GitHub.
+
+### Bugfix evidence permanence enforcement
+
+- Added `SG-BUG-001` (BLOCKER) to `spec-guard check`: fires when a spec is classified as `Bugfix` and the `Test Evidence` section is absent or has neither option checked.
+- Added `## Test Evidence` section to `templates/spec.md` with permanent and temporary checkbox options (Bugfix classification only).
+- `buildSpecFromAnswers` accepts a new `testEvidence` parameter (`'permanent'` | `'temporary'`) and outputs the section for Bugfix specs.
+- Updated `AGENTS.md` Bugfix row to require the `Test Evidence` field before Gate 4.
+- Added `SG-BUG-001` fix instruction to `spec-guard suggest`.
+- Added `SG-BUG-001` to `docs/validation-rules.md`.
+
+---
+
 ## 1.0.0
 
 ### Spec artifact backlinks

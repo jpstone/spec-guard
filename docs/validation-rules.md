@@ -143,6 +143,10 @@ These rules are enforced procedurally by `spec-guard run` and documented in `AGE
 
 A task must identify a governing spec before implementation.
 
+### SG-BUG-001: Bugfix test evidence permanence not recorded — BLOCKER
+
+Fires when classification is `Bugfix` and the spec's `Test Evidence` section is absent or has neither option checked. Bugfix test evidence must be explicitly declared as permanent or temporary before Gate 4. Record the decision in `## Test Evidence` and check one option.
+
 ### SG-TEST-002: Failure-first confirmation recorded
 
 New tests/checks must run before implementation and fail for the expected reason, or a concrete reason must be recorded explaining why this was impractical.

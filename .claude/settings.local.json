@@ -18,7 +18,19 @@
       "Bash(node bin/spec-guard.js check initiative-decomposition)",
       "Bash(node bin/spec-guard.js check initiative-decomposition --warnings)",
       "Bash(node --test test/initiative.test.js)",
-      "Bash(node bin/spec-guard.js confirm-gate initiative-decomposition 3 --evidence=\"All tests in test/initiative.test.js fail: Cannot find module '../src/initiative.js' — nothing is implemented yet\")"
+      "Bash(node bin/spec-guard.js confirm-gate initiative-decomposition 3 --evidence=\"All tests in test/initiative.test.js fail: Cannot find module '../src/initiative.js' — nothing is implemented yet\")",
+      "Bash(npx spec-guard *)",
+      "Bash(echo \"EXIT:$?\")",
+      "PowerShell(npx spec-guard check artifact-backlink-path-bug; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(npx spec-guard check artifact-backlink-path-bug --warnings; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(node --test --test-name-pattern \"artifact backlinks use paths relative|MCP: spec_guard_create_artifact link is relative\" test/cli.test.js test/mcp.test.js 2>&1)",
+      "PowerShell(node --test 2>&1)",
+      "PowerShell(npx spec-guard review --spec artifact-backlink-path-bug artifact-backlink-path-bug; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(npx spec-guard analyze artifact-backlink-path-bug; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(npx spec-guard check bugfix-evidence-permanence --warnings; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(node --test test/bugfix-evidence-permanence.test.js 2>&1)",
+      "PowerShell(npx spec-guard review --spec bugfix-evidence-permanence bugfix-evidence-permanence; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(npx spec-guard analyze bugfix-evidence-permanence; Write-Host \"EXIT:$LASTEXITCODE\")"
     ]
   }
 }

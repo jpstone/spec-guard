@@ -154,6 +154,18 @@ const RULE_SUGGESTIONS = {
     '  - [ ] item   →   - [x] item   (completed)\n' +
     '  or document explicitly why it does not apply.',
 
+  'SG-BUG-001': () =>
+    'Bugfix specs must record whether test evidence is permanent or temporary before Gate 4.\n\n' +
+    'Add a Test Evidence section to your spec and check one option:\n\n' +
+    '  ## Test Evidence\n\n' +
+    '  - [x] Permanent regression coverage.\n' +
+    '  - [ ] Temporary — remove after: \n\n' +
+    'or:\n\n' +
+    '  ## Test Evidence\n\n' +
+    '  - [ ] Permanent regression coverage.\n' +
+    '  - [x] Temporary — remove after: <condition for removal, e.g. "bug confirmed fixed and no longer reproduces">.\n\n' +
+    'Ask the human which applies if it is not already decided.',
+
   'SG-ALIGN-007': () =>
     'This spec is One-off application UI with a contract dependency. The Dependency Integration\n' +
     'section of the review must be populated and confirmed.\n\n' +

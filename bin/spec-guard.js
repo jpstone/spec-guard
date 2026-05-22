@@ -1213,7 +1213,7 @@ async function validateSpecLinkTarget(specPath) {
 
 async function addArtifactLinkToSpec(specPath, artifactPath, label) {
   const resolvedSpec = resolve(specPath);
-  const relativeArtifact = relative(process.cwd(), resolve(artifactPath)).replace(/\\/g, '/');
+  const relativeArtifact = relative(dirname(resolvedSpec), resolve(artifactPath)).replace(/\\/g, '/');
   const text = await readFile(resolvedSpec, 'utf8');
   const normalizedText = text.replace(/\\/g, '/');
   if (normalizedText.includes(relativeArtifact)) return;

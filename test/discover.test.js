@@ -31,6 +31,8 @@ test('buildSpecFromAnswers — output passes Gate 1 for every classification', (
       expectedBehavior: classification.includes('UI')
         ? 'See Figma mockup. Uses the design system component library.'
         : validAnswers.expectedBehavior,
+      // Bugfix requires Test Evidence to be checked before Gate 4
+      ...(classification === 'Bugfix' ? { testEvidence: 'permanent' } : {}),
     };
     const spec = buildSpecFromAnswers(answers);
     const diagnostics = checkSpecText(spec, '<test>');
