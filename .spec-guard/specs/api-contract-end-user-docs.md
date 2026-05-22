@@ -1,4 +1,4 @@
-# Spec
+﻿# Spec
 
 ## Title
 
@@ -6,7 +6,7 @@ API Contract End-User Documentation Requirement
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
