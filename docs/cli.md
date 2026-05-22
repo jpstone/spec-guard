@@ -255,10 +255,12 @@ With `--json`, outputs `{ pre_classification, classification_specific, universal
 ### `new`
 
 ```bash
-spec-guard new <kind> <name>
+spec-guard new <kind> [--spec <spec>] <name>
 ```
 
 Creates a new artifact from a template. Defaults to the appropriate `.spec-guard/` subdirectory for bare names. Pass a full path to write elsewhere. Refuses to overwrite.
+
+When `--spec <spec>` is supplied for a contract kind (`api-contract`, `rest-api-contract`, or `component-contract`), Spec Guard updates the originating spec with one direct repository-relative link to the created contract under `Related Artifacts`. Existing spec sections and existing links are preserved, and repeated link-recording paths do not duplicate the link.
 
 Available kinds:
 
@@ -343,13 +345,14 @@ Watches a single spec file and re-runs `check` on every save. Clears the termina
 All artifact commands create a file from a template and refuse to overwrite existing files. Bare names default to the appropriate `.spec-guard/` subdirectory.
 
 ```bash
-spec-guard blocker <name>           # → .spec-guard/blockers/<name>.md
-spec-guard deviation <name>         # → .spec-guard/deviations/<name>.md
-spec-guard review <name>            # → .spec-guard/reviews/<name>.md
-spec-guard scope-discovery <name>   # → .spec-guard/scope-discoveries/<name>.md
+spec-guard blocker [--spec <spec>] <name>           # → .spec-guard/blockers/<name>.md
+spec-guard deviation [--spec <spec>] <name>         # → .spec-guard/deviations/<name>.md
+spec-guard discovery [--spec <spec>] <name>         # → .spec-guard/discoveries/<name>.md
+spec-guard review [--spec <spec>] <name>            # → .spec-guard/reviews/<name>.md
+spec-guard scope-discovery [--spec <spec>] <name>   # → .spec-guard/scope-discoveries/<name>.md
 ```
 
-Pass a full path to write elsewhere.
+Pass a full path to write elsewhere. When `--spec <spec>` is supplied, Spec Guard updates the originating spec with one direct repository-relative link to the created artifact under `Related Artifacts`. Existing spec sections and links are preserved; existing links are not duplicated.
 
 ---
 

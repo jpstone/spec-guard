@@ -44,6 +44,7 @@ export function checkSpecText(text, path = '<input>') {
   diagnostics.push(...checkStatus(normalized, path));
   diagnostics.push(...checkContractRequirement(normalized, path));
   diagnostics.push(...checkUIInputs(normalized, path));
+  diagnostics.push(...checkImplementationPlanning(normalized, path));
 
   return diagnostics;
 }
@@ -265,6 +266,28 @@ function checkUIInputs(text, path) {
   }
 
   return diagnostics;
+}
+
+function checkImplementationPlanning(text, path) {
+  if (!hasHeading(text, 'Implementation Planning')) return [];
+
+  const section = getSection(text, 'Implementation Planning');
+  const planningRequired = /planning\s+required\s*:\s*(yes|true|required)/i.test(section);
+  if (!planningRequired) return [];
+
+  const confirmedPlanMatch = /^\s*(?:#+\s*)?Confirmed Plan\s*:?\s*$/im.exec(section);
+  const planText = confirmedPlanMatch
+    ? section.slice(confirmedPlanMatch.index + confirmedPlanMatch[0].length)
+    : '';
+
+  if (hasSubstantiveContent(planText)) return [];
+
+  return [{
+    severity: 'BLOCKER',
+    ruleId: 'SG-PLAN-001',
+    path,
+    message: 'implementation planning is required but no confirmed implementation plan details are recorded',
+  }];
 }
 
 function checkVagueCriteria(text, path) {

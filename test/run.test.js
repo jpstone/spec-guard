@@ -57,10 +57,11 @@ Goal.
 
 // ─── PHASES ──────────────────────────────────────────────────────────────────
 
-test('PHASES has 5 entries', () => {
-  assert.equal(PHASES.length, 5);
+test('PHASES has 6 entries', () => {
+  assert.equal(PHASES.length, 6);
   assert.equal(PHASES[0].id, 'discover');
-  assert.equal(PHASES[4].id, 'review');
+  assert.equal(PHASES[2].id, 'planning');
+  assert.equal(PHASES[5].id, 'review');
 });
 
 // ─── gate1 ────────────────────────────────────────────────────────────────────

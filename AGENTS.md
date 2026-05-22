@@ -35,7 +35,7 @@ When suggested answers are reasonably knowable from existing context, offer thos
 ## The Loop
 
 ```
-DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → TEST FIRST → [Gate 3] → IMPLEMENT → [Gate 4] → REVIEW → [Gate 5]
+DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → IMPLEMENTATION PLANNING → [Gate 3] → TEST FIRST → [Gate 4] → IMPLEMENT → [Gate 5] → REVIEW → [Gate 6]
 ```
 
 Every gate is a `spec-guard` command. Gates are not advisory. You do not proceed past a gate until it passes.
@@ -75,7 +75,9 @@ Run before writing any implementation code. All items must be checked. If any ca
 - [ ] Every acceptance criterion read and understood
 - [ ] Documentation Requirements section read; all current-spec documentation obligations identified or explicitly marked not applicable
 - [ ] Gate 2 — `spec-guard check <name> --warnings` exits 0
-- [ ] Gate 3 — tests written from acceptance criteria, run, and confirmed failing
+- [ ] Implementation Planning section read; if planning is required, a context-appropriate stack/layer has been suggested and the human accepted it or provided their own confirmed plan
+- [ ] Gate 3 — implementation planning confirmed; no SG-PLAN-001 blocker
+- [ ] Gate 4 — tests written from acceptance criteria, run, and confirmed failing
 - [ ] *(UI only)* Mockup/design direction in spec — or "No mockup required" confirmed by human
 - [ ] *(UI only)* Component library in spec — or "No component library — custom styling" confirmed by human
 
@@ -180,6 +182,14 @@ Fill in both **Existing Behavior** (as-is) and **Behavior Delta** (what changes)
 
 ---
 
+## Implementation Planning
+
+After Gate 2 and before writing tests, read the spec's `Implementation Planning` section. If planning is required, identify the required decision level: full tech stack, platform/runtime, framework, engine, backend layer, frontend layer, data layer, integration layer, or another stack/layer needed before tests or implementation can be written safely.
+
+When planning is required, suggest the context-appropriate stack/layer based on repository evidence and the approved spec, and explicitly ask the human to accept the suggestion or override it with their own choice. Record the accepted choice in the spec's `Implementation Planning` section under `Confirmed Plan`. Do not proceed while `spec-guard check <name>` reports SG-PLAN-001.
+
+Implementation planning does not replace UI requirements. UI work still needs mockup/design direction and component-library/custom-styling confirmation under the UI rules.
+
 ## Writing Tests
 
 Tests are derived from the spec's acceptance criteria — not from a separate list. Every acceptance criterion must have a corresponding test. The human does not specify what tests to write; the agent reads the acceptance criteria and writes tests that verify each one.
@@ -214,7 +224,7 @@ If the request spans multiple rows: split into slices. `spec-guard new compound-
 
 ---
 
-## The Five Gates
+## The Six Gates
 
 **Gate 1 — Spec valid:**
 ```bash
@@ -228,14 +238,17 @@ spec-guard check <name> --warnings
 # No SG-CLASS-002, SG-UI-001, or SG-UI-002 blockers
 ```
 
-**Gate 3 — Failure confirmed:**
+**Gate 3 — Planning confirmed:**
+If `Implementation Planning` says planning is required, `Confirmed Plan` records the human-accepted stack/layer choice. `spec-guard check <name>` must report no SG-PLAN-001 blocker.
+
+**Gate 4 — Failure confirmed:**
 Run the new test. Record: "Test [name] fails because [reason]."
 If impractical, record the concrete reason. "Impractical" is not a general escape hatch.
 
-**Gate 4 — Tests pass:**
+**Gate 5 — Tests pass:**
 All tests pass. No scope absorbed silently. Discoveries recorded.
 
-**Gate 5 — Review complete:**
+**Gate 6 — Review complete:**
 ```bash
 spec-guard review <name>
 spec-guard analyze <name>   # verify spec ↔ contract ↔ review alignment
@@ -253,6 +266,7 @@ Stop immediately and surface the issue when any of these are true:
 - UI work has no mockup and no component library → `spec-guard blocker`; do not invent UI
 - UI work has no mockup but a component library is referenced → ask the user whether the component library is sufficient; do not assume; do not proceed until confirmed
 - UI work has no component library but a mockup is present → ask the user whether they are using an existing library or custom styling; do not assume; do not proceed until confirmed
+- Implementation planning is required but no confirmed stack/layer choice is recorded → suggest a context-appropriate stack/layer, ask the human to accept or override it, and do not proceed until recorded
 - A reusable API/component has no contract → `spec-guard blocker`
 - Spec contradicts existing behavior → `spec-guard deviation`
 - Implementation would expand scope → `spec-guard scope-discovery`
@@ -264,7 +278,7 @@ Stop immediately and surface the issue when any of these are true:
 
 ## What You Must Never Do
 
-- Implement before Gates 1 and 2 pass and Gate 3 is confirmed — the spec must be valid, contracts must be present, and a failing test must exist before any implementation begins
+- Implement before Gates 1, 2, 3, and 4 pass — the spec must be valid, contracts must be present, required implementation planning must be confirmed, and a failing test must exist before any implementation begins
 - Skip work classification
 - Create documentation by default
 - Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
@@ -280,8 +294,8 @@ Stop immediately and surface the issue when any of these are true:
 - Treat "what's next?" as permission to invent features
 - Perform discovery unless the human explicitly asks
 - Implement discovery findings without separate authorization
-- Skip Gate 3 (failure-first) without recording a concrete reason
-- Close Gate 5 without running `spec-guard analyze`
+- Skip Gate 4 (failure-first) without recording a concrete reason
+- Close Gate 6 without running `spec-guard analyze`
 
 ---
 
@@ -320,7 +334,7 @@ All Spec Guard artifacts live under `.spec-guard/` in the project root:
   initiatives/     ← initiative decomposition artifacts
   blockers/        ← recorded blockers
   scope-discoveries/
-  reviews/         ← implementation reviews (Gate 5 source)
+  reviews/         ← implementation reviews (Gate 6 source)
   deviations/
   discoveries/
   runs/            ← gate confirmation state
@@ -328,7 +342,7 @@ AGENTS.md          ← this file (project root)
 WORKFLOW.md        ← full process flow — required reading (project root)
 ```
 
-Write commands (`new`, `draft`, `blocker`, `scope-discovery`, `review`, `discovery`, `deviation`) take a bare name and always write to the appropriate `.spec-guard/` subdirectory. Read/validate commands (`check`, `run`, `analyze`, `suggest`, `classify`, `watch`) default to `.spec-guard/specs/` for bare names but accept full paths.
+Write commands (`new`, `draft`, `blocker`, `scope-discovery`, `review`, `discovery`, `deviation`) take a bare name and always write to the appropriate `.spec-guard/` subdirectory. When creating an artifact for a governing spec, pass `--spec <spec-name>` where the command supports it so the originating spec records a direct repository-relative link to the new artifact under `Related Artifacts`. Read/validate commands (`check`, `run`, `analyze`, `suggest`, `classify`, `watch`) default to `.spec-guard/specs/` for bare names but accept full paths.
 
 ---
 
@@ -344,10 +358,10 @@ spec-guard draft <name>              # guided wizard
 spec-guard new brownfield-spec <name> # brownfield template
 
 # Workflow
-spec-guard run <name>                # orchestrated 5-phase run
+spec-guard run <name>                # orchestrated 6-phase run
 spec-guard check <name>              # Gate 1
 spec-guard suggest <name>            # Gate 1 + fix instructions
-spec-guard analyze <name>            # cross-artifact alignment (Gate 4→5)
+spec-guard analyze <name>            # cross-artifact alignment (Gate 5→6)
 
 # Monitoring
 spec-guard watch <name>              # live feedback while editing
@@ -376,7 +390,7 @@ spec_guard_classify              → confirm work classification
 spec_guard_test_guidance         → test type + contract checklist for classification
 spec_guard_gate_status           → which gates have passed
 spec_guard_confirm_gate          → record agent gate confirmation (Gates 3–5)
-spec_guard_analyze               → cross-artifact alignment (Gate 4→5)
+spec_guard_analyze               → cross-artifact alignment (Gate 5→6)
 spec_guard_create_artifact       → create any spec-guard artifact from template
 spec_guard_validate_directory    → validate all specs in a directory
 spec_guard_status                → overview of all specs

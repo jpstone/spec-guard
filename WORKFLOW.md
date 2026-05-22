@@ -33,8 +33,8 @@ This document is addressed to the agent. All imperatives are instructions you mu
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  PHASE 3: TEST FIRST                                    │
-│  Write the right test. Run it. Observe failure.         │
+│  PHASE 3: IMPLEMENTATION PLANNING                       │
+│  Confirm required stack/layer decisions before testing. │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
@@ -46,8 +46,8 @@ This document is addressed to the agent. All imperatives are instructions you mu
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  PHASE 4: IMPLEMENT                                     │
-│  Smallest change. Spec is the boundary.                 │
+│  PHASE 4: TEST FIRST                                    │
+│  Write the right test. Run it. Observe failure.         │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
@@ -58,8 +58,8 @@ This document is addressed to the agent. All imperatives are instructions you mu
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  PHASE 5: REVIEW                                        │
-│  Confirm traceability. Record follow-ups.               │
+│  PHASE 5: IMPLEMENT                                     │
+│  Smallest change. Spec is the boundary.                 │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
@@ -151,9 +151,9 @@ Do not proceed to Phase 2 until this passes. Common blockers at this gate:
 
 | Classification | Required artifact | Command |
 |---|---|---|
-| Reusable non-UI API | API contract | `spec-guard new api-contract <name>` |
-| REST/service API | REST API contract | `spec-guard new rest-api-contract <name>` |
-| Reusable UI component | Component contract | `spec-guard new component-contract <name>` |
+| Reusable non-UI API | API contract | `spec-guard new api-contract --spec <feature-name> <name>` |
+| REST/service API | REST API contract | `spec-guard new rest-api-contract --spec <feature-name> <name>` |
+| Reusable UI component | Component contract | `spec-guard new component-contract --spec <feature-name> <name>` |
 | One-off application UI | Mockup/design direction + component library reference in spec | Add to spec Dependencies section |
 | Direct behavior, no new API/UI | No contract required | — |
 | Bugfix | No contract required | — |
@@ -181,9 +181,37 @@ spec-guard check <feature-name> --warnings
 
 ---
 
-## Phase 3: Test First
+## Phase 3: Implementation Planning
 
 **Triggered by:** Gate 2 passes. Agent-driven.
+
+**Goal:** Confirm implementation decisions that must be known before tests or implementation, without silently inventing architecture.
+
+Read the spec's `Implementation Planning` section. If planning is required, identify whether the needed decision is a full tech stack or a narrower stack/layer choice such as platform/runtime, web framework, backend framework, desktop shell/native target, game engine, data layer, integration layer, or similar implementation boundary.
+
+When planning is required, suggest the context-appropriate stack/layer based on repository evidence and the approved spec. Ask the human to accept the suggestion or provide their own choice. Record the accepted choice in the spec's `Implementation Planning` section under `Confirmed Plan` before proceeding.
+
+Implementation planning does not replace existing UI inputs: UI work still requires mockup/design direction and component-library/custom-styling confirmation where the UI rules require them.
+
+**Halt conditions in this phase:**
+- Implementation planning is required and no confirmed plan is recorded → halt, ask the human to accept or override the suggested stack/layer, and record the accepted plan.
+- A required stack/layer choice contradicts the approved spec or existing architecture → record a deviation and halt.
+
+---
+
+## Gate 3: Planning Confirmed
+
+```bash
+spec-guard check <feature-name>
+```
+
+**Required:** If `Implementation Planning` says planning is required, no `SG-PLAN-001` blocker is present.
+
+---
+
+## Phase 4: Test First
+
+**Triggered by:** Gate 3 passes. Agent-driven.
 
 **Goal:** Write the right test for the classification. Run it. Watch it fail.
 
@@ -220,19 +248,19 @@ Failure-first impractical: [concrete reason]
 
 ---
 
-## Gate 3: Failure Confirmed
+## Gate 4: Failure Confirmed
 
 **Required:** One of:
 - Test run output showing the new test failing for the expected reason
 - Written record of why running the test was impractical, with a concrete reason
 
-No implementation may begin until one of these exists. When Gate 3 is confirmed, Spec Guard updates the spec's `Status` to `Ready`; gate/run state remains authoritative.
+No implementation may begin until one of these exists. When Gate 4 is confirmed, Spec Guard updates the spec's `Status` to `Ready`; gate/run state remains authoritative.
 
 ---
 
-## Phase 4: Implement
+## Phase 5: Implement
 
-**Triggered by:** Gate 3 confirmed — a failing test exists for the expected reason. Agent-driven.
+**Triggered by:** Gate 4 confirmed — required implementation planning is recorded and a failing test exists for the expected reason. Agent-driven.
 
 **Goal:** Make the failing test pass. Nothing more.
 
@@ -248,16 +276,16 @@ No implementation may begin until one of these exists. When Gate 3 is confirmed,
 **If a spec problem surfaces during implementation:**
 1. Stop immediately
 2. Classify it: ambiguity, gap, or conflict?
-3. Create a spec deviation request:
+3. Create a spec deviation request and link it to the governing spec:
    ```bash
-   spec-guard deviation <topic>
+   spec-guard deviation --spec <feature-name> <topic>
    ```
 4. Halt until the human resolves it
 
 **If out-of-scope work is discovered:**
-1. Record it:
+1. Record it and link it to the governing spec:
    ```bash
-   spec-guard scope-discovery <topic>
+   spec-guard scope-discovery --spec <feature-name> <topic>
    ```
 2. Classify it: required for this spec, or additive?
 3. If required: ask for acknowledgment before continuing
@@ -265,7 +293,7 @@ No implementation may begin until one of these exists. When Gate 3 is confirmed,
 
 ---
 
-## Gate 4: Tests Pass
+## Gate 5: Tests Pass
 
 **Required:**
 - All tests pass
@@ -275,15 +303,15 @@ No implementation may begin until one of these exists. When Gate 3 is confirmed,
 
 ---
 
-## Phase 5: Review
+## Phase 6: Review
 
-**Triggered by:** Gate 4 passes — all tests pass and no scope was silently absorbed. Agent-driven.
+**Triggered by:** Gate 5 passes — all tests pass and no scope was silently absorbed. Agent-driven.
 
 **Goal:** Confirm the change is traceable, complete, and clean.
 
-Create an implementation review:
+Create an implementation review and link it to the governing spec:
 ```bash
-spec-guard review <feature-name>
+spec-guard review --spec <feature-name> <feature-name>
 ```
 
 Complete the review checklist:
@@ -303,17 +331,17 @@ Then run the cross-artifact alignment check:
 spec-guard analyze <feature-name>
 ```
 
-Gate 5 cannot close until `spec-guard analyze` reports no `SG-ALIGN` warnings.
+Gate 6 cannot close until `spec-guard analyze` reports no `SG-ALIGN` warnings.
 
 ---
 
-## Gate 5: Review Complete
+## Gate 6: Review Complete
 
 **Required:**
 - All review checklist items checked
 - `spec-guard analyze` reports no `SG-ALIGN` warnings
 
-When Gate 5 is confirmed, Spec Guard updates the spec's `Status` to `Implemented`; gate/run state remains authoritative.
+When Gate 6 is confirmed, Spec Guard updates the spec's `Status` to `Implemented`; gate/run state remains authoritative.
 
 ---
 
@@ -368,7 +396,7 @@ In discovery mode:
 4. Recommend blocker, spec change, follow-up spec, or no action
 5. Do not implement anything unless separately authorized
 
-Create a discovery request to track it:
+Create a discovery request to track it. If the discovery is associated with a governing spec, link it to that spec:
 ```bash
-spec-guard discovery <topic>
+spec-guard discovery --spec <feature-name> <topic>
 ```

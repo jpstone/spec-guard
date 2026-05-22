@@ -158,6 +158,40 @@ test('new api-contract creates in .spec-guard/contracts/', () => {
   assert.equal(existsSync(join(directory, '.spec-guard', 'contracts', 'my-api.md')), true);
 });
 
+test('spec-linked artifact creation records direct links in the originating spec without duplicates', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  const originalSpec = `${readFileSync('test/fixtures/valid-spec.md', 'utf8')}\n## Documentation Requirements\n\n- No documentation changes required.\n`;
+  writeFileSync(specPath, originalSpec);
+
+  assert.equal(runCli(['new', 'api-contract', '--spec', 'my-spec', 'my-api'], { cwd: directory }).status, 0);
+  assert.equal(runCli(['review', '--spec', 'my-spec', 'my-review'], { cwd: directory }).status, 0);
+  assert.equal(runCli(['blocker', '--spec', 'my-spec', 'my-blocker'], { cwd: directory }).status, 0);
+  assert.equal(runCli(['deviation', '--spec', 'my-spec', 'my-deviation'], { cwd: directory }).status, 0);
+  assert.equal(runCli(['scope-discovery', '--spec', 'my-spec', 'my-scope'], { cwd: directory }).status, 0);
+  assert.equal(runCli(['discovery', '--spec', 'my-spec', 'my-discovery'], { cwd: directory }).status, 0);
+
+  // Re-recording an existing artifact link should be idempotent.
+  assert.equal(runCli(['review', '--spec', 'my-spec', 'my-review-2'], { cwd: directory }).status, 0);
+  assert.equal(runCli(['review', '--spec', 'my-spec', 'my-review-2'], { cwd: directory }).status, 1);
+
+  const spec = readFileSync(specPath, 'utf8');
+  for (const artifact of [
+    '.spec-guard/contracts/my-api.md',
+    '.spec-guard/reviews/my-review.md',
+    '.spec-guard/blockers/my-blocker.md',
+    '.spec-guard/deviations/my-deviation.md',
+    '.spec-guard/scope-discoveries/my-scope.md',
+    '.spec-guard/discoveries/my-discovery.md',
+    '.spec-guard/reviews/my-review-2.md',
+  ]) {
+    assert.equal(spec.split(artifact).length - 1, 1, `${artifact} should appear exactly once`);
+  }
+  assert.match(spec, /## Related Artifacts/);
+  assert.match(spec, /## Documentation Requirements\s+- No documentation changes required\./);
+});
+
 test('new api-contract creates end-user API doc in existing documentation location and records path', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
@@ -380,6 +414,7 @@ test('gate-status --json returns structured gate data', () => {
   assert.ok('gate3' in data);
   assert.ok('gate4' in data);
   assert.ok('gate5' in data);
+  assert.ok('gate6' in data);
 });
 
 test('gate-status exits 2 with no args', () => {
@@ -390,43 +425,43 @@ test('gate-status exits 2 with no args', () => {
 
 // ─── confirm-gate ─────────────────────────────────────────────────────────────
 
-test('confirm-gate records gate 3 with evidence', () => {
+test('confirm-gate records gate 4 with evidence', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
   const result = runCli(
-    ['confirm-gate', 'my-spec', '3', '--evidence=test auth.test.js fails: 401 not 403'],
+    ['confirm-gate', 'my-spec', '4', '--evidence=test auth.test.js fails: 401 not 403'],
     { cwd: directory },
   );
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /Gate 3 confirmed/);
+  assert.match(result.stdout, /Gate 4 confirmed/);
   const runFile = join(directory, '.spec-guard', 'runs', 'my-spec-run.json');
   const state = JSON.parse(readFileSync(runFile, 'utf8'));
-  assert.ok(state.gatesPassed.includes('gate3'));
+  assert.ok(state.gatesPassed.includes('gate4'));
   assert.equal(state.failureFirstReason, 'test auth.test.js fails: 401 not 403');
 });
 
-test('confirm-gate 3 updates spec status to Ready', () => {
+test('confirm-gate 4 updates spec status to Ready', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
 
-  const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=test fails before implementation'], { cwd: directory });
+  const result = runCli(['confirm-gate', 'my-spec', '4', '--evidence=test fails before implementation'], { cwd: directory });
 
   assert.equal(result.status, 0);
   assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Ready/);
 });
 
-test('confirm-gate 5 updates spec status to Implemented and gate-status reports it', () => {
+test('confirm-gate 6 updates spec status to Implemented and gate-status reports it', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
 
-  const result = runCli(['confirm-gate', 'my-spec', '5'], { cwd: directory });
+  const result = runCli(['confirm-gate', 'my-spec', '6'], { cwd: directory });
   const status = runCli(['gate-status', '--json', 'my-spec'], { cwd: directory });
 
   assert.equal(result.status, 0);
@@ -434,12 +469,12 @@ test('confirm-gate 5 updates spec status to Implemented and gate-status reports 
   assert.equal(JSON.parse(status.stdout).status, 'Implemented');
 });
 
-test('confirm-gate exits 2 when gate 3 confirmed without evidence', () => {
+test('confirm-gate exits 2 when gate 4 confirmed without evidence', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
-  const result = runCli(['confirm-gate', 'my-spec', '3'], { cwd: directory });
+  const result = runCli(['confirm-gate', 'my-spec', '4'], { cwd: directory });
 
   assert.equal(result.status, 2);
   assert.match(result.stderr, /evidence/);

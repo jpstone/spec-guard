@@ -60,7 +60,7 @@ const TOOLS = [
   },
   {
     name: 'spec_guard_gate_status',
-    description: 'Check which gates a spec has passed. Returns status for Gate 1 (spec valid) and Gate 2 (contracts present), plus classification and test guidance. Gates 3-5 require confirmation via spec_guard_confirm_gate.',
+    description: 'Check which gates a spec has passed. Returns status for Gate 1 (spec valid) and Gate 2 (contracts present), plus classification and test guidance. Gates 3-6 require confirmation via spec_guard_confirm_gate.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -105,14 +105,14 @@ const TOOLS = [
   },
   {
     name: 'spec_guard_confirm_gate',
-    description: 'Record a manual gate confirmation (Gates 3-5 require human/agent confirmation). Gate 3: failure-first confirmed. Gate 4: tests pass. Gate 5: review complete.',
+    description: 'Record a manual gate confirmation (Gates 3-6 require human/agent confirmation). Gate 3: planning confirmed. Gate 4: failure-first confirmed. Gate 5: tests pass. Gate 6: review complete.',
     inputSchema: {
       type: 'object',
       properties: {
         spec_path: { type: 'string', description: 'Path to the spec' },
-        gate: { type: 'number', enum: [3, 4, 5], description: 'Which gate to confirm (3, 4, or 5)' },
+        gate: { type: 'number', enum: [3, 4, 5, 6], description: 'Which gate to confirm (3, 4, 5, or 6)' },
         confirmed: { type: 'boolean', description: 'Whether the gate condition is met' },
-        evidence: { type: 'string', description: 'Evidence or reason for the confirmation (required for Gate 3)' },
+        evidence: { type: 'string', description: 'Evidence or reason for the confirmation (required for Gate 4)' },
       },
       required: ['spec_path', 'gate', 'confirmed'],
     },
@@ -133,6 +133,7 @@ const TOOLS = [
           description: 'The type of artifact to create',
         },
         output_path: { type: 'string', description: 'Where to create the file' },
+        spec_path: { type: 'string', description: 'Optional originating spec to update with a direct link to this artifact' },
       },
       required: ['kind', 'output_path'],
     },
@@ -375,12 +376,13 @@ async function toolGateStatus({ spec_path }) {
       skipped: true,
       reason: 'Gate 1 must pass first',
     },
-    gate3: { passed: null, label: 'Failure confirmed', manual: true, note: 'Requires spec_guard_confirm_gate' },
-    gate4: { passed: null, label: 'Tests pass',        manual: true, note: 'Requires spec_guard_confirm_gate' },
-    gate5: { passed: null, label: 'Review complete',   manual: true, note: 'Requires spec_guard_confirm_gate' },
+    gate3: { passed: null, label: 'Planning confirmed', manual: true, note: 'Requires spec_guard_confirm_gate' },
+    gate4: { passed: null, label: 'Failure confirmed', manual: true, note: 'Requires spec_guard_confirm_gate' },
+    gate5: { passed: null, label: 'Tests pass',        manual: true, note: 'Requires spec_guard_confirm_gate' },
+    gate6: { passed: null, label: 'Review complete',   manual: true, note: 'Requires spec_guard_confirm_gate' },
     classification,
     test_guidance: classification ? TEST_GUIDANCE[classification] : null,
-    ready_to_implement: g1.passed && (g2?.passed ?? false),
+    ready_to_implement: false,
   };
 }
 
@@ -439,10 +441,10 @@ async function toolTestGuidance({ classification }) {
 }
 
 async function toolConfirmGate({ spec_path, gate, confirmed, evidence }) {
-  if (gate === 3 && confirmed && !evidence) {
+  if (gate === 4 && confirmed && !evidence) {
     return {
       success: false,
-      error: 'Gate 3 confirmation requires evidence: describe what failed and why.',
+      error: 'Gate 4 confirmation requires evidence: describe what failed and why.',
     };
   }
 
@@ -466,7 +468,7 @@ async function toolConfirmGate({ spec_path, gate, confirmed, evidence }) {
     if (!runState.gatesPassed.includes(gateKey)) {
       runState.gatesPassed.push(gateKey);
     }
-    if (gate === 3) {
+    if (gate === 4) {
       runState.failureFirstConfirmed = true;
       runState.failureFirstReason = evidence;
     }
@@ -505,7 +507,7 @@ const ARTIFACT_TEMPLATES = {
   'deviation':            'templates/spec-deviation.md',
 };
 
-async function toolCreateArtifact({ kind, output_path }) {
+async function toolCreateArtifact({ kind, output_path, spec_path }) {
   const templatePath = ARTIFACT_TEMPLATES[kind];
   if (!templatePath) {
     return { success: false, error: `Unknown artifact kind: ${kind}` };
@@ -513,6 +515,14 @@ async function toolCreateArtifact({ kind, output_path }) {
 
   const source = join(rootDir, templatePath);
   const target = resolve(output_path);
+
+  if (spec_path) {
+    try {
+      await access(resolve(spec_path), constants.F_OK);
+    } catch (err) {
+      return { success: false, error: `Spec not found: ${spec_path}: ${err.message}` };
+    }
+  }
 
   try {
     await access(target, constants.F_OK);
@@ -527,15 +537,57 @@ async function toolCreateArtifact({ kind, output_path }) {
     await mkdir(dirname(target), { recursive: true });
     const template = await readFile(source, 'utf8');
     await writeFile(target, template, { flag: 'wx' });
+    if (spec_path && isSpecLinkedArtifactKind(kind)) {
+      await addArtifactLinkToSpec(spec_path, output_path, kind.replace(/-/g, ' '));
+    }
     return {
       success: true,
       kind,
       path: output_path,
+      spec_path: spec_path || null,
       message: `Created ${kind}: ${output_path}`,
     };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+function isSpecLinkedArtifactKind(kind) {
+  return kind === 'api-contract'
+    || kind === 'rest-api-contract'
+    || kind === 'component-contract'
+    || kind === 'blocker'
+    || kind === 'scope-discovery'
+    || kind === 'review'
+    || kind === 'discovery'
+    || kind === 'deviation';
+}
+
+async function addArtifactLinkToSpec(specPath, artifactPath, label) {
+  const resolvedSpec = resolve(specPath);
+  const relativeArtifact = relative(process.cwd(), resolve(artifactPath)).replace(/\\/g, '/');
+  const text = await readFile(resolvedSpec, 'utf8');
+  if (text.replace(/\\/g, '/').includes(relativeArtifact)) return;
+
+  const entry = `- [${label}](${relativeArtifact})`;
+  let updated;
+  if (/^## Related Artifacts\s*$/m.test(text)) {
+    updated = text.replace(/(^## Related Artifacts\s*\n)([\s\S]*?)(?=^## |(?![\s\S]))/m, (match, heading, body) => {
+      const separator = body.trim().length === 0 ? '' : (body.endsWith('\n') ? '' : '\n');
+      return `${heading}${body}${separator}${entry}\n\n`;
+    });
+  } else {
+    const section = `## Related Artifacts\n\n${entry}\n\n`;
+    if (/^## Documentation Requirements\s*$/m.test(text)) {
+      updated = text.replace(/^## Documentation Requirements\s*$/m, `${section}## Documentation Requirements`);
+    } else if (/^## Dependencies\s*$/m.test(text)) {
+      updated = text.replace(/^## Dependencies\s*$/m, `${section}## Dependencies`);
+    } else {
+      updated = text.endsWith('\n') ? `${text}\n${section}` : `${text}\n\n${section}`;
+    }
+  }
+
+  await writeFile(resolvedSpec, updated, 'utf8');
 }
 
 async function toolValidateDirectory({ directory = 'specs', include_warnings = false }) {
@@ -750,7 +802,7 @@ async function toolWorkflowNextStep({ spec_path, gates_passed = [] }) {
     }
     return {
       next_action: 'confirm_gate2',
-      instruction: 'Gate 2 checks pass. Confirm via spec_guard_confirm_gate gate=2, then proceed to Phase 3 (write failing tests).',
+      instruction: 'Gate 2 checks pass. Proceed to Phase 3 (implementation planning).',
       gate_target: 'gate2',
       classification,
       test_guidance: TEST_GUIDANCE[classification],
@@ -758,36 +810,54 @@ async function toolWorkflowNextStep({ spec_path, gates_passed = [] }) {
   }
 
   if (!gates_passed.includes('gate3')) {
-    const classifications = getSelectedClassifications(text);
+    const g1 = await gate1(spec_path);
+    const planningBlockers = g1.blockers.filter(d => d.ruleId === 'SG-PLAN-001');
+    if (planningBlockers.length > 0) {
+      return {
+        next_action: 'confirm_implementation_plan',
+        instruction: 'Implementation planning is required. Suggest a context-appropriate stack/layer, ask the human to accept or override it, record the accepted plan, then confirm Gate 3.',
+        gate_target: 'gate3',
+        blockers: planningBlockers.map(d => formatDiagnostic(d)),
+      };
+    }
     return {
-      next_action: 'write_failing_tests',
-      instruction: `Write tests that verify every acceptance criterion in the spec. Run them before implementing. Confirm they fail for the expected reason. Then call spec_guard_confirm_gate with gate=3 and evidence describing what failed and why.`,
+      next_action: 'confirm_gate3',
+      instruction: 'Implementation planning is satisfied. Call spec_guard_confirm_gate with gate=3, then proceed to Phase 4 (write failing tests).',
       gate_target: 'gate3',
-      test_guidance: TEST_GUIDANCE[classifications[0]],
     };
   }
 
   if (!gates_passed.includes('gate4')) {
+    const classifications = getSelectedClassifications(text);
     return {
-      next_action: 'implement',
-      instruction: 'Implement the smallest change that makes the failing tests pass. Follow the spec strictly. When all tests pass and no scope was silently absorbed, call spec_guard_confirm_gate with gate=4.',
+      next_action: 'write_failing_tests',
+      instruction: `Write tests that verify every acceptance criterion in the spec. Run them before implementing. Confirm they fail for the expected reason. Then call spec_guard_confirm_gate with gate=4 and evidence describing what failed and why.`,
       gate_target: 'gate4',
+      test_guidance: TEST_GUIDANCE[classifications[0]],
     };
   }
 
   if (!gates_passed.includes('gate5')) {
+    return {
+      next_action: 'implement',
+      instruction: 'Implement the smallest change that makes the failing tests pass. Follow the spec strictly. When all tests pass and no scope was silently absorbed, call spec_guard_confirm_gate with gate=5.',
+      gate_target: 'gate5',
+    };
+  }
+
+  if (!gates_passed.includes('gate6')) {
     const specName = basename(spec_path).replace('.md', '');
     return {
       next_action: 'complete_review',
-      instruction: `Create an implementation review with spec_guard_create_artifact kind=review, then complete all checklist items. Call spec_guard_confirm_gate with gate=5 when done.`,
-      gate_target: 'gate5',
+      instruction: `Create an implementation review with spec_guard_create_artifact kind=review, then complete all checklist items. Call spec_guard_confirm_gate with gate=6 when done.`,
+      gate_target: 'gate6',
       suggested_review_path: `.spec-guard/reviews/${specName}.md`,
     };
   }
 
   return {
     next_action: 'complete',
-    instruction: 'All 5 gates passed. Implementation is complete.',
+    instruction: 'All 6 gates passed. Implementation is complete.',
     gate_target: null,
     complete: true,
   };

@@ -502,11 +502,12 @@ async function initCommand(args) {
 // ─── new ─────────────────────────────────────────────────────────────────────
 
 async function newCommand(args) {
-  const [kind, rawPath, ...extra] = args;
+  const flags = parseFlags(args);
+  const [kind, rawPath, ...extra] = flags.positional;
 
   if (!kind || !rawPath || extra.length > 0) {
     const kinds = Object.keys(NEW_TEMPLATES).join(' | ');
-    console.error(`Usage: spec-guard new <kind> <name>`);
+    console.error(`Usage: spec-guard new <kind> [--spec <spec>] <name>`);
     console.error(`Kinds: ${kinds}`);
     return 2;
   }
@@ -523,7 +524,18 @@ async function newCommand(args) {
     console.error(`[BLOCKER] SG-USAGE-001 ${rawPath}: use a bare name — write commands always create files in .spec-guard/`);
     return 2;
   }
-  return copyTemplate(templatePath, outputPath, kind);
+
+  const specPath = flags.spec ? withDefaultDir(flags.spec, SG.specs) : null;
+  if (specPath) {
+    const validation = await validateSpecLinkTarget(specPath);
+    if (validation !== 0) return validation;
+  }
+
+  const result = await copyTemplate(templatePath, outputPath, kind);
+  if (result === 0 && specPath && isSpecLinkedNewArtifact(kind)) {
+    await addArtifactLinkToSpec(specPath, outputPath, artifactLabelForKind(kind));
+  }
+  return result;
 }
 
 // ─── classify ────────────────────────────────────────────────────────────────
@@ -611,6 +623,7 @@ async function gateStatusCommand(args) {
   const g3passed = runState.gatesPassed?.includes('gate3') ?? false;
   const g4passed = runState.gatesPassed?.includes('gate4') ?? false;
   const g5passed = runState.gatesPassed?.includes('gate5') ?? false;
+  const g6passed = runState.gatesPassed?.includes('gate6') ?? false;
 
   if (flags.json) {
     console.log(JSON.stringify({
@@ -620,12 +633,13 @@ async function gateStatusCommand(args) {
       gate2: g2
         ? { passed: g2.passed, label: 'Contracts present',     blockers: g2.blockers.map(d => formatDiagnostic(d)) }
         : { passed: false,     label: 'Contracts present', skipped: true, reason: 'Gate 1 must pass first' },
-      gate3: { passed: g3passed, label: 'Failure confirmed', manual: true },
-      gate4: { passed: g4passed, label: 'Tests pass',        manual: true },
-      gate5: { passed: g5passed, label: 'Review complete',   manual: true },
+      gate3: { passed: g3passed, label: 'Planning confirmed', manual: true },
+      gate4: { passed: g4passed, label: 'Failure confirmed', manual: true },
+      gate5: { passed: g5passed, label: 'Tests pass',        manual: true },
+      gate6: { passed: g6passed, label: 'Review complete',   manual: true },
       classification,
       test_guidance: classification ? TEST_GUIDANCE[classification] : null,
-      ready_to_implement: g1.passed && (g2?.passed ?? false),
+      ready_to_implement: g1.passed && (g2?.passed ?? false) && g3passed && g4passed,
     }));
     return 0;
   }
@@ -647,9 +661,10 @@ async function gateStatusCommand(args) {
     console.log(`  Gate 2 [${skip('Gate 1 must pass first')}]`);
   }
 
-  console.log(`  Gate 3 [${mark(g3passed)}] Failure confirmed  (agent-confirmed — use spec-guard confirm-gate)`);
-  console.log(`  Gate 4 [${mark(g4passed)}] Tests pass         (agent-confirmed — use spec-guard confirm-gate)`);
-  console.log(`  Gate 5 [${mark(g5passed)}] Review complete    (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log(`  Gate 3 [${mark(g3passed)}] Planning confirmed (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log(`  Gate 4 [${mark(g4passed)}] Failure confirmed  (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log(`  Gate 5 [${mark(g5passed)}] Tests pass         (agent-confirmed — use spec-guard confirm-gate)`);
+  console.log(`  Gate 6 [${mark(g6passed)}] Review complete    (agent-confirmed — use spec-guard confirm-gate)`);
   console.log('');
 
   return 0;
@@ -663,8 +678,8 @@ async function confirmGateCommand(args) {
   // Usage: confirm-gate <spec> <gate-number> [--evidence="..."] [--no-confirm]
   if (flags.positional.length < 2) {
     console.error('Usage: spec-guard confirm-gate <spec> <gate> [--evidence=<text>] [--no-confirm]');
-    console.error('  <gate>: 3, 4, or 5');
-    console.error('  --evidence: required for gate 3; describe what failed and why');
+    console.error('  <gate>: 3, 4, 5, or 6');
+    console.error('  --evidence: required for gate 4; describe what failed and why');
     console.error('  --no-confirm: record gate as not-confirmed (problem encountered)');
     return 2;
   }
@@ -674,14 +689,14 @@ async function confirmGateCommand(args) {
   const confirmed = flags['confirm'] !== false;
   const evidence = flags.evidence ?? null;
 
-  if (![3, 4, 5].includes(gate)) {
-    console.error(`Gate must be 3, 4, or 5 (gates 1 and 2 are automated). Got: ${gate}`);
+  if (![3, 4, 5, 6].includes(gate)) {
+    console.error(`Gate must be 3, 4, 5, or 6 (gates 1 and 2 are automated). Got: ${gate}`);
     return 2;
   }
 
-  if (gate === 3 && confirmed && !evidence) {
-    console.error('Gate 3 confirmation requires --evidence describing what failed and why.');
-    console.error('  Example: spec-guard confirm-gate <spec> 3 --evidence="test auth.test.js fails: 401 returned instead of 403"');
+  if (gate === 4 && confirmed && !evidence) {
+    console.error('Gate 4 confirmation requires --evidence describing what failed and why.');
+    console.error('  Example: spec-guard confirm-gate <spec> 4 --evidence="test auth.test.js fails: 401 returned instead of 403"');
     return 2;
   }
 
@@ -700,12 +715,12 @@ async function confirmGateCommand(args) {
 
   if (confirmed) {
     if (!runState.gatesPassed.includes(gateKey)) runState.gatesPassed.push(gateKey);
-    if (gate === 3) {
+    if (gate === 4) {
       runState.failureFirstConfirmed = true;
       runState.failureFirstReason = evidence;
       await updateSpecStatus(inputPath, 'Ready');
     }
-    if (gate === 5) {
+    if (gate === 6) {
       await updateSpecStatus(inputPath, 'Implemented');
     }
   }
@@ -805,37 +820,52 @@ async function nextCommand(args) {
     } else {
       result = {
         next_action: 'confirm_gate2',
-        instruction: 'Gate 2 checks pass. Record via: spec-guard confirm-gate <spec> 2, then proceed to Phase 3 (write failing tests).',
+        instruction: 'Gate 2 checks pass. Proceed to Phase 3 (implementation planning).',
         gate_target: 'gate2',
         classification,
         test_guidance: TEST_GUIDANCE[classification],
       };
     }
   } else if (!gatesPassed.includes('gate3')) {
+    const g1 = await gate1(inputPath);
+    const planningBlockers = g1.blockers.filter(d => d.ruleId === 'SG-PLAN-001');
+    result = planningBlockers.length > 0
+      ? {
+          next_action: 'confirm_implementation_plan',
+          instruction: 'Implementation planning is required. Suggest a context-appropriate stack/layer, ask the human to accept or override it, record the accepted plan, then confirm Gate 3.',
+          gate_target: 'gate3',
+          blockers: planningBlockers.map(d => formatDiagnostic(d)),
+        }
+      : {
+          next_action: 'confirm_gate3',
+          instruction: 'Implementation planning is satisfied. Record via: spec-guard confirm-gate <spec> 3, then proceed to Phase 4 (write failing tests).',
+          gate_target: 'gate3',
+        };
+  } else if (!gatesPassed.includes('gate4')) {
     const classifications = getSelectedClassifications(text);
     result = {
       next_action: 'write_failing_tests',
-      instruction: 'Write tests that verify every acceptance criterion. Run them before implementing. Confirm they fail for the expected reason. Then: spec-guard confirm-gate <spec> 3 --evidence="<what failed and why>"',
-      gate_target: 'gate3',
-      test_guidance: TEST_GUIDANCE[classifications[0]],
-    };
-  } else if (!gatesPassed.includes('gate4')) {
-    result = {
-      next_action: 'implement',
-      instruction: 'Implement the smallest change that makes the failing tests pass. Follow the spec strictly. When all tests pass: spec-guard confirm-gate <spec> 4',
+      instruction: 'Write tests that verify every acceptance criterion. Run them before implementing. Confirm they fail for the expected reason. Then: spec-guard confirm-gate <spec> 4 --evidence="<what failed and why>"',
       gate_target: 'gate4',
+      test_guidance: TEST_GUIDANCE[classifications[0]],
     };
   } else if (!gatesPassed.includes('gate5')) {
     result = {
-      next_action: 'complete_review',
-      instruction: `Create an implementation review: spec-guard review <name>. Complete all checklist items. Then: spec-guard confirm-gate <spec> 5`,
+      next_action: 'implement',
+      instruction: 'Implement the smallest change that makes the failing tests pass. Follow the spec strictly. When all tests pass: spec-guard confirm-gate <spec> 5',
       gate_target: 'gate5',
+    };
+  } else if (!gatesPassed.includes('gate6')) {
+    result = {
+      next_action: 'complete_review',
+      instruction: `Create an implementation review: spec-guard review <name>. Complete all checklist items. Then: spec-guard confirm-gate <spec> 6`,
+      gate_target: 'gate6',
       suggested_review_path: `.spec-guard/reviews/${name}.md`,
     };
   } else {
     result = {
       next_action: 'complete',
-      instruction: 'All 5 gates passed. Implementation is complete.',
+      instruction: 'All 6 gates passed. Implementation is complete.',
       gate_target: null,
       complete: true,
     };
@@ -1113,9 +1143,18 @@ async function copyTemplateCommand(args, templatePath, commandName, label, defau
     console.error(`[BLOCKER] SG-USAGE-001 ${rawPath}: use a bare name — write commands always create files in .spec-guard/`);
     return 2;
   }
+  const specPath = flags.spec ? withDefaultDir(flags.spec, SG.specs) : null;
+  if (specPath) {
+    const validation = await validateSpecLinkTarget(specPath);
+    if (validation !== 0) return validation;
+  }
+
   const result = await copyTemplate(templatePath, outputPath, label);
-  if (result === 0 && flags.spec && (commandName === 'blocker' || commandName === 'deviation')) {
-    await updateSpecStatus(withDefaultDir(flags.spec, SG.specs), 'Blocked');
+  if (result === 0 && specPath) {
+    await addArtifactLinkToSpec(specPath, outputPath, label);
+  }
+  if (result === 0 && specPath && (commandName === 'blocker' || commandName === 'deviation')) {
+    await updateSpecStatus(specPath, 'Blocked');
   }
   return result;
 }
@@ -1152,6 +1191,52 @@ async function copyTemplate(templatePath, outputPath, label) {
   }
 
   return 0;
+}
+
+function isSpecLinkedNewArtifact(kind) {
+  return kind === 'api-contract' || kind === 'rest-api-contract' || kind === 'component-contract';
+}
+
+function artifactLabelForKind(kind) {
+  return kind.replace(/-/g, ' ');
+}
+
+async function validateSpecLinkTarget(specPath) {
+  try {
+    await access(resolve(specPath), constants.F_OK);
+    return 0;
+  } catch (error) {
+    console.error(`[BLOCKER] SG-USAGE-001 ${specPath}: ${error.message}`);
+    return 2;
+  }
+}
+
+async function addArtifactLinkToSpec(specPath, artifactPath, label) {
+  const resolvedSpec = resolve(specPath);
+  const relativeArtifact = relative(process.cwd(), resolve(artifactPath)).replace(/\\/g, '/');
+  const text = await readFile(resolvedSpec, 'utf8');
+  const normalizedText = text.replace(/\\/g, '/');
+  if (normalizedText.includes(relativeArtifact)) return;
+
+  const entry = `- [${label}](${relativeArtifact})`;
+  let updated;
+  if (/^## Related Artifacts\s*$/m.test(text)) {
+    updated = text.replace(/(^## Related Artifacts\s*\n)([\s\S]*?)(?=^## |(?![\s\S]))/m, (match, heading, body) => {
+      const separator = body.trim().length === 0 ? '' : (body.endsWith('\n') ? '' : '\n');
+      return `${heading}${body}${separator}${entry}\n\n`;
+    });
+  } else {
+    const section = `## Related Artifacts\n\n${entry}\n\n`;
+    if (/^## Documentation Requirements\s*$/m.test(text)) {
+      updated = text.replace(/^## Documentation Requirements\s*$/m, `${section}## Documentation Requirements`);
+    } else if (/^## Dependencies\s*$/m.test(text)) {
+      updated = text.replace(/^## Dependencies\s*$/m, `${section}## Dependencies`);
+    } else {
+      updated = text.endsWith('\n') ? `${text}\n${section}` : `${text}\n\n${section}`;
+    }
+  }
+
+  await writeFile(resolvedSpec, updated, 'utf8');
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -1371,15 +1456,15 @@ function printUsage() {
   spec-guard status [--json]
   spec-guard watch <name>
   spec-guard init
-  spec-guard new <kind> <name>
+  spec-guard new <kind> [--spec <spec>] <name>
     kinds: spec | brownfield-spec | api-contract | rest-api-contract | component-contract
            one-off-ui | operational-document | task-plan | compound-work
   spec-guard classify [--json] <name>
-  spec-guard blocker <name>
-  spec-guard scope-discovery <name>
-  spec-guard review <name>
-  spec-guard discovery <name>
-  spec-guard deviation <name>
+  spec-guard blocker [--spec <spec>] <name>
+  spec-guard scope-discovery [--spec <spec>] <name>
+  spec-guard review [--spec <spec>] <name>
+  spec-guard discovery [--spec <spec>] <name>
+  spec-guard deviation [--spec <spec>] <name>
   spec-guard initiative-questions [--json]           list initiative decomposition questions
   spec-guard initiative [--from-json <path>|-] <name>  interactive wizard — or non-interactive from JSON
 

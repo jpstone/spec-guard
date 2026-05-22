@@ -2,7 +2,7 @@
 
 **Spec-first. Behavior-tested. Agent-safe.**
 
-Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven software development**. The model is simple: humans write specs, agents write all code. Five mechanical gates enforce the boundary between human intent and agent execution.
+Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven software development**. The model is simple: humans write specs, agents write all code. Six mechanical gates enforce the boundary between human intent and agent execution.
 
 > Specs guide implementation, but tests validate running behavior and durable contracts — not prose.
 
@@ -13,26 +13,27 @@ Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven 
 | Layer | What it is | Who uses it |
 |---|---|---|
 | **[`WORKFLOW.md`](WORKFLOW.md) + [`AGENTS.md`](AGENTS.md)** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
-| **`spec-guard run`** | Interactive CLI that walks a spec through all 5 gates | Agents executing CLI commands |
+| **`spec-guard run`** | Interactive CLI that walks a spec through all 6 gates | Agents executing CLI commands |
 | **MCP server** | Structured tool calls for all Spec Guard operations | MCP-compatible agents (Claude Code, Cursor, etc.) |
 
-Each layer enforces the same 5 gates. Pick the one that fits your agent's capabilities — or use all three.
+Each layer enforces the same 6 gates. Pick the one that fits your agent's capabilities — or use all three.
 
 ---
 
-## The 5 Gates
+## The 6 Gates
 
 ```
-DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → TEST FIRST → [Gate 3] → IMPLEMENT → [Gate 4] → REVIEW → [Gate 5]
+DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → IMPLEMENTATION PLANNING → [Gate 3] → TEST FIRST → [Gate 4] → IMPLEMENT → [Gate 5] → REVIEW → [Gate 6]
 ```
 
 | Gate | Check | How it's confirmed |
 |---|---|---|
 | 1 | Spec valid (required headings, content, classification) | `spec-guard check` — must exit 0 |
 | 2 | Contracts present (API/UI inputs exist and are referenced) | `spec-guard check --warnings` |
-| 3 | Failure-first confirmed (test runs and fails for expected reason) | Agent runs tests, records failure, calls `spec_guard_confirm_gate` |
-| 4 | Tests pass (no scope silently absorbed) | Agent runs tests until passing, calls `spec_guard_confirm_gate` |
-| 5 | Review complete + cross-artifact analysis clean | `spec-guard review` then `spec-guard analyze` |
+| 3 | Implementation planning confirmed (required stack/layer decisions are recorded) | Agent suggests a context-appropriate stack/layer, human accepts or overrides it, then agent calls `spec_guard_confirm_gate` |
+| 4 | Failure-first confirmed (test runs and fails for expected reason) | Agent runs tests, records failure, calls `spec_guard_confirm_gate` with evidence |
+| 5 | Tests pass (no scope silently absorbed) | Agent runs tests until passing, calls `spec_guard_confirm_gate` |
+| 6 | Review complete + cross-artifact analysis clean | `spec-guard review` then `spec-guard analyze` |
 
 ---
 
@@ -97,10 +98,10 @@ Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
 | `spec_guard_analyze` | Cross-artifact consistency check (spec ↔ contract ↔ review) |
 | `spec_guard_check` | Validate a spec; returns diagnostics |
 | `spec_guard_classify` | Get classification + test guidance |
-| `spec_guard_confirm_gate` | Record gate 3/4/5 confirmation with evidence |
+| `spec_guard_confirm_gate` | Record gate 3/4/5/6 confirmation, with evidence required for Gate 4 |
 | `spec_guard_create_artifact` | Create any artifact from a template |
 | `spec_guard_draft_spec` | Turn interview answers into a valid spec (passes Gate 1) |
-| `spec_guard_gate_status` | Status of all 5 gates for a spec |
+| `spec_guard_gate_status` | Status of all 6 gates for a spec |
 | `spec_guard_initiative_questions` | Get question list for decomposing a broad app into feature slices |
 | `spec_guard_interview_questions` | Get structured question list for AI-assisted spec authoring |
 | `spec_guard_save_initiative` | Save initiative decomposition artifact; returns slice names for drafting |
@@ -140,7 +141,7 @@ WORKFLOW.md
 
 ## What agents must never do
 
-- Implement before Gates 1 and 2 pass and Gate 3 is confirmed — the spec must be valid, contracts must be present, and a failing test must exist before any implementation begins
+- Implement before Gates 1, 2, 3, and 4 pass — the spec must be valid, contracts must be present, required implementation planning must be confirmed, and a failing test must exist before any implementation begins
 - Skip work classification
 - Create documentation by default
 - Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
@@ -156,8 +157,8 @@ WORKFLOW.md
 - Treat "what's next?" as permission to invent features
 - Perform discovery unless the human explicitly asks
 - Implement discovery findings without separate authorization
-- Skip Gate 3 (failure-first) without recording a concrete reason
-- Close Gate 5 without running `spec-guard analyze`
+- Skip Gate 4 (failure-first) without recording a concrete reason
+- Close Gate 6 without running `spec-guard analyze`
 
 ---
 
@@ -179,7 +180,7 @@ WORKFLOW.md
 ## Development
 
 ```bash
-npm test                        # 193 tests across check, run, MCP, CLI, discover, analyze, suggest, and initiative
+npm test                        # 231 tests across check, run, MCP, CLI, discover, analyze, suggest, initiative, and implementation planning
 npm run check:example           # gate 1 smoke check
 npm run run:example             # gate 1+2 non-interactive check
 ```

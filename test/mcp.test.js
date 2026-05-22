@@ -4,7 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -174,25 +174,25 @@ test('MCP: workflow_next_step says fix spec when gate1 not passed', () => {
   assert(result.blockers.length > 0);
 });
 
-test('MCP: workflow_next_step says write tests when gates 1 and 2 passed', () => {
+test('MCP: workflow_next_step says confirm planning when gates 1 and 2 passed', () => {
   const { path } = tempSpec(validSpec);
   const response = mcpTool('spec_guard_workflow_next_step', {
     spec_path: path,
     gates_passed: ['gate1', 'gate2'],
   });
   const result = JSON.parse(response.result.content[0].text);
-  assert.equal(result.next_action, 'write_failing_tests');
+  assert.equal(result.next_action, 'confirm_gate3');
   assert.equal(result.gate_target, 'gate3');
 });
 
-test('MCP: workflow_next_step says implement when gate3 passed', () => {
+test('MCP: workflow_next_step says write tests when gate3 passed', () => {
   const { path } = tempSpec(validSpec);
   const response = mcpTool('spec_guard_workflow_next_step', {
     spec_path: path,
     gates_passed: ['gate1', 'gate2', 'gate3'],
   });
   const result = JSON.parse(response.result.content[0].text);
-  assert.equal(result.next_action, 'implement');
+  assert.equal(result.next_action, 'write_failing_tests');
   assert.equal(result.gate_target, 'gate4');
 });
 
@@ -200,7 +200,7 @@ test('MCP: workflow_next_step says complete when all gates passed', () => {
   const { path } = tempSpec(validSpec);
   const response = mcpTool('spec_guard_workflow_next_step', {
     spec_path: path,
-    gates_passed: ['gate1', 'gate2', 'gate3', 'gate4', 'gate5'],
+    gates_passed: ['gate1', 'gate2', 'gate3', 'gate4', 'gate5', 'gate6'],
   });
   const result = JSON.parse(response.result.content[0].text);
   assert.equal(result.next_action, 'complete');
@@ -236,9 +236,26 @@ test('MCP: spec_guard_create_artifact creates a blocker', () => {
   assert.equal(result.success, true);
 });
 
+test('MCP: spec_guard_create_artifact records a direct link in the originating spec', () => {
+  const { dir, path: specPath } = tempSpec(`${validSpec}\n## Documentation Requirements\n\n- None.\n`);
+  const outputPath = join(dir, '.spec-guard', 'reviews', 'review.md');
+  const response = mcpTool('spec_guard_create_artifact', {
+    kind: 'review',
+    output_path: outputPath,
+    spec_path: specPath,
+  });
+  const result = JSON.parse(response.result.content[0].text);
+
+  assert.equal(result.success, true);
+  const spec = readFileSync(specPath, 'utf8');
+  assert.match(spec, /## Related Artifacts/);
+  assert.match(spec, /\.spec-guard\/reviews\/review\.md/);
+  assert.match(spec, /## Documentation Requirements\s+- None\./);
+});
+
 // ─── spec_guard_gate_status ──────────────────────────────────────────────────
 
-test('MCP: spec_guard_gate_status returns all 5 gates', () => {
+test('MCP: spec_guard_gate_status returns all 6 gates', () => {
   const { path } = tempSpec(validSpec);
   const response = mcpTool('spec_guard_gate_status', { spec_path: path });
   const result = JSON.parse(response.result.content[0].text);
@@ -247,8 +264,9 @@ test('MCP: spec_guard_gate_status returns all 5 gates', () => {
   assert(result.gate3);
   assert(result.gate4);
   assert(result.gate5);
+  assert(result.gate6);
   assert.equal(result.gate1.passed, true);
-  assert.equal(result.ready_to_implement, true);
+  assert.equal(result.ready_to_implement, false);
 });
 
 // ─── spec_guard_draft_spec ────────────────────────────────────────────────────

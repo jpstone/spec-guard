@@ -18,11 +18,12 @@ import { updateSpecStatus } from './spec-status.js';
 // ─── Phase/Gate definitions ───────────────────────────────────────────────────
 
 export const PHASES = [
-  { id: 'discover',   label: 'Phase 1: Discover',              gate: 'Gate 1: Spec Valid'             },
-  { id: 'contract',   label: 'Phase 2: Classify & Contract',   gate: 'Gate 2: Contracts Present'      },
-  { id: 'test-first', label: 'Phase 3: Test First',            gate: 'Gate 3: Failure Confirmed'      },
-  { id: 'implement',  label: 'Phase 4: Implement',             gate: 'Gate 4: Tests Pass'             },
-  { id: 'review',     label: 'Phase 5: Review',                gate: 'Gate 5: Review Complete'        },
+  { id: 'discover',   label: 'Phase 1: Discover',                         gate: 'Gate 1: Spec Valid'             },
+  { id: 'contract',   label: 'Phase 2: Classify & Contract',              gate: 'Gate 2: Contracts Present'      },
+  { id: 'planning',   label: 'Phase 3: Implementation Planning',          gate: 'Gate 3: Planning Confirmed'     },
+  { id: 'test-first', label: 'Phase 4: Test First',                       gate: 'Gate 4: Failure Confirmed'      },
+  { id: 'implement',  label: 'Phase 5: Implement',                        gate: 'Gate 5: Tests Pass'             },
+  { id: 'review',     label: 'Phase 6: Review',                           gate: 'Gate 6: Review Complete'        },
 ];
 
 const CONTRACT_COMMANDS = {
@@ -239,8 +240,29 @@ export async function runInteractive(specPath, options = {}) {
     gate('Gate 2 passed: Contracts present');
     state.gatesPassed.push('gate2');
 
-    // ── PHASE 3: TEST FIRST ─────────────────────────────────────────────────
-    header('Phase 3: Test First');
+    // ── PHASE 3: IMPLEMENTATION PLANNING ────────────────────────────────────
+    header('Phase 3: Implementation Planning');
+    info('If this spec requires upfront implementation decisions, confirm the stack or stack layer before writing tests.');
+    info('Suggest the context-appropriate stack/layer, then ask the human to accept it or provide their own.');
+    info('Record the accepted choice in the spec\'s Implementation Planning section.');
+
+    let planningResult = await gate1(specPath);
+    while (!planningResult.passed) {
+      const planningBlockers = planningResult.blockers.filter(d => d.ruleId === 'SG-PLAN-001');
+      if (planningBlockers.length === 0) break;
+      for (const d of planningBlockers) {
+        err(formatDiagnostic(d));
+      }
+      print();
+      await ask('  Record the confirmed implementation plan, then press Enter to re-check → ');
+      planningResult = await gate1(specPath);
+    }
+
+    gate('Gate 3 passed: Planning confirmed');
+    state.gatesPassed.push('gate3');
+
+    // ── PHASE 4: TEST FIRST ─────────────────────────────────────────────────
+    header('Phase 4: Test First');
 
     const specForTests = await readFile(resolve(specPath), 'utf8');
     const testsSection = extractSection(specForTests, 'Required Tests / Checks');
@@ -304,12 +326,12 @@ export async function runInteractive(specPath, options = {}) {
       state.failureFirstConfirmed = false;
     }
 
-    gate('Gate 3 passed: Failure confirmed (or reason recorded)');
+    gate('Gate 4 passed: Failure confirmed (or reason recorded)');
     await updateSpecStatus(specPath, 'Ready');
-    state.gatesPassed.push('gate3');
+    state.gatesPassed.push('gate4');
 
-    // ── PHASE 4: IMPLEMENT ──────────────────────────────────────────────────
-    header('Phase 4: Implement');
+    // ── PHASE 5: IMPLEMENT ──────────────────────────────────────────────────
+    header('Phase 5: Implement');
 
     info('Implement the smallest change that makes the failing tests pass.');
     info('Rules:');
@@ -335,11 +357,11 @@ export async function runInteractive(specPath, options = {}) {
       await ask('  Press Enter when discoveries are recorded → ');
     }
 
-    gate('Gate 4 passed: Tests pass');
-    state.gatesPassed.push('gate4');
+    gate('Gate 5 passed: Tests pass');
+    state.gatesPassed.push('gate5');
 
-    // ── PHASE 5: REVIEW ─────────────────────────────────────────────────────
-    header('Phase 5: Review');
+    // ── PHASE 6: REVIEW ─────────────────────────────────────────────────────
+    header('Phase 6: Review');
 
     const specName = basename(specPath).replace('.md', '');
     const reviewPath = `.spec-guard/reviews/${specName}.md`;
@@ -359,9 +381,9 @@ export async function runInteractive(specPath, options = {}) {
     }
 
     if (gate5Result.passed) {
-      gate('Gate 5 passed: Review complete');
+      gate('Gate 6 passed: Review complete');
       await updateSpecStatus(specPath, 'Implemented');
-      state.gatesPassed.push('gate5');
+      state.gatesPassed.push('gate6');
     } else {
       warn('Review still has unchecked items. Recording as in-progress.');
     }
@@ -378,19 +400,19 @@ export async function runInteractive(specPath, options = {}) {
       warn(`Failure-first impractical: ${state.failureFirstReason}`);
     }
 
-    if (state.gatesPassed.length === 5) {
+    if (state.gatesPassed.length === 6) {
       print();
-      print('  ✓  All 5 gates passed. Implementation complete.');
+      print('  ✓  All 6 gates passed. Implementation complete.');
     } else {
       print();
-      warn(`  ${5 - state.gatesPassed.length} gate(s) not yet passed.`);
+      warn(`  ${6 - state.gatesPassed.length} gate(s) not yet passed.`);
     }
 
     // Save run state
     await saveRunState(specPath, state);
 
     rl.close();
-    return { exitCode: state.gatesPassed.length === 5 ? 0 : 1, state };
+    return { exitCode: state.gatesPassed.length === 6 ? 0 : 1, state };
 
   } catch (error) {
     rl.close();

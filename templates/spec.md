@@ -50,6 +50,19 @@
 
 - No documentation changes required.
 
+## Implementation Planning
+
+<!-- Planning Required: Yes | No
+     Use Yes when implementation needs an upfront full stack, technology stack layer,
+     platform, framework, engine, runtime, data layer, or similar decision before tests
+     or implementation can be written safely. The agent should suggest a context-appropriate
+     stack/layer and ask the human to accept it or provide their own. -->
+
+Planning Required: No
+
+Confirmed Plan:
+- No implementation planning required.
+
 ## Dependencies
 
 - 
