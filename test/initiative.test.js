@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
-import { initiativeQuestions, saveInitiative } from '../src/initiative.js';
+import { initiativeQuestions, initiativeQuestionsWithContext, saveInitiative } from '../src/initiative.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
@@ -98,10 +98,18 @@ test('saveInitiative returns path and slice info', async () => {
   });
   assert.ok(result.path, 'should return path');
   assert.ok(Array.isArray(result.slices), 'should return slices array');
-  assert.equal(result.slices.length, validSlices.length);
+  // result.slices includes injected slices (at minimum the deployment-portability slice)
+  // plus the user-provided slices
+  assert.ok(result.slices.length >= validSlices.length,
+    `should return at least as many slices as user provided (${validSlices.length}), got ${result.slices.length}`);
   for (const s of result.slices) {
     assert.ok(s.name, 'slice should have name');
     assert.ok(s.suggestedSpecPath, 'slice should have suggestedSpecPath');
+  }
+  // All user-provided slice names should be present
+  for (const us of validSlices) {
+    assert.ok(result.slices.some(s => s.name === us.name),
+      `user slice "${us.name}" should appear in result`);
   }
 });
 
@@ -131,7 +139,7 @@ test('saveInitiative returns error for non-URL-safe slice name', async () => {
   assert.match(result.error, /name/i);
 });
 
-test('saveInitiative returns error if slice name conflicts with existing spec', async () => {
+test('saveInitiative returns error if specs already exist in .spec-guard/specs/', async () => {
   const dir = tempDir();
   mkdirSync(join(dir, '.spec-guard', 'specs'), { recursive: true });
   writeFileSync(join(dir, '.spec-guard', 'specs', 'user-auth.md'), '# existing spec');
@@ -139,12 +147,12 @@ test('saveInitiative returns error if slice name conflicts with existing spec', 
     name: 'my-app',
     title: 'My App',
     description: 'desc',
-    slices: [{ name: 'user-auth', title: 'Auth', description: 'desc', classification: 'REST/service API' }],
+    slices: [{ name: 'new-slice', title: 'New', description: 'desc', classification: 'REST/service API' }],
     dir,
   });
-  assert.ok(result.error, 'should return error for conflicting slice name');
-  assert.match(result.error, /conflict|exists/i);
-});
+  assert.ok(result.error, 'should return error when specs already exist');
+  assert.match(result.error, /no existing specs|specs.*exist/i);
+})
 
 test('saveInitiative initiative artifact lists each slice with name, title, and classification', async () => {
   const dir = tempDir();
@@ -220,7 +228,8 @@ test('initiative refuses to overwrite existing file', () => {
 
 test('initiative --from-json creates initiative file from JSON', () => {
   const dir = tempDir();
-  runCli(['init'], { cwd: dir });
+  // Do NOT call init — it creates example.md which would block the initiative trigger condition
+  mkdirSync(join(dir, '.spec-guard', 'initiatives'), { recursive: true });
   const jsonPath = join(dir, 'init.json');
   writeFileSync(jsonPath, JSON.stringify({
     title: 'My App',
@@ -237,7 +246,8 @@ test('initiative --from-json creates initiative file from JSON', () => {
 
 test('initiative --from-json with stdin (-) creates initiative file', () => {
   const dir = tempDir();
-  runCli(['init'], { cwd: dir });
+  // Do NOT call init — it creates example.md which would block the initiative trigger condition
+  mkdirSync(join(dir, '.spec-guard', 'initiatives'), { recursive: true });
   const json = JSON.stringify({
     title: 'Another App',
     description: 'An e-commerce platform',
@@ -302,4 +312,212 @@ test('spec_guard_save_initiative MCP tool returns error for invalid classificati
   });
   const content = JSON.parse(result.result.content[0].text);
   assert.ok(content.error, 'should return error');
+});
+
+// ─── initiative-trigger-condition ────────────────────────────────────────────
+
+// AC: saveInitiative returns error when .spec-guard/specs/ has any .md files.
+test('saveInitiative returns error when specs already exist (trigger condition)', async () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, '.spec-guard', 'specs'), { recursive: true });
+  writeFileSync(join(dir, '.spec-guard', 'specs', 'existing.md'), '# Existing');
+  const result = await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: [{ name: 'auth', title: 'Auth', description: 'desc', classification: 'REST/service API' }],
+    dir,
+  });
+  assert.ok(result.error);
+  assert.match(result.error, /no existing specs|already exist/i);
+});
+
+// AC: saveInitiative succeeds on a greenfield project (no specs).
+test('saveInitiative succeeds when no specs exist (greenfield)', async () => {
+  const dir = tempDir();
+  const result = await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+  });
+  assert.ok(!result.error, `unexpected error: ${result.error}`);
+});
+
+// AC: CLI initiative --from-json returns error when specs exist.
+test('CLI initiative --from-json returns error when specs already exist', () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, '.spec-guard', 'specs'), { recursive: true });
+  writeFileSync(join(dir, '.spec-guard', 'specs', 'existing.md'), '# Existing');
+  mkdirSync(join(dir, '.spec-guard', 'initiatives'), { recursive: true });
+  const jsonPath = join(dir, 'init.json');
+  writeFileSync(jsonPath, JSON.stringify({ title: 'App', description: 'desc', slices: validSlices }));
+  const result = runCli(['initiative', '--from-json', jsonPath, 'my-app'], { cwd: dir });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /no existing specs|already exist/i);
+});
+
+// AC: Non-.md files in specs directory are ignored by trigger condition.
+test('saveInitiative succeeds when specs dir contains only non-.md files', async () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, '.spec-guard', 'specs'), { recursive: true });
+  writeFileSync(join(dir, '.spec-guard', 'specs', 'notes.txt'), 'some text');
+  const result = await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+  });
+  assert.ok(!result.error, `should succeed when only non-.md files exist: ${result.error}`);
+});
+
+// AC: initiativeQuestionsWithContext returns specs_exist: false on greenfield.
+test('initiativeQuestionsWithContext returns specs_exist: false when no specs', async () => {
+  const dir = tempDir();
+  const result = await initiativeQuestionsWithContext({ dir });
+  assert.equal(result.specs_exist, false);
+});
+
+// AC: initiativeQuestionsWithContext returns specs_exist: true when specs exist.
+test('initiativeQuestionsWithContext returns specs_exist: true when specs exist', async () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, '.spec-guard', 'specs'), { recursive: true });
+  writeFileSync(join(dir, '.spec-guard', 'specs', 'existing.md'), '# Spec');
+  const result = await initiativeQuestionsWithContext({ dir });
+  assert.equal(result.specs_exist, true);
+});
+
+// AC: CLI initiative-questions --json includes specs_exist boolean.
+test('initiative-questions --json includes specs_exist boolean', () => {
+  const result = runCli(['initiative-questions', '--json']);
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(result.stdout);
+  assert.ok(typeof parsed.specs_exist === 'boolean', 'specs_exist should be a boolean');
+});
+
+// ─── initiative-deployment-portability ───────────────────────────────────────
+
+// AC: saveInitiative always injects a deployment-portability slice as the first slice.
+test('saveInitiative always injects a deployment-portability slice as the first slice', async () => {
+  const dir = tempDir();
+  const result = await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+  });
+  assert.ok(!result.error, result.error);
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  assert.ok(content.includes('deployment-portability'),
+    'initiative artifact should include a deployment-portability slice');
+});
+
+test('deployment-portability slice is listed before user-provided slices', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  const portabilityIdx = content.indexOf('deployment-portability');
+  const firstUserSliceIdx = content.indexOf(validSlices[0].name);
+  assert.ok(portabilityIdx < firstUserSliceIdx,
+    'deployment-portability should appear before user slices');
+});
+
+// AC: When deployment_target is provided, portability slice content mentions the target.
+test('portability slice content mentions deployment target when provided', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+    deployment_target: 'Vercel + Supabase',
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  assert.ok(content.includes('Vercel + Supabase'),
+    'deployment target should appear in initiative artifact');
+});
+
+// AC: When deployment_target is TBD/absent, portability slice uses TBD framing.
+test('portability slice uses TBD framing when deployment_target is not provided', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  // Should mention TBD since no target was given
+  assert.ok(/tbd|to be determined|unknown/i.test(content),
+    'should use TBD framing when no deployment target is provided');
+});
+
+// AC: initiativeQuestions includes deployment_target optional question.
+test('initiativeQuestions includes deployment_target in optional questions', () => {
+  const { optional } = initiativeQuestions();
+  const ids = optional.map(q => q.id);
+  assert.ok(ids.includes('deployment_target'), 'should include deployment_target question');
+});
+
+// ─── initiative-external-dependency-infrastructure ───────────────────────────
+
+// AC: When external_dependencies is empty/absent, no substitution slices injected.
+test('saveInitiative injects no substitution slices when external_dependencies is absent', async () => {
+  const dir = tempDir();
+  const result = await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+  });
+  assert.ok(!result.error, result.error);
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  assert.ok(!content.includes('substitution-strategy'),
+    'should not inject substitution-strategy slice when no external deps');
+  assert.ok(!content.includes('real-dependency'),
+    'should not inject real-dependency slice when no external deps');
+});
+
+// AC: When external_dependencies is provided, substitution strategy + real-dep +
+//     per-dep slices are injected.
+test('saveInitiative injects substitution infrastructure slices when external_dependencies provided', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+    external_dependencies: ['stripe', 'sendgrid'],
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  assert.ok(content.includes('substitution-strategy'),
+    'should inject substitution-strategy slice');
+  assert.ok(content.includes('real-dep-env'),
+    'should inject real-dep-env slice');
+  assert.ok(content.includes('stripe'),
+    'should inject per-dep slice for stripe');
+  assert.ok(content.includes('sendgrid'),
+    'should inject per-dep slice for sendgrid');
+});
+
+// AC: Per-dep substitution slices are deduplicated.
+test('saveInitiative deduplicates per-dep slices when same dependency appears twice', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+    external_dependencies: ['stripe', 'stripe'],
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  const stripeMatches = (content.match(/stripe-substitution/g) || []).length;
+  assert.equal(stripeMatches, 1, 'deduplicated: stripe-substitution should appear exactly once');
+});
+
+// AC: infrastructure slices appear before user-provided feature slices.
+test('substitution infrastructure slices appear before feature slices', async () => {
+  const dir = tempDir();
+  await saveInitiative({
+    name: 'my-app', title: 'My App', description: 'desc',
+    slices: validSlices, dir,
+    external_dependencies: ['stripe'],
+  });
+  const content = readFileSync(join(dir, '.spec-guard', 'initiatives', 'my-app.md'), 'utf8');
+  const strategyIdx = content.indexOf('substitution-strategy');
+  const firstUserSliceIdx = content.indexOf(validSlices[0].name);
+  assert.ok(strategyIdx < firstUserSliceIdx,
+    'substitution infrastructure slices should appear before feature slices');
+});
+
+// AC: initiativeQuestions includes external_dependencies in optional questions.
+test('initiativeQuestions includes external_dependencies in optional questions', () => {
+  const { optional } = initiativeQuestions();
+  const ids = optional.map(q => q.id);
+  assert.ok(ids.includes('external_dependencies'), 'should include external_dependencies question');
 });

@@ -168,7 +168,7 @@ Shows the pass/fail state of all five gates for a spec. Gates 1 and 2 are checke
 ### `init`
 
 ```bash
-spec-guard init
+spec-guard init [--no-readme]
 ```
 
 Creates the recommended directory structure in the current directory:
@@ -185,14 +185,38 @@ Creates the recommended directory structure in the current directory:
   deviations/
   discoveries/
   runs/
+  README.md             ← artifact index (auto-maintained)
 AGENTS.md
 WORKFLOW.md
+README.md               ← project README with Spec Guard section
 .github/
   workflows/
     spec-guard.yml      ← ready-to-use CI workflow
 ```
 
 All files and directories are created only if they don't already exist. `AGENTS.md` and `WORKFLOW.md` are placed at the project root so agents that auto-load project context files pick them up automatically.
+
+**README.md behavior:**
+
+`spec-guard init` creates `README.md` at the project root if it does not exist. The created file contains only the Spec Guard section:
+
+```md
+## Spec Guard
+
+This project uses [Spec Guard](https://github.com/jpstone/spec-guard)
+
+[Spec Guard Artifacts](.spec-guard/README.md)
+```
+
+If `README.md` already exists without a `## Spec Guard` section, the section is appended at the bottom. If the section already exists, init makes no change (idempotent). The workflow (`spec-guard run`) then prepends project-level content above the Spec Guard section on each run — the Spec Guard section always remains at the bottom.
+
+**Flags:**
+
+- `--no-readme` — skip README creation entirely. No `README.md` is created or modified during init. The workflow also skips README operations for the life of the project (since no README will exist unless the developer creates one manually). This is the only mechanism to opt out of README maintenance; there is no stored preference — the flag is a one-time instruction, not a persistent setting.
+
+**`.spec-guard/README.md` artifact index:**
+
+`spec-guard init` also creates `.spec-guard/README.md`, an automatically maintained index of all `.spec-guard` artifacts. This file is regenerated from disk state by every artifact-write command (`draft`, `blocker`, `review`, `initiative`, etc.) and always reflects current artifact contents. Do not manually edit it.
 
 ---
 

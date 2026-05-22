@@ -316,3 +316,30 @@ test('formats diagnostics as plain text', () => {
 
   assert.equal(text, '[BLOCKER] SG-CLASS-001 specs/login.md: exactly one work classification must be selected');
 });
+
+// ─── spec-status-deferred: SG-SPEC-006 / Deferred status ─────────────────────
+
+// AC: spec-guard check accepts Deferred as a valid status value and does not
+//     report SG-SPEC-006 when ## Status contains "Deferred".
+test('checkSpecText does not flag Deferred as invalid status (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nDeferred\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Deferred should not produce SG-SPEC-006');
+});
+
+// AC: existing valid statuses remain valid.
+test('checkSpecText does not flag Draft, Ready, Blocked, Implemented as invalid', () => {
+  for (const status of ['Draft', 'Ready', 'Blocked', 'Implemented']) {
+    const spec = validSpec + `\n## Status\n\n${status}\n`;
+    const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+    assert.equal(diags.length, 0, `${status} should be a valid status`);
+  }
+});
+
+// AC: unrecognized status still produces SG-SPEC-006.
+test('checkSpecText flags unknown status with SG-SPEC-006', () => {
+  const spec = validSpec + '\n## Status\n\nPending\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 1, 'Unknown status should produce SG-SPEC-006');
+  assert.equal(diags[0].severity, 'INFO');
+});

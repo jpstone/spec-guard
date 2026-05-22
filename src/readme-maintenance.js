@@ -50,21 +50,20 @@ export async function readReadmePreference({ root = '.' } = {}) {
 }
 
 export async function maintainReadme({ root = '.', title = 'Project', purpose = '', docLinks = [] } = {}) {
-  const preference = await readReadmePreference({ root });
-  if (preference?.maintainReadme === false) {
-    return { updated: false, reason: 'README maintenance is disabled for this repo' };
+  const readmePath = await findReadme(root);
+  if (!readmePath) {
+    return { updated: false, reason: 'No README found — skipping update' };
   }
 
-  const readmePath = await findReadme(root) || resolve(root, 'README.md');
   let existing = null;
   try {
     existing = await readFile(readmePath, 'utf8');
-  } catch { /* create below */ }
+  } catch {
+    return { updated: false, reason: 'Could not read README' };
+  }
 
   const uniqueDocLinks = [...new Set(docLinks.filter(Boolean))];
-  const next = existing
-    ? updateExistingReadme(existing, uniqueDocLinks)
-    : createConciseReadme({ title, purpose, docLinks: uniqueDocLinks });
+  const next = updateExistingReadme(existing, uniqueDocLinks);
 
   if (next === existing) return { updated: false, path: relativeRepoPath(root, readmePath) };
 
