@@ -70,6 +70,16 @@ This is the distinction from one-shot generation. A one-shot agent produces outp
 
 ---
 
+## The Conversational Interface
+
+The human's interface to all of this is a conversation. There are no forms to fill out, no file formats to learn, no dashboard to operate. A developer describes what they want in plain language. The agent asks structured questions to understand scope, proposes a spec, and waits for approval. Once approved, it runs the gates. If a blocker surfaces, it surfaces it in the chat and waits for a decision.
+
+This is intentional. The spec authoring flow is a structured interview, not a document editor. The gates are mechanical checkpoints, not process steps the human monitors. The human's work — defining scope, approving the spec, authorizing implementation — happens entirely in the chat window. Everything else happens behind it.
+
+The result is that Spec Guard's discipline is accessible to anyone who can describe what they want. The rigor lives in the tooling. The human never has to learn it.
+
+---
+
 ## The Principle
 
 Constraints are not overhead. They are the mechanism that makes unsupervised execution trustworthy.

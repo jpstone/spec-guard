@@ -6,6 +6,8 @@ Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven 
 
 > Specs guide implementation, but tests validate running behavior and durable contracts — not prose.
 
+**The human's interface is a conversation.** Describe what you want, answer a few questions, approve the spec. The agent handles gates, contracts, tests, and code. There are no files to fill out, no commands to learn, no dashboard to check — just a description of what you need and a chat window to deliver it in.
+
 ---
 
 ## Three layers, one system
@@ -172,6 +174,16 @@ WORKFLOW.md
 - Implement discovery findings without separate authorization
 - Skip Gate 4 (failure-first) without recording a concrete reason
 - Close Gate 6 without running `spec-guard analyze`
+
+---
+
+## Examples
+
+End-to-end walkthroughs showing Spec Guard in use with natural-language requests.
+
+| Example | What it covers |
+|---|---|
+| [Todo App](examples/todo-app.md) | Building a new app with initiative decomposition, then adding a single feature with the standard spec flow |
 
 ---
 
