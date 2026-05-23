@@ -6,7 +6,7 @@
 
 ## Status
 
-<!-- Draft | Pending Approval | Ready for Implementation | Implementation Approved | Blocked | Implemented | Deferred -->
+<!-- Draft | Pending Approval | Ready for Implementation | Implementation Active | Blocked | Implemented | Deferred -->
 
 ## Problem / Goal
 

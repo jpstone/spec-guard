@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-export const SPEC_STATUSES = ['Draft', 'Pending Approval', 'Ready for Implementation', 'Implementation Approved', 'Blocked', 'Implemented', 'Deferred'];
+export const SPEC_STATUSES = ['Draft', 'Pending Approval', 'Ready for Implementation', 'Implementation Active', 'Blocked', 'Implemented', 'Deferred'];
 
 export async function updateSpecStatus(specPath, status) {
   if (!SPEC_STATUSES.includes(status)) {

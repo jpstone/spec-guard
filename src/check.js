@@ -194,7 +194,7 @@ function checkStatus(text, path) {
 
   if (!statusLine) return []; // optional section, no content is fine
 
-  const validStatuses = ['Draft', 'Pending Approval', 'Ready for Implementation', 'Implementation Approved', 'Blocked', 'Implemented', 'Deferred'];
+  const validStatuses = ['Draft', 'Pending Approval', 'Ready for Implementation', 'Implementation Active', 'Blocked', 'Implemented', 'Deferred'];
   const isValid = validStatuses.some(s => statusLine.toLowerCase() === s.toLowerCase());
 
   if (!isValid) {

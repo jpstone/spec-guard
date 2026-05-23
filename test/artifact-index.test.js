@@ -78,16 +78,17 @@ test('spec-guard init README.md Specs heading has all 7 H3 status sub-headers', 
   const dir = tempDir();
   runCli(['init', '--no-readme'], { cwd: dir });
   const content = readFileSync(join(sgDir(dir), 'README.md'), 'utf8');
-  for (const sub of ['### Draft', '### Pending Approval', '### Ready for Implementation', '### Implementation Approved', '### Blocked', '### Implemented', '### Deferred']) {
+  for (const sub of ['### Draft', '### Pending Approval', '### Ready for Implementation', '### Implementation Active', '### Blocked', '### Implemented', '### Deferred']) {
     assert.ok(content.includes(sub), `missing sub-header: ${sub}`);
   }
+  assert.ok(!content.includes('### Implementation Approved'), '### Implementation Approved should no longer appear');
 });
 
-test('Specs status sub-headers appear in order: Draft, Pending Approval, Ready for Implementation, Implementation Approved, Blocked, Implemented, Deferred', () => {
+test('Specs status sub-headers appear in order: Draft, Pending Approval, Ready for Implementation, Implementation Active, Blocked, Implemented, Deferred', () => {
   const dir = tempDir();
   runCli(['init', '--no-readme'], { cwd: dir });
   const content = readFileSync(join(sgDir(dir), 'README.md'), 'utf8');
-  const order = ['### Draft', '### Pending Approval', '### Ready for Implementation', '### Implementation Approved', '### Blocked', '### Implemented', '### Deferred'];
+  const order = ['### Draft', '### Pending Approval', '### Ready for Implementation', '### Implementation Active', '### Blocked', '### Implemented', '### Deferred'];
   const positions = order.map(h => content.indexOf(h));
   for (let i = 1; i < positions.length; i++) {
     assert.ok(positions[i] > positions[i - 1],
@@ -165,23 +166,23 @@ test('spec under Ready for Implementation status appears under ### Ready for Imp
   await regenerateArtifactIndex({ dir });
   const content = readFileSync(join(sgDir(dir), 'README.md'), 'utf8');
   const readyForImplIdx = content.indexOf('### Ready for Implementation');
-  const implApprovedIdx = content.indexOf('### Implementation Approved');
+  const implActiveIdx = content.indexOf('### Implementation Active');
   const linkIdx = content.indexOf('[Ready Feature]');
-  assert.ok(linkIdx > readyForImplIdx && linkIdx < implApprovedIdx,
-    'Ready for Implementation spec should appear between ### Ready for Implementation and ### Implementation Approved');
+  assert.ok(linkIdx > readyForImplIdx && linkIdx < implActiveIdx,
+    'Ready for Implementation spec should appear between ### Ready for Implementation and ### Implementation Active');
 });
 
-// AC: artifact index includes ### Implementation Approved sub-header and routes specs correctly.
-test('spec under Implementation Approved status appears under ### Implementation Approved sub-header', async () => {
+// AC: artifact index includes ### Implementation Active sub-header and routes specs correctly.
+test('spec under Implementation Active status appears under ### Implementation Active sub-header', async () => {
   const dir = tempDir();
-  writeSpec(dir, 'approved-spec', { title: 'Approved Feature', status: 'Implementation Approved' });
+  writeSpec(dir, 'active-spec', { title: 'Active Feature', status: 'Implementation Active' });
   await regenerateArtifactIndex({ dir });
   const content = readFileSync(join(sgDir(dir), 'README.md'), 'utf8');
-  const implApprovedIdx = content.indexOf('### Implementation Approved');
+  const implActiveIdx = content.indexOf('### Implementation Active');
   const blockedIdx = content.indexOf('### Blocked');
-  const linkIdx = content.indexOf('[Approved Feature]');
-  assert.ok(linkIdx > implApprovedIdx && linkIdx < blockedIdx,
-    'Implementation Approved spec should appear between ### Implementation Approved and ### Blocked');
+  const linkIdx = content.indexOf('[Active Feature]');
+  assert.ok(linkIdx > implActiveIdx && linkIdx < blockedIdx,
+    'Implementation Active spec should appear between ### Implementation Active and ### Blocked');
 });
 
 test('spec under Implemented status appears under ### Implemented sub-header', async () => {
@@ -242,9 +243,10 @@ test('all 7 status sub-headers appear even when no specs exist', async () => {
   const dir = tempDir();
   await regenerateArtifactIndex({ dir });
   const content = readFileSync(join(sgDir(dir), 'README.md'), 'utf8');
-  for (const sub of ['### Draft', '### Pending Approval', '### Ready for Implementation', '### Implementation Approved', '### Blocked', '### Implemented', '### Deferred']) {
+  for (const sub of ['### Draft', '### Pending Approval', '### Ready for Implementation', '### Implementation Active', '### Blocked', '### Implemented', '### Deferred']) {
     assert.ok(content.includes(sub), `${sub} should be present even with no specs`);
   }
+  assert.ok(!content.includes('### Implementation Approved'), '### Implementation Approved should no longer appear');
 });
 
 // ─── AC7: review entries display as "Implementation Review: <Title>" ──────────

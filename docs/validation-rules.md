@@ -57,7 +57,7 @@ Acceptance criteria should use `- [ ] criterion` format to support mechanical ve
 
 **Severity:** INFO
 
-The `Status` section, if present, should contain one of: `Draft`, `Pending Approval`, `Ready for Implementation`, `Implementation Approved`, `Blocked`, `Implemented`, `Deferred`.
+The `Status` section, if present, should contain one of: `Draft`, `Pending Approval`, `Ready for Implementation`, `Implementation Active`, `Blocked`, `Implemented`, `Deferred`.
 
 ### SG-SPEC-007: Acceptance criteria are measurable
 

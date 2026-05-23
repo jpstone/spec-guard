@@ -377,12 +377,29 @@ There is no interactive README preference question. The presence or absence of `
 | `Draft` | Active — being authored or awaiting implementation |
 | `Pending Approval` | Spec is complete; awaiting human review. Set this when you finish writing a spec and ask the human to review it. Gate 3 is blocked. |
 | `Ready for Implementation` | Human has reviewed and approved the spec content; queued for implementation. Gate 3 is still blocked — this status is not sufficient to begin implementing. |
-| `Implementation Approved` | Human has explicitly authorized implementation. This is the only status that allows Gate 3 to be confirmed. Set this only after the human tells you to proceed. |
+| `Implementation Active` | Human has explicitly authorized implementation. This is the only status that allows Gate 3 to be confirmed. Set this only after the human tells you to proceed — either by directly instructing you (e.g. "go ahead and implement X") or by confirming affirmatively when you ask. Do not self-initiate implementation; always wait for explicit human authorization. |
 | `Blocked` | Cannot proceed — a blocker artifact records the reason |
 | `Implemented` | All 6 gates passed; confirmed by Gate 6 |
 | `Deferred` | Deliberately parked — drafted and considered, but indefinitely on hold with no current intention to implement. Not blocked by a specific problem; simply deprioritized. To reactivate, change the status back to `Draft`. |
 
-**Gate 3 enforcement:** `spec-guard confirm-gate 3` (and `spec_guard_confirm_gate` via MCP) will hard-error unless the spec status is `Implementation Approved`. If the spec is in any other status — including `Ready for Implementation` — Gate 3 is blocked. The error message will instruct you to get explicit human authorization first, then set the status to `Implementation Approved`, then confirm Gate 3.
+**Gate 3 enforcement:** `spec-guard confirm-gate 3` (and `spec_guard_confirm_gate` via MCP) will hard-error unless the spec status is `Implementation Active`. If the spec is in any other status — including `Ready for Implementation` — Gate 3 is blocked. The error message will instruct you to get explicit human authorization first, then set the status to `Implementation Active`, then confirm Gate 3.
+
+**No self-initiated implementation:** Agents must not begin implementing a spec without explicit authorization from the human. A spec in `Ready for Implementation` must wait. Only when the human gives explicit authorization (see below) should you set the status to `Implementation Active` and confirm Gate 3.
+
+**What counts as explicit authorization:** A direct instruction or an unambiguous affirmative response to a direct yes/no question. Examples that qualify:
+
+- "Yes"
+- "Go ahead and implement it"
+- "Yes, implement both"
+- "Approved — proceed"
+
+**What does not count as explicit authorization:** A question, a conditional, or any response that can be read as either confirmation or inquiry. Examples that do not qualify:
+
+- "Are both approved?" — this is a question, not authorization; answer it, then ask again if authorization is still needed
+- "Is that ready to implement?" — treat as a question; respond with the current status, then ask directly: "Should I go ahead and begin implementing \<spec\>?"
+- "That looks right" — ambiguous; does not confirm implementation intent
+
+**Required follow-up:** When the human's response is ambiguous, the agent must ask exactly one direct yes/no question before proceeding: "Should I go ahead and begin implementing \<spec\>?" A question or conditional response from the human never constitutes explicit authorization — the agent must always ask a direct follow-up yes/no question and wait for an unambiguous answer.
 
 `Deferred` is informational only. `spec-guard check` validates Deferred specs normally; gate rules still apply if gates were previously confirmed. Do not implement a Deferred spec without an explicit decision to reactivate it.
 
@@ -405,6 +422,12 @@ spec-guard check <name>              # Gate 1
 spec-guard suggest <name>            # Gate 1 + fix instructions
 spec-guard analyze <name>            # cross-artifact alignment (Gate 5→6)
 spec-guard analyze <name> --dry-run  # pre-implementation contract check (advisory, auto-runs at Phase 3)
+
+# Docs viewer — run when the human says "start the docs web app", "open the spec viewer",
+# "show me the docs", "launch the markdown viewer", or similar natural-language requests
+spec-guard serve                     # start local markdown viewer (default port 7777)
+spec-guard serve --port <n>          # use a specific port
+spec-guard serve --no-open           # start without auto-opening the browser
 
 # Monitoring
 spec-guard watch <name>              # live feedback while editing

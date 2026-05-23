@@ -464,10 +464,10 @@ async function toolConfirmGate({ spec_path, gate, confirmed, evidence }) {
       return { success: false, error: `Cannot read spec: ${err.message}` };
     }
     const currentStatus = getSpecStatus(specText);
-    if (currentStatus !== 'Implementation Approved') {
+    if (currentStatus !== 'Implementation Active') {
       return {
         success: false,
-        error: `Gate 3 cannot be confirmed: explicit human authorization is required before implementation can begin. Current status: "${currentStatus || '(none)'}". Once the human authorizes, set the spec status to "Implementation Approved" and then confirm Gate 3. "Ready for Implementation" is not sufficient — the human must give explicit go-ahead.`,
+        error: `Gate 3 cannot be confirmed: explicit human authorization is required before implementation can begin. Current status: "${currentStatus || '(none)'}". Once the human authorizes, set the spec status to "Implementation Active" and then confirm Gate 3. "Ready for Implementation" is not sufficient — the human must give explicit go-ahead.`,
       };
     }
   }

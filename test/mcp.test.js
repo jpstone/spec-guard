@@ -503,7 +503,7 @@ test('MCP: spec_guard_interview_questions — all 13 tools in tools/list', () =>
 
 // ─── spec_guard_confirm_gate Gate 3 enforcement ───────────────────────────────
 
-// AC: spec_guard_confirm_gate MCP tool returns error for Gate 3 when spec is not Implementation Approved.
+// AC: spec_guard_confirm_gate MCP tool returns error for Gate 3 when spec is not Implementation Active.
 test('MCP: spec_guard_confirm_gate returns error for Gate 3 when spec status is Draft', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sg-mcp-'));
   const specPath = join(dir, 'my-spec.md');
@@ -518,7 +518,7 @@ test('MCP: spec_guard_confirm_gate returns error for Gate 3 when spec status is 
   const result = JSON.parse(response.result.content[0].text);
 
   assert.equal(result.success, false);
-  assert.match(result.error, /Implementation Approved/);
+  assert.match(result.error, /Implementation Active/);
 });
 
 // AC: spec_guard_confirm_gate MCP tool returns error for Gate 3 when spec status is Ready for Implementation.
@@ -538,16 +538,16 @@ test('MCP: spec_guard_confirm_gate returns error for Gate 3 when spec status is 
   const result = JSON.parse(response.result.content[0].text);
 
   assert.equal(result.success, false);
-  assert.match(result.error, /Implementation Approved/);
+  assert.match(result.error, /Implementation Active/);
 });
 
-// AC: spec_guard_confirm_gate MCP tool succeeds for Gate 3 when spec status is Implementation Approved.
-test('MCP: spec_guard_confirm_gate succeeds for Gate 3 when spec status is Implementation Approved', () => {
+// AC: spec_guard_confirm_gate MCP tool succeeds for Gate 3 when spec status is Implementation Active.
+test('MCP: spec_guard_confirm_gate succeeds for Gate 3 when spec status is Implementation Active', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sg-mcp-'));
   const specPath = join(dir, 'my-spec.md');
   mkdirSync(join(dir, '.spec-guard', 'runs'), { recursive: true });
   // Inject a Status section after the first heading (validSpec has no ## Status section)
-  const specWithStatus = validSpec.replace(/(^# .+$)/m, '$1\n\n## Status\n\nImplementation Approved');
+  const specWithStatus = validSpec.replace(/(^# .+$)/m, '$1\n\n## Status\n\nImplementation Active');
   writeFileSync(specPath, specWithStatus);
 
   const response = mcpTool('spec_guard_confirm_gate', {

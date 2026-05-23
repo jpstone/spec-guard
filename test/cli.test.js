@@ -441,31 +441,33 @@ test('confirm-gate records gate 4 with evidence', () => {
   assert.equal(state.failureFirstReason, 'test auth.test.js fails: 401 not 403');
 });
 
-// AC: confirm-gate 4 updates spec status to Ready for Implementation (renamed from Ready).
-test('confirm-gate 4 updates spec status to Ready for Implementation', () => {
+// AC: confirm-gate 4 does not change the spec's status field.
+test('confirm-gate 4 does not change spec status', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
-  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+  const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8');
+  // Inject Implementation Active status (the status during implementation)
+  writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nImplementation Active'));
 
   const result = runCli(['confirm-gate', 'my-spec', '4', '--evidence=test fails before implementation'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Ready for Implementation/);
+  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Implementation Active/);
 });
 
-// AC: confirm-gate 3 returns non-zero exit code when spec status is not Implementation Approved.
-test('confirm-gate 3 exits 1 with error when spec status is Draft (not Implementation Approved)', () => {
+// AC: confirm-gate 3 returns non-zero exit code when spec status is not Implementation Active.
+test('confirm-gate 3 exits 1 with error when spec status is Draft (not Implementation Active)', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
-  // valid-spec.md has Draft status
+  // valid-spec.md has no Status section (treated as null / not Implementation Active)
 
   const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=planned stack'], { cwd: directory });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Implementation Approved/);
+  assert.match(result.stderr, /Implementation Active/);
 });
 
 // AC: confirm-gate 3 returns non-zero exit code when spec status is Ready for Implementation.
@@ -474,23 +476,21 @@ test('confirm-gate 3 exits 1 with error when spec status is Ready for Implementa
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8');
-  // Inject a Status section after the first heading (fixture has no ## Status section)
   writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nReady for Implementation'));
 
   const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=planned stack'], { cwd: directory });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Implementation Approved/);
+  assert.match(result.stderr, /Implementation Active/);
 });
 
-// AC: confirm-gate 3 succeeds when spec status is Implementation Approved.
-test('confirm-gate 3 succeeds when spec status is Implementation Approved', () => {
+// AC: confirm-gate 3 succeeds when spec status is Implementation Active.
+test('confirm-gate 3 succeeds when spec status is Implementation Active', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
   const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8');
-  // Inject a Status section after the first heading (fixture has no ## Status section)
-  writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nImplementation Approved'));
+  writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nImplementation Active'));
 
   const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=planned stack'], { cwd: directory });
 
@@ -509,6 +509,28 @@ test('confirm-gate 6 updates spec status to Implemented and gate-status reports 
   assert.equal(result.status, 0);
   assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Implemented/);
   assert.equal(JSON.parse(status.stdout).status, 'Implemented');
+});
+
+// AC: confirm-gate 6 causes the spec to appear under ### Implemented in .spec-guard/README.md immediately.
+test('confirm-gate 6 regenerates artifact index so spec appears under Implemented immediately', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+
+  const result = runCli(['confirm-gate', 'my-spec', '6'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  const index = readFileSync(join(directory, '.spec-guard', 'README.md'), 'utf8');
+  // Spec must appear under ### Implemented, not under any other status header
+  const implementedIdx = index.indexOf('### Implemented');
+  const specLinkIdx = index.indexOf('my-spec.md');
+  assert.ok(implementedIdx !== -1, '### Implemented header must exist in index');
+  assert.ok(specLinkIdx > implementedIdx, 'spec link must appear after ### Implemented header');
+  // Must not appear under any prior status header
+  const implementationActiveIdx = index.indexOf('### Implementation Active');
+  assert.ok(implementationActiveIdx === -1 || specLinkIdx > implementationActiveIdx,
+    'spec must not be listed under Implementation Active');
 });
 
 test('confirm-gate exits 2 when gate 4 confirmed without evidence', () => {

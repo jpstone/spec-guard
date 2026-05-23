@@ -56,9 +56,23 @@ npx spec-guard check my-feature
 
 # See all specs
 npx spec-guard status
+
+# Browse all .md artifacts locally (no GitHub push needed)
+npx spec-guard serve
 ```
 
 See the [CLI Reference](docs/cli.md) for all commands and flags.
+
+### Local markdown viewer
+
+`spec-guard serve` starts a local HTTP server that renders all `.md` files in your repo as styled HTML. Navigate spec artifacts, contracts, and reviews in the browser with live reload — no GitHub push required.
+
+```bash
+npx spec-guard serve            # opens http://localhost:7777
+npx spec-guard serve --port 8080
+```
+
+The root page is your `README.md` (or `.spec-guard/README.md` as fallback). A sidebar lists every `.md` file in the repo. Edits to any `.md` file reload the browser automatically.
 
 ## Wiring an agent to Spec Guard
 
@@ -113,7 +127,7 @@ Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
 
 `spec_guard_workflow_next_step` is the key tool for agents: call it after each action and it returns a structured `next_action` + `instruction` so the agent always knows what step comes next without reading docs.
 
-See the [MCP Reference](mcp/README.md) for full setup and usage.
+See the [MCP Setup guide](mcp/README.md) for configuration and the [MCP Tool Reference](docs/mcp.md) for full tool inputs, outputs, and examples.
 
 ---
 
@@ -167,7 +181,8 @@ WORKFLOW.md
 |---|---|
 | [CLI Reference](docs/cli.md) | All commands, flags, exit codes, diagnostic format |
 | [Glossary](docs/glossary.md) | Term definitions |
-| [MCP Reference](mcp/README.md) | MCP server setup, tool list, and usage examples |
+| [MCP Setup](mcp/README.md) | MCP server configuration for Claude Code, Cursor, and Windsurf |
+| [MCP Tool Reference](docs/mcp.md) | All MCP tools — inputs, outputs, and examples |
 | [Philosophy](docs/philosophy.md) | Design philosophy, innovations, and problems Spec Guard solves |
 | [Quality Gates](docs/quality-gates.md) | Gate-by-gate breakdown and pass conditions |
 | [Quickstart](docs/quickstart.md) | Minimum workflow, live validation, CI setup |

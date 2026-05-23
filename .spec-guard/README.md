@@ -9,7 +9,7 @@
 ### Ready for Implementation
 
 
-### Implementation Approved
+### Implementation Active
 
 
 ### Blocked
@@ -17,12 +17,15 @@
 
 ### Implemented
 
+- [Ambiguous human response treated as implementation authorization](specs/implementation-authorization-gap.md)
 - [API Contract End-User Documentation Requirement](specs/api-contract-end-user-docs.md)
 - [Artifact Backlink Path Bug](specs/artifact-backlink-path-bug.md)
 - [Bugfix Classification](specs/bugfix-classification.md)
 - [Bugfix Evidence Permanence](specs/bugfix-evidence-permanence.md)
+- [confirm-gate does not refresh artifact index after status update](specs/confirm-gate-index-refresh.md)
 - [Deferred Spec Status](specs/spec-status-deferred.md)
 - [Documentation Requirements Link Path Bug](specs/doc-requirements-link-paths.md)
+- [Implementation Active Status](specs/implementation-active-status.md)
 - [Implementation Planning Phase](specs/implementation-planning-phase.md)
 - [Init Must Not Create example.md](specs/init-no-example-spec.md)
 - [Init README Setup](specs/init-readme-setup.md)
@@ -40,6 +43,8 @@
 - [Spec Guard Bypass](specs/spec-guard-bypass.md)
 - [Spec Guard Question Sequencing](specs/question-sequencing.md)
 - [Spec Status Transitions](specs/spec-status-transitions.md)
+- [spec-guard serve (local markdown viewer)](specs/serve.md)
+- [spec-guard serve HMR does not trigger when .md files are created or modified](specs/serve-hmr-not-triggering.md)
 
 ### Deferred
 
@@ -47,16 +52,21 @@
 
 ## Contracts
 
+- [Cli Api Contract](contracts/cli-api-contract.md)
 - [Initiative Api Contract](contracts/initiative-api-contract.md)
+- [Mcp Api Contract](contracts/mcp-api-contract.md)
 
 ## Reviews
 
+- [Implementation Review: Ambiguous human response treated as implementation authorization](reviews/implementation-authorization-gap.md)
 - [Implementation Review: Api Contract End User Docs.Md`](reviews/api-contract-end-user-docs.md)
 - [Implementation Review: Artifact Backlink Path Bug.Md`](reviews/artifact-backlink-path-bug.md)
 - [Implementation Review: Bugfix Classification](reviews/bugfix-classification.md)
 - [Implementation Review: Bugfix Evidence Permanence.Md`](reviews/bugfix-evidence-permanence.md)
+- [Implementation Review: confirm-gate does not refresh artifact index after status update](reviews/confirm-gate-index-refresh.md)
 - [Implementation Review: Deferred Spec Status](reviews/spec-status-deferred.md)
 - [Implementation Review: Documentation Requirements Link Path Bug](reviews/doc-requirements-link-paths.md)
+- [Implementation Review: Implementation Active Status](reviews/implementation-active-status.md)
 - [Implementation Review: Implementation Planning Phase.Md`](reviews/implementation-planning-phase.md)
 - [Implementation Review: Init Must Not Create example.md](reviews/init-no-example-spec.md)
 - [Implementation Review: Init README Setup](reviews/init-readme-setup.md)
@@ -73,6 +83,8 @@
 - [Implementation Review: Spec Guard Artifact Index](reviews/artifact-index.md)
 - [Implementation Review: Spec Guard Bypass](reviews/spec-guard-bypass.md)
 - [Implementation Review: Spec Status Transitions.Md`](reviews/spec-status-transitions.md)
+- [Implementation Review: spec-guard serve (local markdown viewer)](reviews/serve.md)
+- [Implementation Review: spec-guard serve HMR does not trigger when .md files are created or modified](reviews/serve-hmr-not-triggering.md)
 
 ## Initiatives
 
@@ -86,6 +98,7 @@
 ## Scope Discoveries
 
 - [Cli Documentation Updates](scope-discoveries/cli-documentation-updates.md)
+- [Serve Mcp Parity](scope-discoveries/serve-mcp-parity.md)
 
 ## Discoveries
 

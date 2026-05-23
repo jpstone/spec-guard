@@ -19,6 +19,7 @@ import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
 import { addDocLinkToReadme } from '../src/readme-maintenance.js';
 import { updateSpecStatus } from '../src/spec-status.js';
 import { regenerateArtifactIndex } from '../src/artifact-index.js';
+import { serve } from '../src/serve.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -119,6 +120,7 @@ async function run(args) {
   if (command === 'interview-questions')  return interviewQuestionsCommand(rest);
   if (command === 'initiative-questions') return initiativeQuestionsCommand(rest);
   if (command === 'initiative')           return initiativeCommand(rest);
+  if (command === 'serve')           return serveCommand(rest);
   if (command === 'blocker')         return copyTemplateCommand(rest, 'templates/blocker.md', 'blocker', 'blocker', SG.blockers);
   if (command === 'scope-discovery') return copyTemplateCommand(rest, 'templates/scope-discovery.md', 'scope-discovery', 'scope discovery', SG.scopeDiscoveries);
   if (command === 'review')          return copyTemplateCommand(rest, 'templates/implementation-review.md', 'review', 'implementation review', SG.reviews);
@@ -739,10 +741,10 @@ async function confirmGateCommand(args) {
       return 2;
     }
     const currentStatus = getSpecStatus(specText);
-    if (currentStatus !== 'Implementation Approved') {
+    if (currentStatus !== 'Implementation Active') {
       console.error(`Gate 3 cannot be confirmed: explicit human authorization is required before implementation can begin.`);
       console.error(`  Current status: ${currentStatus || '(none)'}`);
-      console.error(`  Once the human authorizes implementation, set the spec status to "Implementation Approved" and then confirm Gate 3.`);
+      console.error(`  Once the human authorizes implementation, set the spec status to "Implementation Active" and then confirm Gate 3.`);
       console.error(`  Note: "Ready for Implementation" is not sufficient — the human must give explicit go-ahead.`);
       return 1;
     }
@@ -766,10 +768,10 @@ async function confirmGateCommand(args) {
     if (gate === 4) {
       runState.failureFirstConfirmed = true;
       runState.failureFirstReason = evidence;
-      await updateSpecStatus(inputPath, 'Ready for Implementation');
     }
     if (gate === 6) {
       await updateSpecStatus(inputPath, 'Implemented');
+      await regenerateArtifactIndex();
     }
   }
 
@@ -1505,6 +1507,49 @@ function parseFlags(args) {
   return flags;
 }
 
+// ─── serve ────────────────────────────────────────────────────────────────────
+
+async function serveCommand(args) {
+  // Parse --port <n> and --no-open manually (space-separated values)
+  const portIdx = args.indexOf('--port');
+  const portArg = portIdx !== -1 ? args[portIdx + 1] : null;
+  const port = portArg ? parseInt(portArg, 10) : 7777;
+  const noOpen = args.includes('--no-open');
+
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error(`Invalid port: ${flags.named['port']}`);
+    return 2;
+  }
+
+  try {
+    const instance = await serve({ port, open: !noOpen });
+
+    // Handle Ctrl+C
+    process.on('SIGINT', async () => {
+      await instance.close();
+      process.exit(0);
+    });
+    process.on('SIGTERM', async () => {
+      await instance.close();
+      process.exit(0);
+    });
+
+    // Keep process alive
+    await new Promise(() => {});
+  } catch (err) {
+    if (err.code === 'SG_SERVE_NO_ROOT') {
+      console.error(err.message);
+      return 1;
+    }
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Try a different port with --port <n>.`);
+      return 1;
+    }
+    console.error(`Failed to start server: ${err.message}`);
+    return 1;
+  }
+}
+
 function printUsage() {
   console.error(`Usage:
   spec-guard interview-questions [--json]            list spec authoring questions (mirrors spec_guard_interview_questions)
@@ -1514,6 +1559,7 @@ function printUsage() {
   spec-guard suggest [--warnings] <name>             show diagnostics with concrete fix instructions
   spec-guard analyze <name>                          cross-artifact alignment (spec, contract, review)
     [--contract path] [--review path] [--json]
+  spec-guard serve [--port <n>] [--no-open]             local markdown viewer (default port 7777)
   spec-guard validate [--json] [--warnings]
   spec-guard status [--json]
   spec-guard watch <name>

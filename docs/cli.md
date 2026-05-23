@@ -312,6 +312,36 @@ Prints the next action required given the current gate state. Reads saved run st
 
 ---
 
+### `serve`
+
+```bash
+spec-guard serve [--port <n>] [--no-open]
+```
+
+Starts a local HTTP server that renders all `.md` files in the repo as styled HTML. Useful for browsing spec artifacts without pushing to GitHub.
+
+- Serves `README.md` at the repo root as the default page, falling back to `.spec-guard/README.md` if the root README does not exist. Exits non-zero with a clear error if neither is found.
+- Displays a navigation sidebar listing every `.md` file in the repo, organized by directory.
+- Renders markdown using GitHub-style styling (`github-markdown-css`).
+- Watches `.md` files for changes and pushes live updates to the browser via WebSocket (HMR) — no manual refresh needed.
+- Passes through static assets (images, etc.) referenced from `.md` files.
+- Returns a 404 page for unknown paths or non-`.md` requests.
+- Exits non-zero with a human-readable error if the port is already in use.
+- Prints a shutdown confirmation on Ctrl+C.
+
+**Flags:**
+
+- `--port <n>` — listen on port `n` instead of the default (7777)
+- `--no-open` — start the server without auto-opening the browser
+
+**Exit codes:**
+
+- `0` — server started (exits when the server is stopped)
+- `1` — no root file found, or port already in use
+- `2` — usage error (invalid port)
+
+---
+
 ### `status`
 
 ```bash

@@ -254,7 +254,7 @@ Failure-first impractical: [concrete reason]
 - Test run output showing the new test failing for the expected reason
 - Written record of why running the test was impractical, with a concrete reason
 
-No implementation may begin until one of these exists. When Gate 4 is confirmed, Spec Guard updates the spec's `Status` to `Ready for Implementation`; gate/run state remains authoritative.
+No implementation may begin until one of these exists. Gate 4 does not change the spec's `Status`; the spec remains `Implementation Active` throughout. Gate/run state remains authoritative.
 
 ---
 

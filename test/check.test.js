@@ -351,11 +351,19 @@ test('checkSpecText does not flag Ready for Implementation as invalid (no SG-SPE
   assert.equal(diags.length, 0, 'Ready for Implementation should be a valid status');
 });
 
-// AC: spec-guard check accepts Implementation Approved as a valid status value.
-test('checkSpecText does not flag Implementation Approved as invalid (no SG-SPEC-006)', () => {
+// AC: spec-guard check accepts Implementation Active as a valid status value.
+test('checkSpecText does not flag Implementation Active as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nImplementation Active\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Implementation Active should be a valid status');
+});
+
+// AC: spec-guard check flags Implementation Approved as an unrecognized status (replaced by Implementation Active).
+test('checkSpecText flags Implementation Approved as invalid status (SG-SPEC-006)', () => {
   const spec = validSpec + '\n## Status\n\nImplementation Approved\n';
   const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
-  assert.equal(diags.length, 0, 'Implementation Approved should be a valid status');
+  assert.equal(diags.length, 1, 'Implementation Approved should produce SG-SPEC-006 after replacement');
+  assert.equal(diags[0].severity, 'INFO');
 });
 
 // AC: spec-guard check flags Ready as an unrecognized status (no longer valid after rename).
