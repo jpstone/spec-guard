@@ -59,8 +59,8 @@ Does not modify files.
 
 **Exit codes:**
 
-- `0` — no blockers
-- `1` — one or more blockers
+- `0` — no blockers (and no warnings when `--warnings` is used)
+- `1` — one or more blockers; or one or more warnings when `--warnings` is used
 - `2` — usage error or unreadable file
 
 ---
@@ -176,7 +176,6 @@ Creates the recommended directory structure in the current directory:
 ```text
 .spec-guard/
   specs/
-    example.md
   contracts/
   initiatives/
   blockers/
@@ -310,6 +309,62 @@ spec-guard next [--json] <spec>
 ```
 
 Prints the next action required given the current gate state. Reads saved run state to determine which gates have been confirmed, then checks gates 1 and 2 live. Exits 0 only when all 5 gates are complete.
+
+---
+
+### `set-status`
+
+```bash
+spec-guard set-status <spec> <status>
+```
+
+Updates the spec's `Status` field to the given value and regenerates the artifact index atomically. Always use this command instead of editing the spec file directly — direct edits leave the artifact index stale.
+
+Valid status values: `Draft`, `Pending Approval`, `Ready for Implementation`, `Implementation Active`, `Blocked`, `Implemented`, `Deferred`.
+
+**Status lifecycle during spec authoring:**
+
+| When | Status to set |
+|---|---|
+| Presenting spec to the user for review | `Pending Approval` |
+| User approves the spec | `Ready for Implementation` |
+| User explicitly authorizes implementation | `Implementation Active` (set before confirming Gate 3) |
+
+**Exit codes:**
+
+- `0` — updated successfully
+- `1` — invalid status value or file error
+- `2` — usage error
+
+---
+
+### `serve`
+
+```bash
+spec-guard serve [--port <n>] [--no-open]
+```
+
+Starts a local HTTP server that renders all `.md` files in the repo as styled HTML. Useful for browsing spec artifacts without pushing to GitHub.
+
+- Serves `README.md` at the repo root as the default page, falling back to `.spec-guard/README.md` if the root README does not exist. Exits non-zero with a clear error if neither is found.
+- Displays a navigation sidebar listing every `.md` file in the repo, organized by directory.
+- Renders markdown using GitHub-style styling (`github-markdown-css`).
+- Watches `.md` files for changes and pushes live updates to the browser via WebSocket (HMR) — no manual refresh needed.
+- Passes through static assets (images, etc.) referenced from `.md` files.
+- Returns a 404 page for unknown paths or non-`.md` requests.
+- Exits non-zero with a human-readable error if the port is already in use.
+- Prints a shutdown confirmation on Ctrl+C.
+
+**Flags:**
+
+- `--port <n>` — listen on port `n` instead of the default (7777)
+- `--no-open` — start the server without auto-opening the browser
+
+**Exit codes:**
+
+- `0` — server started (exits when the server is stopped)
+- `1` — no root file found, or port already in use
+- `2` — usage error (invalid port)
 
 ---
 

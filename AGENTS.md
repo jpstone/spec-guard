@@ -119,6 +119,21 @@ spec_guard_save_initiative({
 
 **Step 4 — Proceed spec-by-spec.** For each slice returned, call `spec_guard_draft_spec` and follow the standard 5-gate workflow for that slice independently.
 
+### Proposed Slice Ordering
+
+`spec_guard_save_initiative` automatically injects infrastructure slices in the following order — before any feature slices:
+
+1. **Deployment Portability** — always injected first, regardless of other inputs. Ensures the project makes no environment-specific assumptions (hardcoded hosts, ports, paths). When a `deployment_target` is known, the slice's AC covers the specific target constraints; when TBD/unknown, it covers externalized configuration, no undeclared host assumptions, and a documented configuration surface.
+2. **Substitution Strategy** — injected when `external_dependencies` are identified. Establishes the project-wide toggle mechanism, module organization convention, and shape contract discipline for all substitutes.
+3. **Real Dependency Development Environment** — injected once (not per-dependency) when external dependencies exist. Covers credential/config supply without hardcoding, mode-switching, and new-contributor setup. This is the project's extensible canonical record for real-dependency configuration — update it whenever a new service boundary is added.
+4. **Per-Dependency Substitution Slices** — one per named dependency boundary. Each covers a domain-aligned substitute (co-located with the real implementation), a toggle consistent with the project strategy, and an interface shape contract.
+
+Feature slices follow after all infrastructure slices.
+
+### Feature Slices with Existing Substitution Infrastructure
+
+When implementing a feature slice on a project that already has substitution infrastructure from a prior initiative, check the initiative artifact for applicable per-dependency substitution slices and the real-dependency development environment slice. Reference them in the feature slice's `Dependencies` section before proceeding to implementation.
+
 ---
 
 ## Authoring a Spec
@@ -135,6 +150,8 @@ spec_guard_interview_questions()
 
 **Step 2 — Ask the user each required question from the result using Spec Guard Question Sequencing above.**
 Ask them in order. Do not skip required questions. For optional questions, use judgment.
+
+When the classification is UI-related and the user provides a mockup or design direction during the interview, derive suggested acceptance criteria from the mockup in addition to the user's verbal input. Each distinct element, interaction, or visible state shown in the mockup should have a corresponding suggested AC. Present these as suggestions only — the human may accept, modify, or replace them. In the spec's `UI Mockup AC Suggestion Tracking` section, check `One or more mockups/design inputs were provided.` when applicable and check `Mockup-derived acceptance criteria were suggested to the human.` after making the suggestion. The marker records that suggestions were offered, not that the human accepted them.
 
 **Step 3 — Draft the spec:**
 ```
@@ -153,7 +170,20 @@ spec_guard_draft_spec({
 **Step 4 — Check the result.**
 If `gate1_passed` is false, address every item in `missing_required` and retry.
 
-**Step 5 — Present to the user for review.** Do not proceed until the user approves the spec.
+**Step 5 — Present to the user for review.** Set status to `Pending Approval` before presenting:
+```bash
+spec-guard set-status <name> "Pending Approval"
+# or via MCP: spec_guard_set_status({ spec_path: "...", status: "Pending Approval" })
+```
+Do not proceed until the user approves the spec.
+
+**Step 5b — After approval.** Set status to `Ready for Implementation`:
+```bash
+spec-guard set-status <name> "Ready for Implementation"
+# or via MCP: spec_guard_set_status({ spec_path: "...", status: "Ready for Implementation" })
+```
+
+Always use `spec-guard set-status` or `spec_guard_set_status` for status changes — never edit the spec file directly to change the Status field. This keeps the artifact index in sync.
 
 **Step 6 — Run:**
 ```bash
@@ -360,10 +390,31 @@ There is no interactive README preference question. The presence or absence of `
 | Status | Meaning |
 |---|---|
 | `Draft` | Active — being authored or awaiting implementation |
-| `Ready` | Spec valid; confirmed by Gate 4 (tests written and failing) |
+| `Pending Approval` | Spec is complete; awaiting human review. Set this when you finish writing a spec and ask the human to review it. Gate 3 is blocked. |
+| `Ready for Implementation` | Human has reviewed and approved the spec content; queued for implementation. Gate 3 is still blocked — this status is not sufficient to begin implementing. |
+| `Implementation Active` | Human has explicitly authorized implementation. This is the only status that allows Gate 3 to be confirmed. Set this only after the human tells you to proceed — either by directly instructing you (e.g. "go ahead and implement X") or by confirming affirmatively when you ask. Do not self-initiate implementation; always wait for explicit human authorization. |
 | `Blocked` | Cannot proceed — a blocker artifact records the reason |
 | `Implemented` | All 6 gates passed; confirmed by Gate 6 |
 | `Deferred` | Deliberately parked — drafted and considered, but indefinitely on hold with no current intention to implement. Not blocked by a specific problem; simply deprioritized. To reactivate, change the status back to `Draft`. |
+
+**Gate 3 enforcement:** `spec-guard confirm-gate 3` (and `spec_guard_confirm_gate` via MCP) will hard-error unless the spec status is `Implementation Active`. If the spec is in any other status — including `Ready for Implementation` — Gate 3 is blocked. The error message will instruct you to get explicit human authorization first, then set the status to `Implementation Active`, then confirm Gate 3.
+
+**No self-initiated implementation:** Agents must not begin implementing a spec without explicit authorization from the human. A spec in `Ready for Implementation` must wait. Only when the human gives explicit authorization (see below) should you set the status to `Implementation Active` and confirm Gate 3.
+
+**What counts as explicit authorization:** A direct instruction or an unambiguous affirmative response to a direct yes/no question. Examples that qualify:
+
+- "Yes"
+- "Go ahead and implement it"
+- "Yes, implement both"
+- "Approved — proceed"
+
+**What does not count as explicit authorization:** A question, a conditional, or any response that can be read as either confirmation or inquiry. Examples that do not qualify:
+
+- "Are both approved?" — this is a question, not authorization; answer it, then ask again if authorization is still needed
+- "Is that ready to implement?" — treat as a question; respond with the current status, then ask directly: "Should I go ahead and begin implementing \<spec\>?"
+- "That looks right" — ambiguous; does not confirm implementation intent
+
+**Required follow-up:** When the human's response is ambiguous, the agent must ask exactly one direct yes/no question before proceeding: "Should I go ahead and begin implementing \<spec\>?" A question or conditional response from the human never constitutes explicit authorization — the agent must always ask a direct follow-up yes/no question and wait for an unambiguous answer.
 
 `Deferred` is informational only. `spec-guard check` validates Deferred specs normally; gate rules still apply if gates were previously confirmed. Do not implement a Deferred spec without an explicit decision to reactivate it.
 
@@ -386,6 +437,12 @@ spec-guard check <name>              # Gate 1
 spec-guard suggest <name>            # Gate 1 + fix instructions
 spec-guard analyze <name>            # cross-artifact alignment (Gate 5→6)
 spec-guard analyze <name> --dry-run  # pre-implementation contract check (advisory, auto-runs at Phase 3)
+
+# Docs viewer — run when the human says "start the docs web app", "open the spec viewer",
+# "show me the docs", "launch the markdown viewer", or similar natural-language requests
+spec-guard serve                     # start local markdown viewer (default port 7777)
+spec-guard serve --port <n>          # use a specific port
+spec-guard serve --no-open           # start without auto-opening the browser
 
 # Monitoring
 spec-guard watch <name>              # live feedback while editing

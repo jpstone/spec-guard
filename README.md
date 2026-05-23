@@ -6,6 +6,8 @@ Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven 
 
 > Specs guide implementation, but tests validate running behavior and durable contracts — not prose.
 
+**The human's interface is a conversation.** Describe what you want, answer a few questions, approve the spec. The agent handles gates, contracts, tests, and code. There are no files to fill out, no commands to learn, no dashboard to check — just a description of what you need and a chat window to deliver it in.
+
 ---
 
 ## Three layers, one system
@@ -56,9 +58,23 @@ npx spec-guard check my-feature
 
 # See all specs
 npx spec-guard status
+
+# Browse all .md artifacts locally (no GitHub push needed)
+npx spec-guard serve
 ```
 
 See the [CLI Reference](docs/cli.md) for all commands and flags.
+
+### Local markdown viewer
+
+`spec-guard serve` starts a local HTTP server that renders all `.md` files in your repo as styled HTML. Navigate spec artifacts, contracts, and reviews in the browser with live reload — no GitHub push required.
+
+```bash
+npx spec-guard serve            # opens http://localhost:7777
+npx spec-guard serve --port 8080
+```
+
+The root page is your `README.md` (or `.spec-guard/README.md` as fallback). A sidebar lists every `.md` file in the repo. Edits to any `.md` file reload the browser automatically.
 
 ## Wiring an agent to Spec Guard
 
@@ -113,7 +129,7 @@ Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
 
 `spec_guard_workflow_next_step` is the key tool for agents: call it after each action and it returns a structured `next_action` + `instruction` so the agent always knows what step comes next without reading docs.
 
-See the [MCP Reference](mcp/README.md) for full setup and usage.
+See the [MCP Setup guide](mcp/README.md) for configuration and the [MCP Tool Reference](docs/mcp.md) for full tool inputs, outputs, and examples.
 
 ---
 
@@ -122,7 +138,6 @@ See the [MCP Reference](mcp/README.md) for full setup and usage.
 ```
 .spec-guard/
   specs/
-    example.md
   contracts/
   blockers/
   scope-discoveries/
@@ -162,13 +177,24 @@ WORKFLOW.md
 
 ---
 
+## Examples
+
+End-to-end walkthroughs showing Spec Guard in use with natural-language requests.
+
+| Example | What it covers |
+|---|---|
+| [Todo App](examples/todo-app.md) | Building a new app with initiative decomposition, then adding a single feature with the standard spec flow |
+
+---
+
 ## Documentation
 
 | Doc | What it covers |
 |---|---|
 | [CLI Reference](docs/cli.md) | All commands, flags, exit codes, diagnostic format |
 | [Glossary](docs/glossary.md) | Term definitions |
-| [MCP Reference](mcp/README.md) | MCP server setup, tool list, and usage examples |
+| [MCP Setup](mcp/README.md) | MCP server configuration for Claude Code, Cursor, and Windsurf |
+| [MCP Tool Reference](docs/mcp.md) | All MCP tools — inputs, outputs, and examples |
 | [Philosophy](docs/philosophy.md) | Design philosophy, innovations, and problems Spec Guard solves |
 | [Quality Gates](docs/quality-gates.md) | Gate-by-gate breakdown and pass conditions |
 | [Quickstart](docs/quickstart.md) | Minimum workflow, live validation, CI setup |

@@ -6,7 +6,7 @@ Initiative External Dependency Infrastructure
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

@@ -6,6 +6,13 @@
 
 <!-- Required. Do not proceed without mockup, wireframe, or explicit design direction. -->
 
+## UI Mockup AC Suggestion Tracking
+
+<!-- Check both items when one or more mockups/design inputs were provided and mockup-derived AC suggestions were offered. The second checkbox records that suggestions were offered, not that the human accepted them. -->
+
+- [ ] One or more mockups/design inputs were provided.
+- [ ] Mockup-derived acceptance criteria were suggested to the human.
+
 ## Component Library Reference
 
 <!-- Required. Link to existing component library/docs. -->

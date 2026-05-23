@@ -169,7 +169,9 @@ export function buildSpecFromAnswers({
     '',
     '## Documentation Requirements',
     '',
-    '- No documentation changes required.',
+    classification === 'Operational/document deliverable'
+      ? '<!-- Required: list the documents delivered by this spec (e.g. - [path/to/doc.md](path/to/doc.md) — description) -->'
+      : '- No documentation changes required.',
     '',
     '## Dependencies',
     '',

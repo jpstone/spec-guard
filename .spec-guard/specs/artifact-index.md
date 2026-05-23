@@ -6,7 +6,7 @@ Spec Guard Artifact Index
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

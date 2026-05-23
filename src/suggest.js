@@ -104,6 +104,12 @@ const RULE_SUGGESTIONS = {
     '    "No component library — custom styling from mockup"\n' +
     '  Then re-run: spec-guard check <name>',
 
+  'SG-UI-003': () =>
+    'The spec says one or more mockups/design inputs were provided, so the agent must record that mockup-derived AC suggestions were offered.\n\n' +
+    'In the UI Mockup AC Suggestion Tracking section, check:\n' +
+    '  - [x] Mockup-derived acceptance criteria were suggested to the human.\n\n' +
+    'This records that suggestions were offered; it does not require the human to accept every suggestion.',
+
   'SG-SPEC-008': (d) => {
     const item = d.message.match(/: "(.+)"$/)?.[1] || 'the scope item';
     return `Expand the scope item to describe a specific boundary.\n\n` +

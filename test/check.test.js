@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { CLASSIFICATIONS, checkSpecText, formatDiagnostic, getSelectedClassifications, getSpecStatus, getSpecTitle } from '../src/check.js';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
@@ -57,6 +58,11 @@ User can log in. See Figma mockup at /designs/login.fig. Uses the design system 
 ## Acceptance Criteria
 
 - [ ] Login form renders.
+
+## UI Mockup AC Suggestion Tracking
+
+- [x] One or more mockups/design inputs were provided.
+- [x] Mockup-derived acceptance criteria were suggested to the human.
 
 ## Work Classification
 
@@ -188,7 +194,9 @@ test('no UI blocker when only mockup is referenced', () => {
 });
 
 test('blocks UI work with no mockup even when component library is referenced', () => {
-  const text = uiSpec.replace('See Figma mockup at /designs/login.fig.', '');
+  const text = uiSpec
+    .replace('See Figma mockup at /designs/login.fig.', '')
+    .replace('- [x] One or more mockups/design inputs were provided.', '- [ ] One or more mockups/design inputs were provided.');
   const diagnostics = checkSpecText(text, 'ui-lib-only.md');
   const blocker = diagnostics.find(d => d.ruleId === 'SG-UI-001' && d.severity === 'BLOCKER');
   assert(blocker);
@@ -205,7 +213,9 @@ test('blocks UI work with no component library even when mockup is referenced', 
 });
 
 test('blocks UI work with neither mockup nor component library — SG-UI-001 only', () => {
-  const text = uiSpec.replace('See Figma mockup at /designs/login.fig. Uses the design system component library.', 'User can log in.');
+  const text = uiSpec
+    .replace('See Figma mockup at /designs/login.fig. Uses the design system component library.', 'User can log in.')
+    .replace('- [x] One or more mockups/design inputs were provided.', '- [ ] One or more mockups/design inputs were provided.');
   const diagnostics = checkSpecText(text, 'ui-no-anchor.md');
   const blocker = diagnostics.find(d => d.ruleId === 'SG-UI-001' && d.severity === 'BLOCKER');
   assert(blocker);
@@ -216,6 +226,59 @@ test('blocks UI work with neither mockup nor component library — SG-UI-001 onl
 test('non-UI work does not trigger UI rules', () => {
   const diagnostics = checkSpecText(validSpec, 'non-ui.md');
   assert(!diagnostics.some(d => d.ruleId === 'SG-UI-001'));
+});
+
+// ─── SG-UI-003: Mockup-derived AC suggestion marker ─────────────────────────
+
+test('blocks UI spec when mockup input is marked provided but mockup-derived AC suggestion is unchecked', () => {
+  const text = uiSpec.replace(
+    '- [x] Mockup-derived acceptance criteria were suggested to the human.',
+    '- [ ] Mockup-derived acceptance criteria were suggested to the human.',
+  );
+  const diagnostics = checkSpecText(text, 'ui-mockup-ac-unchecked.md');
+  const blocker = diagnostics.find(d => d.ruleId === 'SG-UI-003' && d.severity === 'BLOCKER');
+  assert(blocker);
+  assert.match(blocker.message, /Mockup-derived acceptance criteria were suggested/);
+});
+
+test('blocks UI spec when mockup input is marked provided but mockup-derived AC suggestion marker is missing', () => {
+  const text = uiSpec.replace('- [x] Mockup-derived acceptance criteria were suggested to the human.\n', '');
+  const diagnostics = checkSpecText(text, 'ui-mockup-ac-missing.md');
+  assert(diagnostics.some(d => d.ruleId === 'SG-UI-003' && d.severity === 'BLOCKER'));
+});
+
+test('does not require mockup-derived AC suggestion when mockup input is not marked provided', () => {
+  const text = uiSpec
+    .replace('See Figma mockup at /designs/login.fig. ', 'Use the documented design direction. ')
+    .replace('- [x] One or more mockups/design inputs were provided.', '- [ ] One or more mockups/design inputs were provided.')
+    .replace('- [x] Mockup-derived acceptance criteria were suggested to the human.', '- [ ] Mockup-derived acceptance criteria were suggested to the human.');
+  const diagnostics = checkSpecText(text, 'ui-no-mockup-input-provided.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-003'));
+});
+
+test('non-UI classifications are not affected by mockup AC suggestion marker validation', () => {
+  const text = validSpec + '\n## UI Mockup AC Suggestion Tracking\n\n- [x] One or more mockups/design inputs were provided.\n- [ ] Mockup-derived acceptance criteria were suggested to the human.\n';
+  const diagnostics = checkSpecText(text, 'non-ui-mockup-marker.md');
+  assert(!diagnostics.some(d => d.ruleId === 'SG-UI-003'));
+});
+
+test('spec template includes UI mockup AC suggestion tracking markers', () => {
+  const template = readFileSync('templates/spec.md', 'utf8');
+  assert.match(template, /One or more mockups\/design inputs were provided/);
+  assert.match(template, /Mockup-derived acceptance criteria were suggested to the human/);
+});
+
+test('one-off UI template includes UI mockup AC suggestion tracking markers', () => {
+  const template = readFileSync('templates/one-off-ui.md', 'utf8');
+  assert.match(template, /One or more mockups\/design inputs were provided/);
+  assert.match(template, /Mockup-derived acceptance criteria were suggested to the human/);
+});
+
+test('AGENTS.md explains mockup AC suggestion marker records offered suggestions, not accepted ACs', () => {
+  const agents = readFileSync('AGENTS.md', 'utf8');
+  assert.match(agents, /Mockup-derived acceptance criteria were suggested to the human/);
+  assert.match(agents, /records? that suggestions were offered/i);
+  assert.match(agents, /not that the human accepted/i);
 });
 
 // ─── getSelectedClassifications ──────────────────────────────────────────────
@@ -328,12 +391,49 @@ test('checkSpecText does not flag Deferred as invalid status (no SG-SPEC-006)', 
 });
 
 // AC: existing valid statuses remain valid.
-test('checkSpecText does not flag Draft, Ready, Blocked, Implemented as invalid', () => {
-  for (const status of ['Draft', 'Ready', 'Blocked', 'Implemented']) {
+test('checkSpecText does not flag Draft, Blocked, Implemented as invalid', () => {
+  for (const status of ['Draft', 'Blocked', 'Implemented']) {
     const spec = validSpec + `\n## Status\n\n${status}\n`;
     const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
     assert.equal(diags.length, 0, `${status} should be a valid status`);
   }
+});
+
+// AC: spec-guard check accepts Pending Approval as a valid status value.
+test('checkSpecText does not flag Pending Approval as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nPending Approval\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Pending Approval should be a valid status');
+});
+
+// AC: spec-guard check accepts Ready for Implementation as a valid status value.
+test('checkSpecText does not flag Ready for Implementation as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nReady for Implementation\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Ready for Implementation should be a valid status');
+});
+
+// AC: spec-guard check accepts Implementation Active as a valid status value.
+test('checkSpecText does not flag Implementation Active as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nImplementation Active\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Implementation Active should be a valid status');
+});
+
+// AC: spec-guard check flags Implementation Approved as an unrecognized status (replaced by Implementation Active).
+test('checkSpecText flags Implementation Approved as invalid status (SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nImplementation Approved\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 1, 'Implementation Approved should produce SG-SPEC-006 after replacement');
+  assert.equal(diags[0].severity, 'INFO');
+});
+
+// AC: spec-guard check flags Ready as an unrecognized status (no longer valid after rename).
+test('checkSpecText flags Ready as invalid status (SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nReady\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 1, 'Ready should produce SG-SPEC-006 after rename');
+  assert.equal(diags[0].severity, 'INFO');
 });
 
 // AC: unrecognized status still produces SG-SPEC-006.
@@ -342,4 +442,23 @@ test('checkSpecText flags unknown status with SG-SPEC-006', () => {
   const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
   assert.equal(diags.length, 1, 'Unknown status should produce SG-SPEC-006');
   assert.equal(diags[0].severity, 'INFO');
+});
+
+// ─── spec-status-deferred: documentation ACs ─────────────────────────────────
+
+// AC: templates/spec.md documents Deferred as a valid status value.
+test('templates/spec.md status comment includes Deferred', () => {
+  const template = readFileSync('templates/spec.md', 'utf8');
+  assert.match(template, /Deferred/, 'spec template should document Deferred as a valid status');
+});
+
+// AC: AGENTS.md documents Deferred status and when to apply it.
+test('AGENTS.md documents Deferred status with definition and when to use it', () => {
+  const agents = readFileSync('AGENTS.md', 'utf8');
+  assert.match(agents, /Deferred/,
+    'AGENTS.md should document the Deferred status');
+  assert.match(agents, /indefinitely|on hold|parked|no current intention/i,
+    'AGENTS.md should describe when to use Deferred');
+  assert.match(agents, /Draft.*reactivate|back to.*Draft|status back/i,
+    'AGENTS.md should explain that changing status back to Draft reactivates the spec');
 });

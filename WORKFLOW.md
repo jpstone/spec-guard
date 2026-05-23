@@ -105,6 +105,8 @@ If the human answers no to the Spec Guard prompt, this workflow is bypassed enti
    - `Documentation Requirements` — direct repository-relative links to docs the current spec requires to be created, updated, linked, or validated; explicitly state when no documentation changes are required
    - `Work Classification` — agent selects the most appropriate classification; human confirms during spec review
 
+   When the classification is UI-related and the user provides a mockup or design direction, derive suggested acceptance criteria from the mockup in addition to the user's verbal input. Each distinct element, interaction, or visible state shown in the mockup should have a corresponding suggested AC. Present these as suggestions only — the human may accept, modify, or replace them. In the spec's `UI Mockup AC Suggestion Tracking` section, check `One or more mockups/design inputs were provided.` when applicable and check `Mockup-derived acceptance criteria were suggested to the human.` after making the suggestion. The marker records that suggestions were offered, not that the human accepted them.
+
 4. Present the draft to the human for review and approval before proceeding to Gate 1. If multiple review questions are needed, use the Spec Guard workflow question flow rule above.
 
 5. If the request is too vague to fill these sections, do not guess. Ask for clarification or create a discovery request:
@@ -254,7 +256,7 @@ Failure-first impractical: [concrete reason]
 - Test run output showing the new test failing for the expected reason
 - Written record of why running the test was impractical, with a concrete reason
 
-No implementation may begin until one of these exists. When Gate 4 is confirmed, Spec Guard updates the spec's `Status` to `Ready`; gate/run state remains authoritative.
+No implementation may begin until one of these exists. Gate 4 does not change the spec's `Status`; the spec remains `Implementation Active` throughout. Gate/run state remains authoritative.
 
 ---
 

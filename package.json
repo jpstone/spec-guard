@@ -1,6 +1,6 @@
 {
   "name": "@jpstone/spec-guard",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Spec-first, behavior-tested, agent-safe methodology, workflow runner, and MCP server.",
   "type": "module",
   "bin": {
@@ -42,5 +42,11 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "marked": "^18.0.4",
+    "open": "^11.0.0",
+    "ws": "^8.21.0"
+  }
 }

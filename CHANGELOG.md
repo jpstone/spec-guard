@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.1.0
+
+### New: local Spec Guard markdown viewer
+
+- Added `spec-guard serve`, a local rendered-markdown viewer for repository docs and Spec Guard artifacts.
+- Supports configurable port (`--port`), README/.spec-guard README root resolution, rendered `.md` navigation, direct `.md` URLs, static asset passthrough, 404 handling, and graceful shutdown.
+- Added live reload/HMR for markdown changes, including created or modified `.md` files under dot-directories such as `.spec-guard/`.
+- Documented natural-language agent handling for requests such as “start the docs web app” or “open the spec viewer”.
+
+### New: implementation authorization and lifecycle hardening
+
+- Replaced `Implementation Approved` with `Implementation Active` as the status required before Gate 3 can be confirmed.
+- Gate 4 no longer changes spec status; specs remain `Implementation Active` during implementation and Gate 6 sets `Implemented`.
+- Added explicit agent guidance that implementation requires unambiguous human authorization, with examples of qualifying and non-qualifying responses.
+- Ambiguous human replies, questions, or conditional responses no longer count as authorization in agent guidance; agents must ask a direct yes/no follow-up before proceeding.
+- Added `spec-guard set-status <spec> <status>` and `spec_guard_set_status` so agents update spec status through maintained commands/tools rather than editing status fields directly.
+- Added `SG-STATUS-001` warning so `check --warnings` blocks Gate 2 when a spec remains in `Draft`; agents must advance specs to `Pending Approval` or later before Gate 2 clears.
+- Operational/document deliverable drafts now prompt for actual documentation requirements instead of defaulting to “No documentation changes required.”
+
+### New: UI mockup acceptance-criteria guardrails
+
+- Agent/workflow guidance now instructs agents to derive suggested acceptance criteria from provided UI mockups or design direction, including distinct elements, interactions, and visible states.
+- Added `UI Mockup AC Suggestion Tracking` markers to templates for whether mockup/design input was provided and whether mockup-derived AC suggestions were offered.
+- Added `SG-UI-003` validation: UI specs that mark mockup/design input as provided must also mark that mockup-derived AC suggestions were offered.
+- The marker records that suggestions were offered; it does not require the human to accept every suggestion or require one-to-one final AC coverage.
+
+### Bug fixes
+
+- `confirm-gate 6` now regenerates `.spec-guard/README.md` immediately after setting a spec to `Implemented`, so the artifact index status bucket is not stale.
+- `spec-guard status` now counts `Ready for Implementation` specs in the Ready summary total.
+- `spec-guard serve` HMR now detects `.md` file creation and modification under `.spec-guard/` and at the repository root.
+
+---
+
 ## 2.0.0
 
 ### Breaking: initiative flow now requires a greenfield project
