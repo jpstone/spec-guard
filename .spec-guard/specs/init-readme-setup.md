@@ -6,7 +6,7 @@ Init README Setup
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

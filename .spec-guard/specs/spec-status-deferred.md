@@ -6,7 +6,7 @@ Deferred Spec Status
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 

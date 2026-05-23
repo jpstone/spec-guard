@@ -8,7 +8,7 @@
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, join, relative, dirname } from 'node:path';
 
-const SPEC_STATUS_ORDER = ['Draft', 'Ready', 'Blocked', 'Implemented', 'Deferred'];
+const SPEC_STATUS_ORDER = ['Draft', 'Pending Approval', 'Ready for Implementation', 'Implementation Approved', 'Blocked', 'Implemented', 'Deferred'];
 const ARTIFACT_DIRS = [
   { key: 'specs',            heading: 'Specs',             subdir: 'specs' },
   { key: 'contracts',        heading: 'Contracts',          subdir: 'contracts' },

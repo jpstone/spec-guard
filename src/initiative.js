@@ -27,8 +27,6 @@ export const INITIATIVE_QUESTIONS = {
       question: 'What is explicitly out of scope for this initiative?',
       notes: 'Be specific. Out-of-scope items prevent scope creep during implementation.',
     },
-  ],
-  optional: [
     {
       id: 'deployment_target',
       question: 'What is the intended deployment target or environment for this project? (e.g. "Vercel + Supabase", "AWS Lambda", "Docker on VPS", "TBD")',
@@ -39,6 +37,8 @@ export const INITIATIVE_QUESTIONS = {
       question: 'Does this project depend on any external services that need to be substituted during development and testing? (e.g. payment processors, email providers, third-party APIs)',
       notes: 'List each service boundary that needs a test double or stub. Leave blank if none. Asked after deployment_target.',
     },
+  ],
+  optional: [
     {
       id: 'integrations',
       question: 'What external systems, APIs, or services does this integrate with?',
@@ -101,7 +101,23 @@ export async function saveInitiative({ name, title, description, slices, dir = '
 
   // Build injected infrastructure slices (prepended before user-provided slices)
   const injectedSlices = buildInjectedSlices({ deployment_target, external_dependencies });
-  const allSlices = [...injectedSlices, ...slices];
+
+  // For user-provided slices that carry a per-slice external_dependencies annotation,
+  // populate a dependencies field pointing to the relevant infrastructure slices.
+  const topLevelDeps = [...new Set((external_dependencies || []).map(d => String(d).trim()).filter(Boolean))];
+  const enrichedSlices = slices.map(slice => {
+    const sliceDeps = Array.isArray(slice.external_dependencies)
+      ? slice.external_dependencies.map(d => String(d).trim()).filter(d => topLevelDeps.includes(d))
+      : [];
+    if (sliceDeps.length === 0) return slice;
+    const depSliceNames = [
+      ...sliceDeps.map(d => `${d.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-substitution`),
+      'real-dep-env',
+    ];
+    return { ...slice, dependencies: [...new Set([...(slice.dependencies || []), ...depSliceNames])] };
+  });
+
+  const allSlices = [...injectedSlices, ...enrichedSlices];
 
   const initiativesDir = resolve(dir, '.spec-guard', 'initiatives');
   await mkdir(initiativesDir, { recursive: true });
@@ -113,6 +129,10 @@ export async function saveInitiative({ name, title, description, slices, dir = '
     path: outputPath,
     slices: allSlices.map(s => ({
       name: s.name,
+      title: s.title,
+      description: s.description || null,
+      acceptance_criteria: s.acceptance_criteria || [],
+      dependencies: s.dependencies || [],
       suggestedSpecPath: `.spec-guard/specs/${s.name}.md`,
     })),
   };
@@ -130,6 +150,18 @@ function buildInjectedSlices({ deployment_target, external_dependencies }) {
     description: targetKnown
       ? `Ensure the project runs correctly on the target deployment environment: ${deployment_target}. Document required environment variables, build steps, and any platform-specific constraints. All feature slices must be portable to this target.`
       : `Deployment target is TBD or unknown. Establish portability discipline: use environment variables for all configuration, avoid hard-coded paths or platform-specific assumptions, and document any deployment constraints as they are discovered. Update this slice when the deployment target is confirmed.`,
+    acceptance_criteria: targetKnown
+      ? [
+          'All environment-specific configuration (hostnames, ports, credentials, feature flags, runtime paths) is externalized and not hardcoded anywhere in the implementation.',
+          'Any required ambient service, runtime version, or filesystem dependency is explicitly declared in the project\'s dependency manifest or equivalent.',
+          'A documented configuration surface lists what a deployer must provide to run the system in any target environment.',
+          `The specific constraints imposed by the known deployment target (${deployment_target}) are documented: artifact format, runtime expectations, and any host-provided services.`,
+        ]
+      : [
+          'All environment-specific configuration (hostnames, ports, credentials, feature flags, runtime paths) is externalized and not hardcoded anywhere in the implementation.',
+          'No undeclared assumptions about the host environment — any required ambient service, runtime version, or filesystem layout is declared explicitly in the project\'s dependency manifest or equivalent.',
+          'A documented configuration surface provides the complete inventory of what any deployer must provide to run the system in a new environment.',
+        ],
     _injected: true,
   });
 
@@ -142,6 +174,12 @@ function buildInjectedSlices({ deployment_target, external_dependencies }) {
       title: 'External Dependency Substitution Strategy',
       classification: 'Direct behavior with no new API or UI',
       description: `Define the project-wide strategy for substituting external service dependencies during development and testing. Establishes where substitutes live (domain-aligned, co-located with real implementations), how they are activated (environment variable, configuration, or entry point), and the interface contract they must satisfy.`,
+      acceptance_criteria: [
+        'The project\'s toggle mechanism for switching between substitute and real external services is selected and documented (environment variable, configuration flag, or entry point — do not specify the mechanism here; record the decision in this spec).',
+        'A module organization convention establishes where substitutes live: co-located with the real implementation in the same module or directory, not collected into a centralized substitutes directory.',
+        'A shape contract discipline defines the interface contract all substitutes must satisfy: the substitute must match the interface shape of the real implementation it replaces.',
+        'Real-dependency mode: when the toggle is in real-dependency mode, the system connects to actual external services without code changes or recompilation.',
+      ],
       _injected: true,
     });
 
@@ -151,6 +189,12 @@ function buildInjectedSlices({ deployment_target, external_dependencies }) {
       title: 'Real Dependency Development Environment',
       classification: 'Operational/document deliverable',
       description: `Document and provision the development environment for running against real external services (${deps.join(', ')}). This slice is the project-wide canonical record for real-dependency environment setup. Update it whenever a new service boundary is added to the project.`,
+      acceptance_criteria: [
+        `Credentials and endpoint configuration for real external services (${deps.join(', ')}) are supplied to the system without hardcoding — documented approach uses the same toggle mechanism defined in the substitution-strategy slice.`,
+        'A developer can switch from substitute mode to real-dependency mode using the toggle defined in the substitution strategy, with no code changes or recompilation required.',
+        'Documented steps allow a new contributor to configure credentials and endpoint references and run the system in real-dependency mode.',
+        'This slice is the project\'s canonical record for real-dependency configuration — it must be updated to include credentials, endpoint configuration, and contributor steps as new external service boundaries are added to the project.',
+      ],
       _injected: true,
     });
 
@@ -162,6 +206,13 @@ function buildInjectedSlices({ deployment_target, external_dependencies }) {
         title: `${dep} Substitution`,
         classification: 'Direct behavior with no new API or UI',
         description: `Implement the ${dep} substitute (test double / stub) following the project substitution strategy. The real-dep-env slice must cover ${dep} as part of its canonical environment record.`,
+        dependencies: ['substitution-strategy'],
+        acceptance_criteria: [
+          `A toggle mechanism consistent with the project substitution strategy activates the ${dep} substitute or connects to the real ${dep} service.`,
+          `The ${dep} substitute is placed in a domain-aligned module — the same module or directory as the real ${dep} implementation being substituted, not in a centralized substitutes directory.`,
+          `An interface shape contract asserts that the ${dep} substitute matches the interface shape of the real ${dep} implementation it replaces.`,
+          `The real-dep-env slice covers ${dep} credentials, endpoint configuration, and contributor steps for running against the real ${dep} service.`,
+        ],
         _injected: true,
       });
     }
@@ -257,12 +308,19 @@ const UI_CLASSIFICATIONS = new Set(['One-off application UI', 'Reusable UI compo
 const API_CLASSIFICATIONS = new Set(['REST/service API', 'Reusable non-UI API']);
 
 function buildInitiativeArtifact({ title, description, slices, deployment_target = null, external_dependencies = [] }) {
-  const rows = slices
-    .map(s => `| ${s.name} | ${s.title} | ${s.classification} | ${s.description} |`)
+  const injectedSlices = slices.filter(s => s._injected);
+  const featureSlices  = slices.filter(s => !s._injected);
+
+  const featureRows = featureSlices
+    .map(s => {
+      const depsCell = Array.isArray(s.dependencies) && s.dependencies.length > 0
+        ? ` Dependencies: ${s.dependencies.join(', ')}.` : '';
+      return `| ${s.name} | ${s.title} | ${s.classification} | ${s.description}${depsCell} |`;
+    })
     .join('\n');
 
-  const hasUI  = slices.some(s => UI_CLASSIFICATIONS.has(s.classification));
-  const hasAPI = slices.some(s => API_CLASSIFICATIONS.has(s.classification));
+  const hasUI  = featureSlices.some(s => UI_CLASSIFICATIONS.has(s.classification));
+  const hasAPI = featureSlices.some(s => API_CLASSIFICATIONS.has(s.classification));
   const integrationNote = hasUI && hasAPI
     ? `\n## Cross-Slice Integration
 
@@ -280,26 +338,38 @@ This initiative includes both UI and API slices. After both are implemented, at 
     ? `\n## External Dependencies\n\n${deps.map(d => `- ${d}`).join('\n')}\n`
     : '';
 
+  const infraSection = injectedSlices.length > 0
+    ? `\n## Infrastructure Slices\n\nThe following slices are automatically proposed and must be implemented before the feature slices that depend on them.\n\n${injectedSlices.map(s => {
+        const depsLine = Array.isArray(s.dependencies) && s.dependencies.length > 0
+          ? `\n**Dependencies:** ${s.dependencies.join(', ')}  `
+          : '';
+        const acs = Array.isArray(s.acceptance_criteria) && s.acceptance_criteria.length > 0
+          ? `\n  **Acceptance Criteria:**\n${s.acceptance_criteria.map(ac => `  - ${ac}`).join('\n')}`
+          : '';
+        return `### ${s.name}\n\n**Title:** ${s.title}  \n**Classification:** ${s.classification}  ${depsLine}\n**Description:** ${s.description}${acs}`;
+      }).join('\n\n')}\n`
+    : '';
+
   return `# Initiative: ${title}
 
 ## Description
 
 ${description}
-${deploymentNote}${depsNote}
+${deploymentNote}${depsNote}${infraSection}
 ## Feature Slices
 
 | Name | Title | Classification | Description |
 |------|-------|----------------|-------------|
-${rows}
+${featureRows || '_(none specified)_'}
 ${integrationNote}
 ## Next Steps
 
-For each slice, run:
+For each slice (infrastructure slices first, then feature slices), run:
 
 \`\`\`
 npx spec-guard draft <slice-name>
 \`\`\`
 
-Or via MCP: call \`spec_guard_draft_spec\` with the slice name and description as inputs.
+Or via MCP: call \`spec_guard_draft_spec\` with the slice name, description, and acceptance criteria as inputs.
 `;
 }

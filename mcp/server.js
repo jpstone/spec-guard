@@ -38,6 +38,7 @@ import { buildSpecFromAnswers, interviewQuestions } from '../src/discover.js';
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics } from '../src/suggest.js';
 import { initiativeQuestions, initiativeQuestionsWithContext, saveInitiative } from '../src/initiative.js';
+import { regenerateArtifactIndex } from '../src/artifact-index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -455,6 +456,22 @@ async function toolConfirmGate({ spec_path, gate, confirmed, evidence }) {
     };
   }
 
+  if (gate === 3 && confirmed) {
+    let specText;
+    try {
+      specText = await readFile(resolve(spec_path), 'utf8');
+    } catch (err) {
+      return { success: false, error: `Cannot read spec: ${err.message}` };
+    }
+    const currentStatus = getSpecStatus(specText);
+    if (currentStatus !== 'Implementation Approved') {
+      return {
+        success: false,
+        error: `Gate 3 cannot be confirmed: explicit human authorization is required before implementation can begin. Current status: "${currentStatus || '(none)'}". Once the human authorizes, set the spec status to "Implementation Approved" and then confirm Gate 3. "Ready for Implementation" is not sufficient — the human must give explicit go-ahead.`,
+      };
+    }
+  }
+
   const runDir = resolve('.spec-guard/runs');
   await mkdir(runDir, { recursive: true });
 
@@ -547,6 +564,7 @@ async function toolCreateArtifact({ kind, output_path, spec_path }) {
     if (spec_path && isSpecLinkedArtifactKind(kind)) {
       await addArtifactLinkToSpec(spec_path, output_path, kind.replace(/-/g, ' '));
     }
+    await regenerateArtifactIndex({ dir: inferProjectRoot(output_path) });
     return {
       success: true,
       kind,
@@ -720,6 +738,7 @@ async function toolDraftSpec({
           await mkdir(dirname(resolve(outputPath)), { recursive: true });
           await writeFile(resolve(outputPath), specText, { flag: 'wx' });
           result.written_to = outputPath;
+          await regenerateArtifactIndex({ dir: inferProjectRoot(outputPath) });
         } catch (writeErr) {
           result.write_error = writeErr.message;
         }
@@ -876,10 +895,23 @@ async function toolInitiativeQuestions({ output_dir: dir = '.' } = {}) {
 }
 
 async function toolSaveInitiative({ name, title, description, slices, output_dir: dir = '.', deployment_target = null, external_dependencies = [] }) {
-  return saveInitiative({ name, title, description, slices, dir, deployment_target, external_dependencies });
+  const result = await saveInitiative({ name, title, description, slices, dir, deployment_target, external_dependencies });
+  if (!result.error) await regenerateArtifactIndex({ dir });
+  return result;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Infer the project root from a file path. If the path contains `.spec-guard/`,
+ * the project root is everything before it. Otherwise falls back to CWD ('.').
+ */
+function inferProjectRoot(filePath) {
+  if (!filePath) return '.';
+  const abs = resolve(filePath).replace(/\\/g, '/');
+  const idx = abs.indexOf('/.spec-guard/');
+  return idx !== -1 ? abs.slice(0, idx) : '.';
+}
 
 async function collectMarkdownFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true });

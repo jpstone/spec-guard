@@ -66,15 +66,6 @@ test('init creates Spec Guard directories', () => {
   assert.equal(existsSync(join(directory, '.spec-guard', 'runs')), true);
 });
 
-test('init creates starter spec', () => {
-  const directory = tempDir();
-  runCli(['init'], { cwd: directory });
-
-  const specPath = join(directory, '.spec-guard', 'specs', 'example.md');
-  assert.equal(existsSync(specPath), true);
-  assert.match(readFileSync(specPath, 'utf8'), /^# Spec/);
-});
-
 test('init creates AGENTS.md', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
@@ -109,15 +100,6 @@ test('init does not overwrite existing WORKFLOW.md', () => {
   assert.equal(readFileSync(join(directory, 'WORKFLOW.md'), 'utf8'), 'existing content');
 });
 
-test('init does not overwrite existing starter spec', () => {
-  const directory = tempDir();
-  runCli(['init'], { cwd: directory });
-  const specPath = join(directory, '.spec-guard', 'specs', 'example.md');
-  writeFileSync(specPath, 'existing spec');
-  runCli(['init'], { cwd: directory });
-
-  assert.equal(readFileSync(specPath, 'utf8'), 'existing spec');
-});
 
 test('init exits 2 when unexpected arguments are given', () => {
   const result = runCli(['init', 'some-dir']);
@@ -459,7 +441,8 @@ test('confirm-gate records gate 4 with evidence', () => {
   assert.equal(state.failureFirstReason, 'test auth.test.js fails: 401 not 403');
 });
 
-test('confirm-gate 4 updates spec status to Ready', () => {
+// AC: confirm-gate 4 updates spec status to Ready for Implementation (renamed from Ready).
+test('confirm-gate 4 updates spec status to Ready for Implementation', () => {
   const directory = tempDir();
   runCli(['init'], { cwd: directory });
   const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
@@ -468,7 +451,50 @@ test('confirm-gate 4 updates spec status to Ready', () => {
   const result = runCli(['confirm-gate', 'my-spec', '4', '--evidence=test fails before implementation'], { cwd: directory });
 
   assert.equal(result.status, 0);
-  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Ready/);
+  assert.match(readFileSync(specPath, 'utf8'), /## Status\s+Ready for Implementation/);
+});
+
+// AC: confirm-gate 3 returns non-zero exit code when spec status is not Implementation Approved.
+test('confirm-gate 3 exits 1 with error when spec status is Draft (not Implementation Approved)', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, readFileSync('test/fixtures/valid-spec.md', 'utf8'));
+  // valid-spec.md has Draft status
+
+  const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=planned stack'], { cwd: directory });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Implementation Approved/);
+});
+
+// AC: confirm-gate 3 returns non-zero exit code when spec status is Ready for Implementation.
+test('confirm-gate 3 exits 1 with error when spec status is Ready for Implementation', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8');
+  // Inject a Status section after the first heading (fixture has no ## Status section)
+  writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nReady for Implementation'));
+
+  const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=planned stack'], { cwd: directory });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Implementation Approved/);
+});
+
+// AC: confirm-gate 3 succeeds when spec status is Implementation Approved.
+test('confirm-gate 3 succeeds when spec status is Implementation Approved', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8');
+  // Inject a Status section after the first heading (fixture has no ## Status section)
+  writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nImplementation Approved'));
+
+  const result = runCli(['confirm-gate', 'my-spec', '3', '--evidence=planned stack'], { cwd: directory });
+
+  assert.equal(result.status, 0);
 });
 
 test('confirm-gate 6 updates spec status to Implemented and gate-status reports it', () => {
@@ -701,4 +727,43 @@ test('spec-guard run --check-only does not create README.md when none exists', (
   runCli(['run', '--check-only', 'my-spec'], { cwd: directory });
   assert.ok(!existsSync(join(directory, 'README.md')),
     'workflow should not create README.md when none exists');
+});
+
+// AC: The Spec Guard section uses ## heading, contains the exact inline links.
+test('init creates README.md with exact Spec Guard section format', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const content = readFileSync(join(directory, 'README.md'), 'utf8');
+  assert.match(content, /## Spec Guard/, 'should use ## heading');
+  assert.match(content, /\[Spec Guard\]\(https:\/\/github\.com\/jpstone\/spec-guard\)/,
+    'should contain [Spec Guard](https://github.com/jpstone/spec-guard) inline link');
+  assert.match(content, /\[Spec Guard Artifacts\]\(\.spec-guard\/README\.md\)/,
+    'should contain [Spec Guard Artifacts](.spec-guard/README.md) link');
+});
+
+// AC: Workflow inserts project-level content BEFORE the ## Spec Guard section.
+test('spec-guard run --check-only inserts doc links before ## Spec Guard section', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+
+  // Add a Documentation section to README before Spec Guard so maintainReadme has a target
+  const readmePath = join(directory, 'README.md');
+  const initialReadme = readFileSync(readmePath, 'utf8');
+  writeFileSync(readmePath, '# My Project\n\n## Documentation\n\n- [Guide](docs/guide.md)\n\n' + initialReadme);
+
+  const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8') +
+    '\n## Documentation Requirements\n\n- [docs/my-api.md](docs/my-api.md)\n';
+  const specPath = join(directory, '.spec-guard', 'specs', 'my-spec.md');
+  writeFileSync(specPath, specContent);
+  runCli(['run', '--check-only', 'my-spec'], { cwd: directory });
+
+  const result = readFileSync(readmePath, 'utf8');
+  const specGuardIdx = result.indexOf('## Spec Guard');
+  assert.ok(specGuardIdx !== -1, '## Spec Guard section should still be present');
+  // The doc link (if added) should appear before ## Spec Guard
+  const docIdx = result.indexOf('docs/my-api.md');
+  if (docIdx !== -1) {
+    assert.ok(docIdx < specGuardIdx,
+      'any workflow-added content should appear before ## Spec Guard section');
+  }
 });

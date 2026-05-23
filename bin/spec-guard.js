@@ -470,16 +470,6 @@ async function initCommand(args) {
     await mkdir(resolve('.', ...parts), { recursive: true });
   }
 
-  // Starter spec
-  const starterSpec = resolve('.spec-guard', 'specs', 'example.md');
-  try {
-    await access(starterSpec, constants.F_OK);
-  } catch {
-    const template = await readFile(join(rootDir, 'templates', 'spec.md'), 'utf8');
-    await writeFile(starterSpec, template, { flag: 'wx' });
-    console.log(`  Created: .spec-guard/specs/example.md`);
-  }
-
   // AGENTS.md — stays at project root for agent context auto-loading
   const agentsFile = resolve('AGENTS.md');
   try {
@@ -740,6 +730,24 @@ async function confirmGateCommand(args) {
     return 2;
   }
 
+  if (gate === 3 && confirmed) {
+    let specText;
+    try {
+      specText = await readFile(resolve(inputPath), 'utf8');
+    } catch {
+      console.error(`Cannot read spec: ${inputPath}`);
+      return 2;
+    }
+    const currentStatus = getSpecStatus(specText);
+    if (currentStatus !== 'Implementation Approved') {
+      console.error(`Gate 3 cannot be confirmed: explicit human authorization is required before implementation can begin.`);
+      console.error(`  Current status: ${currentStatus || '(none)'}`);
+      console.error(`  Once the human authorizes implementation, set the spec status to "Implementation Approved" and then confirm Gate 3.`);
+      console.error(`  Note: "Ready for Implementation" is not sufficient — the human must give explicit go-ahead.`);
+      return 1;
+    }
+  }
+
   const runDir = resolve(SG.runs);
   await mkdir(runDir, { recursive: true });
 
@@ -758,7 +766,7 @@ async function confirmGateCommand(args) {
     if (gate === 4) {
       runState.failureFirstConfirmed = true;
       runState.failureFirstReason = evidence;
-      await updateSpecStatus(inputPath, 'Ready');
+      await updateSpecStatus(inputPath, 'Ready for Implementation');
     }
     if (gate === 6) {
       await updateSpecStatus(inputPath, 'Implemented');

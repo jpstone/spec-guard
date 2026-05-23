@@ -119,6 +119,21 @@ spec_guard_save_initiative({
 
 **Step 4 — Proceed spec-by-spec.** For each slice returned, call `spec_guard_draft_spec` and follow the standard 5-gate workflow for that slice independently.
 
+### Proposed Slice Ordering
+
+`spec_guard_save_initiative` automatically injects infrastructure slices in the following order — before any feature slices:
+
+1. **Deployment Portability** — always injected first, regardless of other inputs. Ensures the project makes no environment-specific assumptions (hardcoded hosts, ports, paths). When a `deployment_target` is known, the slice's AC covers the specific target constraints; when TBD/unknown, it covers externalized configuration, no undeclared host assumptions, and a documented configuration surface.
+2. **Substitution Strategy** — injected when `external_dependencies` are identified. Establishes the project-wide toggle mechanism, module organization convention, and shape contract discipline for all substitutes.
+3. **Real Dependency Development Environment** — injected once (not per-dependency) when external dependencies exist. Covers credential/config supply without hardcoding, mode-switching, and new-contributor setup. This is the project's extensible canonical record for real-dependency configuration — update it whenever a new service boundary is added.
+4. **Per-Dependency Substitution Slices** — one per named dependency boundary. Each covers a domain-aligned substitute (co-located with the real implementation), a toggle consistent with the project strategy, and an interface shape contract.
+
+Feature slices follow after all infrastructure slices.
+
+### Feature Slices with Existing Substitution Infrastructure
+
+When implementing a feature slice on a project that already has substitution infrastructure from a prior initiative, check the initiative artifact for applicable per-dependency substitution slices and the real-dependency development environment slice. Reference them in the feature slice's `Dependencies` section before proceeding to implementation.
+
 ---
 
 ## Authoring a Spec
@@ -360,10 +375,14 @@ There is no interactive README preference question. The presence or absence of `
 | Status | Meaning |
 |---|---|
 | `Draft` | Active — being authored or awaiting implementation |
-| `Ready` | Spec valid; confirmed by Gate 4 (tests written and failing) |
+| `Pending Approval` | Spec is complete; awaiting human review. Set this when you finish writing a spec and ask the human to review it. Gate 3 is blocked. |
+| `Ready for Implementation` | Human has reviewed and approved the spec content; queued for implementation. Gate 3 is still blocked — this status is not sufficient to begin implementing. |
+| `Implementation Approved` | Human has explicitly authorized implementation. This is the only status that allows Gate 3 to be confirmed. Set this only after the human tells you to proceed. |
 | `Blocked` | Cannot proceed — a blocker artifact records the reason |
 | `Implemented` | All 6 gates passed; confirmed by Gate 6 |
 | `Deferred` | Deliberately parked — drafted and considered, but indefinitely on hold with no current intention to implement. Not blocked by a specific problem; simply deprioritized. To reactivate, change the status back to `Draft`. |
+
+**Gate 3 enforcement:** `spec-guard confirm-gate 3` (and `spec_guard_confirm_gate` via MCP) will hard-error unless the spec status is `Implementation Approved`. If the spec is in any other status — including `Ready for Implementation` — Gate 3 is blocked. The error message will instruct you to get explicit human authorization first, then set the status to `Implementation Approved`, then confirm Gate 3.
 
 `Deferred` is informational only. `spec-guard check` validates Deferred specs normally; gate rules still apply if gates were previously confirmed. Do not implement a Deferred spec without an explicit decision to reactivate it.
 

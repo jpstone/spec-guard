@@ -122,7 +122,6 @@ See the [MCP Reference](mcp/README.md) for full setup and usage.
 ```
 .spec-guard/
   specs/
-    example.md
   contracts/
   blockers/
   scope-discoveries/

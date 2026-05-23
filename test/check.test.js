@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { CLASSIFICATIONS, checkSpecText, formatDiagnostic, getSelectedClassifications, getSpecStatus, getSpecTitle } from '../src/check.js';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
@@ -328,12 +329,41 @@ test('checkSpecText does not flag Deferred as invalid status (no SG-SPEC-006)', 
 });
 
 // AC: existing valid statuses remain valid.
-test('checkSpecText does not flag Draft, Ready, Blocked, Implemented as invalid', () => {
-  for (const status of ['Draft', 'Ready', 'Blocked', 'Implemented']) {
+test('checkSpecText does not flag Draft, Blocked, Implemented as invalid', () => {
+  for (const status of ['Draft', 'Blocked', 'Implemented']) {
     const spec = validSpec + `\n## Status\n\n${status}\n`;
     const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
     assert.equal(diags.length, 0, `${status} should be a valid status`);
   }
+});
+
+// AC: spec-guard check accepts Pending Approval as a valid status value.
+test('checkSpecText does not flag Pending Approval as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nPending Approval\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Pending Approval should be a valid status');
+});
+
+// AC: spec-guard check accepts Ready for Implementation as a valid status value.
+test('checkSpecText does not flag Ready for Implementation as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nReady for Implementation\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Ready for Implementation should be a valid status');
+});
+
+// AC: spec-guard check accepts Implementation Approved as a valid status value.
+test('checkSpecText does not flag Implementation Approved as invalid (no SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nImplementation Approved\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 0, 'Implementation Approved should be a valid status');
+});
+
+// AC: spec-guard check flags Ready as an unrecognized status (no longer valid after rename).
+test('checkSpecText flags Ready as invalid status (SG-SPEC-006)', () => {
+  const spec = validSpec + '\n## Status\n\nReady\n';
+  const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
+  assert.equal(diags.length, 1, 'Ready should produce SG-SPEC-006 after rename');
+  assert.equal(diags[0].severity, 'INFO');
 });
 
 // AC: unrecognized status still produces SG-SPEC-006.
@@ -342,4 +372,23 @@ test('checkSpecText flags unknown status with SG-SPEC-006', () => {
   const diags = checkSpecText(spec, 'test.md').filter(d => d.ruleId === 'SG-SPEC-006');
   assert.equal(diags.length, 1, 'Unknown status should produce SG-SPEC-006');
   assert.equal(diags[0].severity, 'INFO');
+});
+
+// ─── spec-status-deferred: documentation ACs ─────────────────────────────────
+
+// AC: templates/spec.md documents Deferred as a valid status value.
+test('templates/spec.md status comment includes Deferred', () => {
+  const template = readFileSync('templates/spec.md', 'utf8');
+  assert.match(template, /Deferred/, 'spec template should document Deferred as a valid status');
+});
+
+// AC: AGENTS.md documents Deferred status and when to apply it.
+test('AGENTS.md documents Deferred status with definition and when to use it', () => {
+  const agents = readFileSync('AGENTS.md', 'utf8');
+  assert.match(agents, /Deferred/,
+    'AGENTS.md should document the Deferred status');
+  assert.match(agents, /indefinitely|on hold|parked|no current intention/i,
+    'AGENTS.md should describe when to use Deferred');
+  assert.match(agents, /Draft.*reactivate|back to.*Draft|status back/i,
+    'AGENTS.md should explain that changing status back to Draft reactivates the spec');
 });

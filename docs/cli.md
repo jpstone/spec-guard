@@ -176,7 +176,6 @@ Creates the recommended directory structure in the current directory:
 ```text
 .spec-guard/
   specs/
-    example.md
   contracts/
   initiatives/
   blockers/

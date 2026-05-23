@@ -6,7 +6,7 @@ Initiative Trigger Condition
 
 ## Status
 
-Draft
+Implemented
 
 ## Problem / Goal
 
