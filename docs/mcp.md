@@ -405,6 +405,41 @@ Returns `{ error }` when: any `name` contains characters outside `[a-z0-9-]`, an
 
 ---
 
+### `spec_guard_set_status`
+
+Update a spec's `Status` field and regenerate the artifact index atomically. Use this instead of editing the spec file directly — direct edits leave the artifact index stale.
+
+**Input**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `spec_path` | string | ✓ | Path to the spec markdown file |
+| `status` | string | ✓ | New status value (see valid values below) |
+
+Valid `status` values: `Draft`, `Pending Approval`, `Ready for Implementation`, `Implementation Active`, `Blocked`, `Implemented`, `Deferred`.
+
+**Status lifecycle during spec authoring:**
+
+| When | Status to set |
+|---|---|
+| Presenting spec to the user for review | `Pending Approval` |
+| User approves the spec | `Ready for Implementation` |
+| User explicitly authorizes implementation | `Implementation Active` (set before confirming Gate 3) |
+
+**Output** — success:
+
+```json
+{ "status": "Pending Approval", "spec_path": ".spec-guard/specs/my-feature.md", "updated": true }
+```
+
+**Output** — error:
+
+```json
+{ "error": "\"Not Valid\" is not a valid spec status. Valid statuses: Draft, Pending Approval, ..." }
+```
+
+---
+
 ## Diagnostic format
 
 All diagnostic objects share this shape:

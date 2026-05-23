@@ -206,6 +206,15 @@ function checkStatus(text, path) {
     }];
   }
 
+  if (statusLine === 'Draft') {
+    return [{
+      severity: 'WARNING',
+      ruleId: 'SG-STATUS-001',
+      path,
+      message: 'spec status is Draft — use spec-guard set-status to advance to Pending Approval when presenting for review, or Ready for Implementation after approval',
+    }];
+  }
+
   return [];
 }
 
@@ -240,11 +249,27 @@ function checkUIInputs(text, path) {
   const classification = selected[0];
   if (!UI_CLASSIFICATIONS.includes(classification)) return [];
 
-  const allText = text.toLowerCase();
-  const hasMockup = /mockup|wireframe|figma|design.{0,20}direction|sketch|prototype/i.test(allText);
+  const uiTracking = hasHeading(text, 'UI Mockup AC Suggestion Tracking')
+    ? getSection(text, 'UI Mockup AC Suggestion Tracking')
+    : '';
+  const mockupInputProvided = /^\s*-\s*\[[xX]\]\s*One or more mockups\/design inputs were provided\.\s*$/m.test(uiTracking);
+  const mockupAcSuggestionsOffered = /^\s*-\s*\[[xX]\]\s*Mockup-derived acceptance criteria were suggested to the human\.\s*$/m.test(uiTracking);
+
+  const textWithoutTracking = removeSection(text, 'UI Mockup AC Suggestion Tracking');
+  const allText = textWithoutTracking.toLowerCase();
+  const hasMockup = mockupInputProvided || /mockup|wireframe|figma|design.{0,20}direction|sketch|prototype/i.test(allText);
   const hasComponentLib = /component.{0,20}library|design.{0,20}system|ui.{0,20}kit/i.test(allText);
 
   const diagnostics = [];
+
+  if (mockupInputProvided && !mockupAcSuggestionsOffered) {
+    diagnostics.push({
+      severity: 'BLOCKER',
+      ruleId: 'SG-UI-003',
+      path,
+      message: 'UI spec marks mockup/design input as provided, but "Mockup-derived acceptance criteria were suggested to the human" is not checked',
+    });
+  }
 
   if (!hasMockup) {
     diagnostics.push({
@@ -396,6 +421,17 @@ function getSection(text, heading) {
   const rest = text.slice(start);
   const nextHeading = /^##\s+/m.exec(rest);
   return nextHeading ? rest.slice(0, nextHeading.index) : rest;
+}
+
+function removeSection(text, heading) {
+  const escaped = escapeRegExp(heading);
+  const match = new RegExp(`^##\\s+${escaped}\\s*$`, 'm').exec(text);
+  if (!match) return text;
+
+  const rest = text.slice(match.index + match[0].length);
+  const nextHeading = /^##\s+/m.exec(rest);
+  const end = nextHeading ? match.index + match[0].length + nextHeading.index : text.length;
+  return `${text.slice(0, match.index)}${text.slice(end)}`;
 }
 
 function escapeRegExp(value) {

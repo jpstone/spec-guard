@@ -34,10 +34,12 @@
 - [Initiative External Dependency Infrastructure](specs/initiative-external-dependency-infrastructure.md)
 - [Initiative Trigger Condition](specs/initiative-trigger-condition.md)
 - [Minor Version Bump](specs/minor-version-bump.md)
+- [Mockup-Faithful AC Suggestions](specs/mockup-ac-derivation.md)
 - [Pre-Implementation Analyze (analyze --dry-run)](specs/analyze-dry-run.md)
 - [README Maintenance Preference](specs/readme-maintenance-preference.md)
 - [Spec Approval Status Flow](specs/spec-awaiting-approval.md)
 - [Spec Artifact Backlinks](specs/spec-artifact-backlinks.md)
+- [Spec Authoring Lifecycle Gaps](specs/spec-authoring-lifecycle-gaps.md)
 - [Spec Documentation Requirements Integrity](specs/spec-documentation-requirements.md)
 - [Spec Guard Artifact Index](specs/artifact-index.md)
 - [Spec Guard Bypass](specs/spec-guard-bypass.md)
@@ -45,6 +47,8 @@
 - [Spec Status Transitions](specs/spec-status-transitions.md)
 - [spec-guard serve (local markdown viewer)](specs/serve.md)
 - [spec-guard serve HMR does not trigger when .md files are created or modified](specs/serve-hmr-not-triggering.md)
+- [Status Ready Count Bug](specs/status-ready-count-bug.md)
+- [UI Mockup AC Suggestion Marker](specs/ui-mockup-ac-suggestion-marker.md)
 
 ### Deferred
 
@@ -74,17 +78,21 @@
 - [Implementation Review: Initiative Deployment Portability](reviews/initiative-deployment-portability.md)
 - [Implementation Review: Initiative External Dependency Infrastructure](reviews/initiative-external-dependency-infrastructure.md)
 - [Implementation Review: Initiative Trigger Condition](reviews/initiative-trigger-condition.md)
+- [Implementation Review: Mockup-Faithful AC Suggestions](reviews/mockup-ac-derivation.md)
 - [Implementation Review: Pre-Implementation Analyze (analyze --dry-run)](reviews/analyze-dry-run.md)
 - [Implementation Review: Question Sequencing.Md`](reviews/question-sequencing.md)
 - [Implementation Review: Readme Maintenance Preference.Md`](reviews/readme-maintenance-preference.md)
 - [Implementation Review: Spec Approval Status Flow](reviews/spec-awaiting-approval.md)
 - [Implementation Review: Spec Artifact Backlinks.Md`](reviews/spec-artifact-backlinks.md)
+- [Implementation Review: Spec Authoring Lifecycle Gaps](reviews/spec-authoring-lifecycle-gaps.md)
 - [Implementation Review: Spec Documentation Requirements.Md`](reviews/spec-documentation-requirements.md)
 - [Implementation Review: Spec Guard Artifact Index](reviews/artifact-index.md)
 - [Implementation Review: Spec Guard Bypass](reviews/spec-guard-bypass.md)
 - [Implementation Review: Spec Status Transitions.Md`](reviews/spec-status-transitions.md)
 - [Implementation Review: spec-guard serve (local markdown viewer)](reviews/serve.md)
 - [Implementation Review: spec-guard serve HMR does not trigger when .md files are created or modified](reviews/serve-hmr-not-triggering.md)
+- [Implementation Review: Status Ready Count Bug](reviews/status-ready-count-bug.md)
+- [Implementation Review: UI Mockup AC Suggestion Marker](reviews/ui-mockup-ac-suggestion-marker.md)
 
 ## Initiatives
 

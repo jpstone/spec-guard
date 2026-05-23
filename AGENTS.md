@@ -151,6 +151,8 @@ spec_guard_interview_questions()
 **Step 2 — Ask the user each required question from the result using Spec Guard Question Sequencing above.**
 Ask them in order. Do not skip required questions. For optional questions, use judgment.
 
+When the classification is UI-related and the user provides a mockup or design direction during the interview, derive suggested acceptance criteria from the mockup in addition to the user's verbal input. Each distinct element, interaction, or visible state shown in the mockup should have a corresponding suggested AC. Present these as suggestions only — the human may accept, modify, or replace them. In the spec's `UI Mockup AC Suggestion Tracking` section, check `One or more mockups/design inputs were provided.` when applicable and check `Mockup-derived acceptance criteria were suggested to the human.` after making the suggestion. The marker records that suggestions were offered, not that the human accepted them.
+
 **Step 3 — Draft the spec:**
 ```
 spec_guard_draft_spec({
@@ -168,7 +170,20 @@ spec_guard_draft_spec({
 **Step 4 — Check the result.**
 If `gate1_passed` is false, address every item in `missing_required` and retry.
 
-**Step 5 — Present to the user for review.** Do not proceed until the user approves the spec.
+**Step 5 — Present to the user for review.** Set status to `Pending Approval` before presenting:
+```bash
+spec-guard set-status <name> "Pending Approval"
+# or via MCP: spec_guard_set_status({ spec_path: "...", status: "Pending Approval" })
+```
+Do not proceed until the user approves the spec.
+
+**Step 5b — After approval.** Set status to `Ready for Implementation`:
+```bash
+spec-guard set-status <name> "Ready for Implementation"
+# or via MCP: spec_guard_set_status({ spec_path: "...", status: "Ready for Implementation" })
+```
+
+Always use `spec-guard set-status` or `spec_guard_set_status` for status changes — never edit the spec file directly to change the Status field. This keeps the artifact index in sync.
 
 **Step 6 — Run:**
 ```bash

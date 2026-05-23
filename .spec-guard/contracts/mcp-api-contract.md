@@ -29,6 +29,7 @@ The spec-guard MCP server exposes the Spec Guard workflow as MCP tools that AI a
 | `spec_guard_workflow_next_step` | Return the next required action given current gate state |
 | `spec_guard_initiative_questions` | Return question list for initiative decomposition |
 | `spec_guard_save_initiative` | Validate and save an initiative artifact |
+| `spec_guard_set_status` | Update spec Status field and regenerate artifact index atomically |
 
 ---
 
@@ -257,6 +258,19 @@ Returns `{ error }` without writing when: `name` or any slice `name` contains ch
 
 ---
 
+### `spec_guard_set_status`
+
+```
+Input:  { spec_path: string, status: string }
+Output: { status: string, spec_path: string, updated: boolean } | { error: string }
+```
+
+Valid `status` values: `Draft` | `Pending Approval` | `Ready for Implementation` | `Implementation Active` | `Blocked` | `Implemented` | `Deferred`.
+
+Updates the spec's `Status` field and regenerates the artifact index atomically. Always use this tool instead of editing the spec file directly — direct edits leave the index stale. Returns `{ error }` for invalid status values or file errors.
+
+---
+
 ## Inputs
 
 All tools accept JSON objects. Required fields are documented per-tool above. Unknown fields are ignored.
@@ -280,7 +294,7 @@ Tools do not throw. All error conditions return `{ error: string }` or a `diagno
 
 ## Side Effects
 
-Write tools (`spec_guard_draft_spec`, `spec_guard_create_artifact`, `spec_guard_confirm_gate`, `spec_guard_save_initiative`) write files under `.spec-guard/` and may update `.spec-guard/README.md`.
+Write tools (`spec_guard_draft_spec`, `spec_guard_create_artifact`, `spec_guard_confirm_gate`, `spec_guard_save_initiative`, `spec_guard_set_status`) write files under `.spec-guard/` and may update `.spec-guard/README.md`.
 
 Read tools (`spec_guard_check`, `spec_guard_gate_status`, `spec_guard_classify`, `spec_guard_test_guidance`, `spec_guard_validate_directory`, `spec_guard_status`, `spec_guard_analyze`, `spec_guard_interview_questions`, `spec_guard_suggest`, `spec_guard_workflow_next_step`, `spec_guard_initiative_questions`) do not modify files.
 

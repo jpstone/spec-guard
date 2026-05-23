@@ -33,6 +33,7 @@ The `spec-guard` CLI is the primary human-facing and agent-facing interface for 
 | `run <name>` | Orchestrated 6-phase run |
 | `scope-discovery <name>` | Create a scope-discovery artifact |
 | `serve` | Start local markdown viewer |
+| `set-status <spec> <status>` | Update spec Status field and regenerate the artifact index |
 | `status` | Print summary table of all specs |
 | `suggest <spec>` | Gate 1 validation annotated with fix instructions |
 | `validate` | Run `check` on every spec in `.spec-guard/specs/` |
@@ -63,7 +64,7 @@ spec-guard check <spec> [--json] [--warnings]
 
 Validates one spec file. Reports BLOCKERs by default; add `--warnings` for WARNING and INFO diagnostics. Does not modify files.
 
-Exit codes: `0` no blockers, `1` one or more blockers, `2` usage error or unreadable file.
+Exit codes: `0` no blockers (or no warnings when `--warnings` is used), `1` one or more blockers, or one or more warnings when `--warnings` is used, `2` usage error or unreadable file.
 
 ---
 
@@ -116,6 +117,20 @@ Creates an artifact from a template. Refuses to overwrite. When `--spec` is supp
 Available kinds: `spec`, `brownfield-spec`, `api-contract`, `rest-api-contract`, `component-contract`, `one-off-ui`, `operational-document`, `task-plan`, `compound-work`.
 
 Exit codes: `0` written, `1` file exists, `2` usage error.
+
+---
+
+### `set-status`
+
+```bash
+spec-guard set-status <spec> <status>
+```
+
+Updates the spec's `Status` field to the given value and regenerates the artifact index atomically. Use this instead of editing the spec file directly — direct edits leave the index stale.
+
+Valid status values: `Draft`, `Pending Approval`, `Ready for Implementation`, `Implementation Active`, `Blocked`, `Implemented`, `Deferred`.
+
+Exit codes: `0` updated, `1` invalid status or file error, `2` usage error.
 
 ---
 

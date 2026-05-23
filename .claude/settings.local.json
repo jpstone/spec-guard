@@ -107,7 +107,12 @@
       "Bash(node bin/spec-guard.js confirm-gate \".spec-guard/specs/serve-hmr-not-triggering.md\" 4 --evidence \"3 new HMR tests all timeout with 'No HMR reload message received within 6000ms' — chokidar watcher is not broadcasting reload events when .md files are created or modified, including in .spec-guard/ and at the repo root.\")",
       "Bash(node bin/spec-guard.js confirm-gate \".spec-guard/specs/serve-hmr-not-triggering.md\" 5)",
       "Bash(node bin/spec-guard.js review --spec \".spec-guard/specs/serve-hmr-not-triggering.md\" serve-hmr-not-triggering)",
-      "PowerShell(Get-NetTCPConnection -LocalPort 7777 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue })"
+      "PowerShell(Get-NetTCPConnection -LocalPort 7777 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue })",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(Remove-Item mockup-ac-derivation-answers.json)",
+      "PowerShell(node --test test/spec-authoring-lifecycle-gaps.test.js 2>&1)",
+      "PowerShell(tail -20)",
+      "Bash(node -p \"require\\('./package.json'\\).version\")"
     ]
   }
 }

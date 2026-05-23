@@ -59,6 +59,12 @@ Acceptance criteria should use `- [ ] criterion` format to support mechanical ve
 
 The `Status` section, if present, should contain one of: `Draft`, `Pending Approval`, `Ready for Implementation`, `Implementation Active`, `Blocked`, `Implemented`, `Deferred`.
 
+### SG-STATUS-001: Spec status is not Draft at Gate 2
+
+**Severity:** WARNING
+
+The spec status is `Draft`. Before Gate 2 (`spec-guard check --warnings`) can pass, the status must be advanced to at least `Pending Approval`. Use `spec-guard set-status <name> "Pending Approval"` when presenting the spec for review, and `spec-guard set-status <name> "Ready for Implementation"` after the human approves it.
+
 ### SG-SPEC-007: Acceptance criteria are measurable
 
 **Severity:** INFO

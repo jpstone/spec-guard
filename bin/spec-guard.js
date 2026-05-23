@@ -17,7 +17,7 @@ import { initiativeQuestions, initiativeQuestionsWithContext, saveInitiative, in
 import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics, suggestFix } from '../src/suggest.js';
 import { addDocLinkToReadme } from '../src/readme-maintenance.js';
-import { updateSpecStatus } from '../src/spec-status.js';
+import { updateSpecStatus, SPEC_STATUSES } from '../src/spec-status.js';
 import { regenerateArtifactIndex } from '../src/artifact-index.js';
 import { serve } from '../src/serve.js';
 
@@ -116,6 +116,7 @@ async function run(args) {
   if (command === 'watch')           return watchCommand(rest);
   if (command === 'gate-status')     return gateStatusCommand(rest);
   if (command === 'confirm-gate')    return confirmGateCommand(rest);
+  if (command === 'set-status')      return setStatusCommand(rest);
   if (command === 'next')            return nextCommand(rest);
   if (command === 'interview-questions')  return interviewQuestionsCommand(rest);
   if (command === 'initiative-questions') return initiativeQuestionsCommand(rest);
@@ -289,7 +290,9 @@ async function checkCommand(args) {
       }
     }
 
-    return diagnostics.some((d) => d.severity === 'BLOCKER') ? 1 : 0;
+    const hasBlockers = diagnostics.some((d) => d.severity === 'BLOCKER');
+    const hasWarnings = flags.warnings && diagnostics.some((d) => d.severity === 'WARNING');
+    return (hasBlockers || hasWarnings) ? 1 : 0;
   } catch (error) {
     console.error(`[BLOCKER] SG-USAGE-001 ${inputPath}: ${error.message}`);
     return 2;
@@ -700,6 +703,39 @@ async function gateStatusCommand(args) {
   console.log('');
 
   return 0;
+}
+
+// ─── set-status ───────────────────────────────────────────────────────────────
+
+async function setStatusCommand(args) {
+  const flags = parseFlags(args);
+
+  if (flags.positional.length < 2) {
+    console.error('Usage: spec-guard set-status <spec> <status>');
+    console.error(`  Valid statuses: ${SPEC_STATUSES.join(', ')}`);
+    return 2;
+  }
+
+  const [specName, ...statusParts] = flags.positional;
+  const status = statusParts.join(' ');
+
+  if (!SPEC_STATUSES.includes(status)) {
+    console.error(`Error: "${status}" is not a valid spec status.`);
+    console.error(`  Valid statuses: ${SPEC_STATUSES.join(', ')}`);
+    return 1;
+  }
+
+  const inputPath = withDefaultDir(specName, SG.specs);
+  try {
+    await updateSpecStatus(inputPath, status);
+    await regenerateArtifactIndex();
+    console.log(`  Status updated: ${status}`);
+    console.log(`  Spec:          ${inputPath}`);
+    return 0;
+  } catch (err) {
+    console.error(`Error updating status: ${err.message}`);
+    return 1;
+  }
 }
 
 // ─── confirm-gate ─────────────────────────────────────────────────────────────
@@ -1131,7 +1167,7 @@ async function statusCommand(args) {
 
   const total = rows.length;
   const clean = rows.filter(r => r.blockers === 0 && r.warnings === 0).length;
-  const ready = rows.filter(r => r.status === 'Ready').length;
+  const ready = rows.filter(r => r.status === 'Ready for Implementation').length;
   const blocked = rows.filter(r => r.status === 'Blocked').length;
   console.log(`\n${total} spec(s) — ${ready} Ready, ${blocked} Blocked, ${clean} clean\n`);
   return 0;

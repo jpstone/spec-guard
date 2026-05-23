@@ -32,6 +32,15 @@
 
 - [ ] 
 
+## UI Mockup AC Suggestion Tracking
+
+<!-- UI classifications only. If one or more mockups/design inputs were provided,
+     check both items after suggesting mockup-derived acceptance criteria to the human.
+     The second checkbox records that suggestions were offered, not that the human accepted them. -->
+
+- [ ] One or more mockups/design inputs were provided.
+- [ ] Mockup-derived acceptance criteria were suggested to the human.
+
 ## Edge Cases
 
 - 

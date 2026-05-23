@@ -421,6 +421,22 @@ test('gate-status exits 2 with no args', () => {
   assert.match(result.stderr, /Usage: spec-guard gate-status/);
 });
 
+// ─── status ──────────────────────────────────────────────────────────────────
+
+test('status summary counts Ready for Implementation specs as Ready', () => {
+  const directory = tempDir();
+  runCli(['init'], { cwd: directory });
+  const specPath = join(directory, '.spec-guard', 'specs', 'ready-spec.md');
+  const specContent = readFileSync('test/fixtures/valid-spec.md', 'utf8');
+  writeFileSync(specPath, specContent.replace(/(^# .+$)/m, '$1\n\n## Status\n\nReady for Implementation'));
+
+  const result = runCli(['status'], { cwd: directory });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Ready for Implementation/);
+  assert.match(result.stdout, /1 spec\(s\) — 1 Ready, 0 Blocked, 1 clean/);
+});
+
 // ─── confirm-gate ─────────────────────────────────────────────────────────────
 
 test('confirm-gate records gate 4 with evidence', () => {

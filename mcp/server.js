@@ -39,6 +39,7 @@ import { analyzeArtifacts } from '../src/analyze.js';
 import { annotateDiagnostics } from '../src/suggest.js';
 import { initiativeQuestions, initiativeQuestionsWithContext, saveInitiative } from '../src/initiative.js';
 import { regenerateArtifactIndex } from '../src/artifact-index.js';
+import { updateSpecStatus, SPEC_STATUSES } from '../src/spec-status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
@@ -300,6 +301,22 @@ const TOOLS = [
       required: ['name', 'title', 'description', 'slices'],
     },
   },
+  {
+    name: 'spec_guard_set_status',
+    description: 'Update a spec\'s Status field and regenerate the artifact index atomically. Use this instead of editing the spec file directly. Call with Pending Approval when presenting a spec for review; Ready for Implementation after the human approves it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spec_path: { type: 'string', description: 'Path to the spec markdown file' },
+        status: {
+          type: 'string',
+          description: 'New status value',
+          enum: ['Draft', 'Pending Approval', 'Ready for Implementation', 'Implementation Active', 'Blocked', 'Implemented', 'Deferred'],
+        },
+      },
+      required: ['spec_path', 'status'],
+    },
+  },
 ];
 
 // ─── Tool handlers ────────────────────────────────────────────────────────────
@@ -321,6 +338,7 @@ async function handleTool(name, input) {
     case 'spec_guard_workflow_next_step':  return toolWorkflowNextStep(input);
     case 'spec_guard_initiative_questions': return toolInitiativeQuestions(input);
     case 'spec_guard_save_initiative':      return toolSaveInitiative(input);
+    case 'spec_guard_set_status':           return toolSetStatus(input);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -898,6 +916,19 @@ async function toolSaveInitiative({ name, title, description, slices, output_dir
   const result = await saveInitiative({ name, title, description, slices, dir, deployment_target, external_dependencies });
   if (!result.error) await regenerateArtifactIndex({ dir });
   return result;
+}
+
+async function toolSetStatus({ spec_path, status }) {
+  if (!SPEC_STATUSES.includes(status)) {
+    return { error: `"${status}" is not a valid spec status. Valid statuses: ${SPEC_STATUSES.join(', ')}` };
+  }
+  try {
+    await updateSpecStatus(spec_path, status);
+    await regenerateArtifactIndex();
+    return { status, spec_path, updated: true };
+  } catch (err) {
+    return { error: err.message };
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
