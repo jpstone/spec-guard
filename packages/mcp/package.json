@@ -1,0 +1,15 @@
+{
+  "name": "@spec-guard/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "spec-guard-mcp": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@spec-guard/core": "0.0.0"
+  }
+}

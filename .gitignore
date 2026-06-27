@@ -1,6 +1,9 @@
 node_modules/
-coverage/
 dist/
+coverage/
+.spec-guard/
+.vitest/
+*.tsbuildinfo
+
+# npm pack artifacts
 *.tgz
-.DS_Store
-.spec-guard/runs/

@@ -1,9 +1,59 @@
-node_modules/
-coverage/
-dist/
-*.tgz
-.DS_Store
+# VCS / editor metadata
 .git/
 .github/
-test/
-spec-guard-conversation.txt
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Dependencies and package-manager caches
+node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Local Spec Guard artifacts / generated local harness files
+.spec-guard/
+.mcp.json
+.pi/
+.cursor/
+.cline/
+.roo/
+.windsurf/
+SPEC_GUARD_AGENT_GUIDE.md
+
+# Test and coverage artifacts
+coverage/
+.nyc_output/
+**/coverage/
+**/tests/
+**/*.test.ts
+**/*.spec.ts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript/test tooling config not needed in the published package
+vitest.config.ts
+
+# Repo planning/review artifacts used during implementation
+PROMPT_*.md
+MILESTONE_*.md
+IMPLEMENTATION_PLAN.md
+agentic-redesign.md
+
+# Temporary/build caches
+tmp/
+temp/
+.cache/
+.turbo/
+.vite/
+
+# OS/runtime leftovers
+*.pid
+*.seed
+*.local

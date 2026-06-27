@@ -1,0 +1,16 @@
+{
+  "name": "@spec-guard/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "spec-guard": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@spec-guard/core": "0.0.0",
+    "@spec-guard/viewer": "0.0.0"
+  }
+}

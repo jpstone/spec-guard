@@ -1,224 +1,141 @@
 # Spec Guard
 
-**Spec-first. Behavior-tested. Agent-safe.**
+**A governance layer for AI coding agents.** Spec Guard makes an agent *spec → get human approval → implement → prove it → get human sign-off* — and makes it impossible to skip the steps. It runs as an [MCP](https://modelcontextprotocol.io) server your agent calls, with a deterministic state machine, real human gates, and a committable record that travels with your code in git.
 
-Spec Guard is a methodology, workflow runner, and MCP server for **agent-driven software development**. The model is simple: humans write specs, agents write all code. Six mechanical gates enforce the boundary between human intent and agent execution.
-
-> Specs guide implementation, but tests validate running behavior and durable contracts — not prose.
-
-**The human's interface is a conversation.** Describe what you want, answer a few questions, approve the spec. The agent handles gates, contracts, tests, and code. There are no files to fill out, no commands to learn, no dashboard to check — just a description of what you need and a chat window to deliver it in.
+[![npm version](https://img.shields.io/npm/v/@jpstone/spec-guard.svg)](https://www.npmjs.com/package/@jpstone/spec-guard)
+[![node](https://img.shields.io/badge/node-%E2%89%A524-brightgreen.svg)](https://nodejs.org)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 ---
 
-## Three layers, one system
+## The problem
 
-| Layer | What it is | Who uses it |
-|---|---|---|
-| **[`WORKFLOW.md`](WORKFLOW.md) + [`AGENTS.md`](AGENTS.md)** | Process flow document + compact agent instructions | Agents that load project files as context, or humans reviewing the process |
-| **`spec-guard run`** | Interactive CLI that walks a spec through all 6 gates | Agents executing CLI commands |
-| **MCP server** | Structured tool calls for all Spec Guard operations | MCP-compatible agents (Claude Code, Cursor, etc.) |
+AI agents write code fast — and cut corners just as fast. Left alone, an agent will happily skip the spec, invent its own acceptance criteria, mark its own work "approved," review its own implementation, and drift from the plan it agreed to five minutes ago. The usual answer is "trust the agent and review the diff." That doesn't scale, and it puts the human at the *end*, where changing course is expensive.
 
-Each layer enforces the same 6 gates. Pick the one that fits your agent's capabilities — or use all three.
+**Spec Guard moves the human to the decision points and makes the guardrails structural.** It's not advice the agent can ignore — it's a set of tools that *refuse* to advance the work until the conditions are actually met.
 
----
+## What it enforces
 
-## The 6 Gates
+- 🔒 **Real human gates.** Work is approved, authorized, and completed only by an explicit human decision — recorded, hash-bound to the exact content reviewed, and re-staled the moment that content changes. The agent literally cannot stamp its own approval.
+- 📐 **Spec before code.** Every unit of work is a typed **Work Packet**: intent, acceptance criteria, an implementation plan, scope, and dependencies — all settled and reviewed *before* implementation is authorized.
+- 🧪 **Proof, not promises.** Completion requires the recorded evidence to line up — the acceptance criteria backed by passing command results, the changed files within declared scope, and the whole-packet build green.
+- 👥 **Enforced separation of duties.** A role-based loop (coordinator · implementer · reviewer · validator) where the reviewer can't be the author and an edit-gate hook physically blocks anyone but a delegated implementer from touching product code.
+- 📜 **First-class contracts.** API/UI surfaces are frozen as hard JSON-Schema **contracts** Spec Guard owns — content-hashed, versioned, committed, and reviewed as the interface itself. Consumers pin a frozen version; a producer can revise without breaking pinned consumers.
+- 🌳 **It travels with your code.** The approved packet, its spec projections, and the contract registry are committed to git, so the proof-of-governance is right there in a fresh clone — not in some external database.
+- 🖥️ **A viewer for humans.** A local web UI to browse packets, specs, contracts, and reviews at a glance.
+
+## How it works
+
+A unit of work flows through a fixed lifecycle. The three **human gates** are the only places a person is required — everything else the agent drives, but only in order:
 
 ```
-DISCOVER → [Gate 1] → CLASSIFY & CONTRACT → [Gate 2] → IMPLEMENTATION PLANNING → [Gate 3] → TEST FIRST → [Gate 4] → IMPLEMENT → [Gate 5] → REVIEW → [Gate 6]
+  work.create ─▶ intent ─▶ structural choices ─▶ decompose into Specs
+                                                       │
+                          ┌────────────────────────────┘
+                          ▼   (per Spec)
+        draft acceptance criteria ─▶ implementation plan + dependencies
+                          │            ─▶ freeze contract (API/UI Specs)
+                          ▼
+             independent review (per-Spec + whole-packet coherence)
+                          │
+   ╔══════════════════════▼══════════════════════╗
+   ║  ① APPROVE   ② AUTHORIZE        ③ COMPLETE   ║  ◀── human gates
+   ╚══════════╤═══════════╤═════════════════╤═════╝
+              │           │                 │
+        (the plan)   (start coding)   (it's done + proven)
+                          ▼
+              role loop: implement ─▶ validate ─▶ review
 ```
 
-| Gate | Check | How it's confirmed |
-|---|---|---|
-| 1 | Spec valid (required headings, content, classification) | `spec-guard check` — must exit 0 |
-| 2 | Contracts present (API/UI inputs exist and are referenced) | `spec-guard check --warnings` |
-| 3 | Implementation planning confirmed (required stack/layer decisions are recorded) | Agent suggests a context-appropriate stack/layer, human accepts or overrides it, then agent calls `spec_guard_confirm_gate` |
-| 4 | Failure-first confirmed (test runs and fails for expected reason) | Agent runs tests, records failure, calls `spec_guard_confirm_gate` with evidence |
-| 5 | Tests pass (no scope silently absorbed) | Agent runs tests until passing, calls `spec_guard_confirm_gate` |
-| 6 | Review complete + cross-artifact analysis clean | `spec-guard review` then `spec-guard analyze` |
+The whole packet is **one canonical-JSON document** (`.spec-guard/packets/<id>.json`) — a container plus embedded Specs. Approval binds a hash of exactly what was reviewed; edit a Spec afterward and the approval goes stale, so a human always signs off on the *current* truth.
 
----
-
-## Quick start
+## Install
 
 ```bash
-npm install --save-dev @jpstone/spec-guard
-
-# Initialize project
-npx spec-guard init
-
-# Author a spec (guided wizard)
-npx spec-guard draft my-feature
-
-# Orchestrated workflow (recommended)
-npx spec-guard run my-feature
-
-# Just validate
-npx spec-guard check my-feature
-
-# See all specs
-npx spec-guard status
-
-# Browse all .md artifacts locally (no GitHub push needed)
-npx spec-guard serve
+npm install -g @jpstone/spec-guard
 ```
 
-See the [CLI Reference](docs/cli.md) for all commands and flags.
+This provides two binaries: `spec-guard` (the CLI) and `spec-guard-mcp` (the MCP server your agent talks to). Requires **Node.js ≥ 24**.
 
-### Local markdown viewer
+## Quickstart
 
-`spec-guard serve` starts a local HTTP server that renders all `.md` files in your repo as styled HTML. Navigate spec artifacts, contracts, and reviews in the browser with live reload — no GitHub push required.
+**1. Register the MCP server with your agent.** For Claude Code:
 
 ```bash
-npx spec-guard serve            # opens http://localhost:7777
-npx spec-guard serve --port 8080
+claude mcp add spec-guard -- spec-guard-mcp
 ```
 
-The root page is your `README.md` (or `.spec-guard/README.md` as fallback). A sidebar lists every `.md` file in the repo. Edits to any `.md` file reload the browser automatically.
-
-## Wiring an agent to Spec Guard
-
-Agents don't inherently know the Spec Guard workflow. Without it, they'll implement normally — no gates, no classification, no halt conditions. There are three ways to give an agent the operating contract:
-
-**MCP server (preferred)** — Connect the MCP server and the agent receives structured guidance at each step via tool calls. No upfront loading required. `spec_guard_workflow_next_step` always tells the agent what to do next. Works with any MCP-compatible agent (Claude Code, Cursor, Copilot, etc.).
-
-**Project file context** — `spec-guard init` puts [`AGENTS.md`](AGENTS.md) in the project root. Agents that automatically ingest project-level instruction files (Claude Code's `CLAUDE.md` pattern, Cursor rules, etc.) will pick it up without any manual step. Point the agent at the project and it reads the contract on its own.
-
-**Manual paste** — For agents without MCP support or automatic file ingestion, paste the contents of [`AGENTS.md`](AGENTS.md) at the start of a session. The agent then operates under the full Spec Guard contract for that session.
-
-[`WORKFLOW.md`](WORKFLOW.md) has the full phase-by-phase process flow. [`AGENTS.md`](AGENTS.md) is the compact operating contract an agent needs to execute it.
-
----
-
----
-
-## MCP Server
-
-Exposes all Spec Guard operations as structured tools for MCP-compatible agents.
+Or add it to any MCP client's config (`.mcp.json`):
 
 ```json
 {
   "mcpServers": {
-    "spec-guard": {
-      "command": "node",
-      "args": ["/path/to/spec-guard/mcp/server.js"]
-    }
+    "spec-guard": { "command": "spec-guard-mcp" }
   }
 }
 ```
 
-### Available tools
-
-| Tool | What it does |
-|---|---|
-| `spec_guard_analyze` | Cross-artifact consistency check (spec ↔ contract ↔ review) |
-| `spec_guard_check` | Validate a spec; returns diagnostics |
-| `spec_guard_classify` | Get classification + test guidance |
-| `spec_guard_confirm_gate` | Record gate 3/4/5/6 confirmation, with evidence required for Gate 4 |
-| `spec_guard_create_artifact` | Create any artifact from a template |
-| `spec_guard_draft_spec` | Turn interview answers into a valid spec (passes Gate 1) |
-| `spec_guard_gate_status` | Status of all 6 gates for a spec |
-| `spec_guard_initiative_questions` | Get question list for decomposing a broad app into feature slices |
-| `spec_guard_interview_questions` | Get structured question list for AI-assisted spec authoring |
-| `spec_guard_save_initiative` | Save initiative decomposition artifact; returns slice names for drafting |
-| `spec_guard_status` | Overview of all specs |
-| `spec_guard_suggest` | Check + return each diagnostic with a concrete fix instruction |
-| `spec_guard_test_guidance` | Get test type and Gate 2 checklist for a classification |
-| `spec_guard_validate_directory` | Check all specs in a directory |
-| `spec_guard_workflow_next_step` | **Given gates passed → what to do next** |
-
-`spec_guard_workflow_next_step` is the key tool for agents: call it after each action and it returns a structured `next_action` + `instruction` so the agent always knows what step comes next without reading docs.
-
-See the [MCP Setup guide](mcp/README.md) for configuration and the [MCP Tool Reference](docs/mcp.md) for full tool inputs, outputs, and examples.
-
----
-
-## What `init` creates
-
-```
-.spec-guard/
-  specs/
-  contracts/
-  blockers/
-  scope-discoveries/
-  reviews/
-  deviations/
-  discoveries/
-  runs/
-AGENTS.md
-WORKFLOW.md
-.github/
-  workflows/
-    spec-guard.yml
-```
-
----
-
-## What agents must never do
-
-- Implement before Gates 1, 2, 3, and 4 pass — the spec must be valid, contracts must be present, required implementation planning must be confirmed, and a failing test must exist before any implementation begins
-- Skip work classification
-- Create documentation by default
-- Test whether documentation files (specs, contracts, reviews, READMEs, help files, changelogs) exist or contain expected content, unless the document is explicitly the deliverable of an operational/document deliverable classification
-- Invent UI — do not implement UI work until both a mockup/design direction and a component library reference are in the spec, or the human has explicitly confirmed each is not needed
-- Assume a component library — if none is referenced, ask the human before proceeding
-- Test private/undocumented internals instead of contract surfaces
-- Silently absorb out-of-scope work
-- Add unrequested features, optional enhancements, or opportunistic refactors
-- Upgrade dependencies or change architecture unless the spec requires it
-- Redesign UI beyond provided direction
-- Implement nearby TODOs unless the spec requires them
-- Propose unsolicited feature roadmaps after completing a task
-- Treat "what's next?" as permission to invent features
-- Perform discovery unless the human explicitly asks
-- Implement discovery findings without separate authorization
-- Skip Gate 4 (failure-first) without recording a concrete reason
-- Close Gate 6 without running `spec-guard analyze`
-
----
-
-## Examples
-
-End-to-end walkthroughs showing Spec Guard in use with natural-language requests.
-
-| Example | What it covers |
-|---|---|
-| [Todo App](examples/todo-app.md) | Building a new app with initiative decomposition, then adding a single feature with the standard spec flow |
-
----
-
-## Documentation
-
-| Doc | What it covers |
-|---|---|
-| [CLI Reference](docs/cli.md) | All commands, flags, exit codes, diagnostic format |
-| [Glossary](docs/glossary.md) | Term definitions |
-| [MCP Setup](mcp/README.md) | MCP server configuration for Claude Code, Cursor, and Windsurf |
-| [MCP Tool Reference](docs/mcp.md) | All MCP tools — inputs, outputs, and examples |
-| [Philosophy](docs/philosophy.md) | Design philosophy, innovations, and problems Spec Guard solves |
-| [Quality Gates](docs/quality-gates.md) | Gate-by-gate breakdown and pass conditions |
-| [Quickstart](docs/quickstart.md) | Minimum workflow, live validation, CI setup |
-| [Validation Rules](docs/validation-rules.md) | Every rule ID with severity and description |
-| [Work Classification](docs/work-classification.md) | How to choose the right classification |
-
----
-
-## Development
+**2. Initialize Spec Guard in your project:**
 
 ```bash
-npm test                        # 231 tests across check, run, MCP, CLI, discover, analyze, suggest, initiative, and implementation planning
-npm run check:example           # gate 1 smoke check
-npm run run:example             # gate 1+2 non-interactive check
+cd your-project
+spec-guard init
 ```
 
----
+This creates `.spec-guard/` and writes an agent guide. The Work Packet, spec projections, and contract registry under it are meant to be committed; the working store is gitignored for you.
+
+**3. Drive the workflow from your agent.** Ask your agent to build something and to use Spec Guard. It calls the `spec_guard_*` tools — starting with `spec_guard_mcp_quickstart`, which returns the full ordered workflow — and pauses at each human gate for your decision. You stay in the loop at the moments that matter; the agent does the rest, in order, with the corners welded shut.
+
+**4. Watch it (optional):**
+
+```bash
+spec-guard serve viewer    # → http://127.0.0.1:4777
+```
+
+## Example: building a todo app
+
+Start Claude Code (or Codex) in your project — the Spec Guard MCP server connects automatically — and prompt:
+
+> **I would like to build a todo app using Spec Guard.**
+
+That's the whole kickoff. From there the agent runs the workflow and pauses only where a human decision is required:
+
+- **It frames the work** — captures the intent (desired outcomes, in/out of scope, edge cases), then asks you the structural decisions (platform, architecture, stack). Each choice is presented as numbered options that always include *"type your own answer"* and *"Discuss"*, so you're never boxed into the agent's suggestions.
+- **It breaks the app into Specs** — say a `todo-api` Spec and a `todo-ui` Spec — each with its own acceptance criteria, implementation plan, and dependencies. The API Spec **freezes a typed contract** (the endpoints and their shapes) that the UI pins to, so once it's frozen the two can be built in parallel.
+- **An independent reviewer checks the plan** before you ever see it — a different agent than the author, and it has to pass.
+- **① You approve** the whole packet — the acceptance criteria, scope, and structural decisions together. Edit anything afterward and the approval goes stale, so you're always signing off on the current truth.
+- **② You authorize** implementation. Now the role loop goes to work — implementers write the code, a validator runs the build/tests deterministically, a reviewer judges the result — and the edit gate keeps every agent inside its assigned scope.
+- **③ You complete** the work — but only once every acceptance criterion is backed by passing evidence and the whole-app build is green. Spec Guard won't let the agent declare victory otherwise.
+
+Run `spec-guard serve viewer` alongside to watch it unfold — packets, Specs, the frozen contracts, and every review in one place. When it's done, the approved packet and its contracts are committed to your repo, so the proof of *how* the todo app was built travels with the code.
+
+## CLI reference
+
+| Command | What it does |
+| --- | --- |
+| `spec-guard init [--artifact-root <path>] [--project-id <id>]` | Scaffold `.spec-guard/`, the agent guide, and a `.gitignore`. |
+| `spec-guard config get` · `config check` | Read / validate the active configuration. |
+| `spec-guard config update --patch '<json>'` | Patch the configuration. |
+| `spec-guard serve viewer [--host <host>] [--port <port>]` | Launch the web viewer (default `127.0.0.1:4777`). |
+| `spec-guard mcp quickstart` · `mcp status` | Print the workflow guidance / current governance status. |
+
+Most day-to-day work happens through the **MCP tools**, not the CLI — the CLI is for setup, the viewer, and the edit-gate hook. Add `--json` to any command for machine-readable output.
+
+## Concepts
+
+| Term | Meaning |
+| --- | --- |
+| **Work Packet** | One governed unit of work: a container (intent, structural decisions, the human gates) plus embedded Specs. |
+| **Spec** | A homogeneous slice with its own classification, acceptance criteria, plan, scope, dependencies, and agent-driven implementation lifecycle. |
+| **Acceptance criteria** | What "done" means for a Spec — human-authored or source-derived, proven at completion by passing evidence. |
+| **Contract** | A frozen, content-hashed JSON-Schema interface Spec Guard owns; consumers pin a version, producers can revise without breaking them. |
+| **The three gates** | **Approve** (the plan + ACs + structure), **Authorize** (begin implementation), **Complete** (done + proven) — each a recorded human decision. |
+| **Role loop** | Coordinator / implementer / reviewer / validator, with delegation and no-self-review enforced by an edit-gate hook. |
+
+## Requirements
+
+- **Node.js ≥ 24**
 
 ## License
 
-MIT.
-
-## Spec Guard
-
-This project uses [Spec Guard](https://github.com/jpstone/spec-guard)
-
-[Spec Guard Artifacts](.spec-guard/README.md)
+[MIT](./LICENSE)
