@@ -73,6 +73,35 @@ export function aggregateSpecSummaries(aggregate: AggregateWorkPacket): SpecSumm
   }));
 }
 
+/** The packet's runtime scoping for the viewer: which target (app) it runs in, whether it's runtime-less, and the
+ *  inherited baseline ref — so the detail page can show a "runs in <target>" / "runtime-less" badge + the inherited
+ *  (or to-be-established) baseline. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §11.) */
+export interface AggregateRuntimeSummary {
+  origination: string;
+  target_id: string | null;
+  runtime_less: boolean;
+  inherited_baseline_target: string | null;
+  inherited_baseline_revision: number | null;
+  runtime_not_relevant_reason: string | null;
+  /** The reviewed dev-runtime proof DESIGN (command + readiness assertion) for an establishing app packet —
+   *  the first Spec plan that declares one. The proof itself runs post-auth; this is the approved design. */
+  dev_runtime_proof: { command: string; readiness_assertion: string } | null;
+}
+
+export function aggregateRuntimeSummary(aggregate: AggregateWorkPacket): AggregateRuntimeSummary {
+  const proofSpec = aggregate.specs.find((spec) => spec.implementation_plan?.kind === "standard_plan" && spec.implementation_plan.dev_runtime_proof !== null);
+  const proof = proofSpec?.implementation_plan?.kind === "standard_plan" ? proofSpec.implementation_plan.dev_runtime_proof : null;
+  return {
+    origination: aggregate.origination,
+    target_id: aggregate.target_id,
+    runtime_less: aggregate.target_id === null,
+    inherited_baseline_target: aggregate.runtime_baseline_ref?.id ?? null,
+    inherited_baseline_revision: aggregate.runtime_baseline_ref?.revision ?? null,
+    runtime_not_relevant_reason: aggregate.runtime_not_relevant_reason,
+    dev_runtime_proof: proof
+  };
+}
+
 /** Read one aggregate Work Packet and project it (both the raw aggregate and the v1 view); null if not found. */
 export async function readAggregateForView(root: string, id: string): Promise<{ aggregate: AggregateWorkPacket; work: WorkPacket } | null> {
   const aggregate = await new AggregateWorkPacketStore(root).tryRead(id);

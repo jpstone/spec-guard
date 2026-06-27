@@ -20,6 +20,16 @@ export const PlanExpectedFileV1Schema = z.object({
   change_type: ChangeTypeSchema
 }).strict();
 
+// The dev-runtime PROOF design (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §4.3): the run command + what the
+// readiness probe ASSERTS on success (the meaning of "the dev runtime works"). For establishing app work the
+// runtime can only be PROVEN post-authorization (the scaffold must exist first), but its DESIGN is reviewed +
+// approved here — so the human signs off on what the proof will check, not just that "a scaffold stands up".
+export const DevRuntimeProofPlanV1Schema = z.object({
+  command: z.string().min(1),
+  readiness_assertion: z.string().min(1)
+}).strict();
+export type DevRuntimeProofPlanV1 = z.infer<typeof DevRuntimeProofPlanV1Schema>;
+
 export const PlanTestV1Schema = z.object({
   entry_kind: PlanTestEntryKindSchema,
   command_or_path: z.string(),
@@ -45,6 +55,8 @@ export const StandardImplementationPlanProjectionV1Schema = z.object({
   tests: z.array(PlanTestV1Schema),
   risks: z.array(z.string()),
   out_of_scope_reminders: z.array(z.string()),
+  // The reviewed dev-runtime proof design (null for non-establishing / non-app Specs that have no dev runtime).
+  dev_runtime_proof: DevRuntimeProofPlanV1Schema.nullable().default(null),
   approval_bound_producer_ref: ProducerIdentitySchema.nullable()
 }).strict().superRefine((value, ctx) => {
   // Identity-binding normalization invariant (appendix "Identity-binding fields are normalized").
@@ -86,6 +98,7 @@ export interface StandardImplementationPlanInput {
   tests: PlanTestV1[];
   risks?: string[];
   out_of_scope_reminders?: string[];
+  dev_runtime_proof?: DevRuntimeProofPlanV1 | null;
   approval_bound_producer_ref?: z.infer<typeof ProducerIdentitySchema> | null;
 }
 
@@ -108,6 +121,7 @@ export function buildStandardImplementationPlanProjectionV1(input: StandardImple
     tests: input.tests,
     risks: input.risks ?? [],
     out_of_scope_reminders: input.out_of_scope_reminders ?? [],
+    dev_runtime_proof: input.dev_runtime_proof ?? null,
     approval_bound_producer_ref: producerRef
   });
 }

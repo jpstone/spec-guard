@@ -6,12 +6,16 @@ import { diagnostic, failureResult, storeForContext } from "./config.ts";
 import type { ActionExecutionContext } from "./context.ts";
 import type { ActionResult, MutationSummary } from "./result.ts";
 import { appendBaselineCommandResult } from "./baseline.ts";
+import { readRuntimeBaselineCurrent } from "../baseline/target-store.ts";
+import { DEFAULT_TARGET_ID } from "../schemas/enums.ts";
 
 export const CommandRunInputSchema = z.object({
   command_spec: CommandSpecSchema,
   purpose: z.enum(["test", "build", "runtime_production", "runtime_development", "verifier_health", "other"]),
   related_runtime_baseline_draft_revision: z.number().int().positive().nullable().optional(),
   related_runtime_baseline_ref: RuntimeBaselineRefSchema.nullable().optional(),
+  // Which target's draft baseline the appended CommandResult belongs to (default = single-app default).
+  target_id: z.string().min(1).optional(),
   related_work_id: z.string().min(1).nullable().optional(),
   source_interface: z.string().min(1).optional(),
   resource_categories: z.array(z.string()).optional(),
@@ -25,8 +29,9 @@ export async function commandRun(input: z.infer<typeof CommandRunInputSchema>, c
     if ((parsed.skip_reason === undefined) !== (parsed.skip_precondition === undefined)) {
       throw new Error("skip_reason and skip_precondition must be supplied together for deterministic skipped results");
     }
+    const targetId = parsed.target_id ?? DEFAULT_TARGET_ID;
     if (parsed.related_runtime_baseline_draft_revision !== undefined && parsed.related_runtime_baseline_draft_revision !== null) {
-      const current = await storeForContext(context).readCurrent("runtime_baseline", null) as { artifact: { revision: number; status?: string } };
+      const current = await readRuntimeBaselineCurrent(storeForContext(context), targetId) as { artifact: { revision: number; status?: string } };
       if (current.artifact.revision !== parsed.related_runtime_baseline_draft_revision || current.artifact.status !== "draft") {
         throw new Error(`stale runtime baseline draft revision: expected current draft revision ${current.artifact.revision}, got ${parsed.related_runtime_baseline_draft_revision}`);
       }
@@ -48,7 +53,7 @@ export async function commandRun(input: z.infer<typeof CommandRunInputSchema>, c
     let baseline = null;
     const mutations: MutationSummary[] = [{ artifact: "command_result", operation: "create", paths: [result.storage_ref], summary: "Stored durable kernel-created CommandResult." }];
     if (parsed.related_runtime_baseline_draft_revision !== undefined && parsed.related_runtime_baseline_draft_revision !== null) {
-      baseline = await appendBaselineCommandResult(context, result, parsed.related_runtime_baseline_draft_revision);
+      baseline = await appendBaselineCommandResult(context, result, parsed.related_runtime_baseline_draft_revision, targetId);
       mutations.push({ artifact: "runtime_baseline", operation: "update", paths: ["/validation/command_results"], summary: `Appended CommandResult to RuntimeBaseline revision ${baseline.revision}.` });
     }
     return { ok: true, action_id: "command.run", data: { command_result: CommandResultSchema.parse(result), baseline }, diagnostics: [], mutations, next_actions: [], summary: `Command completed with status ${result.status}.` };

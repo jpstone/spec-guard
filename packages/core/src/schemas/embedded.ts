@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ChangeFileCategorySchema, EvidenceStatusSchema, WorkClassificationSchema } from "./enums.ts";
+import { ChangeFileCategorySchema, EvidenceStatusSchema, WorkClassificationSchema, DEFAULT_TARGET_ID } from "./enums.ts";
 
 export const TimestampSchema = z.string().regex(
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
@@ -168,7 +168,10 @@ export type DevRuntimeRunResult = z.infer<typeof DevRuntimeRunResultSchema>;
 
 export const RuntimeBaselineRefSchema = z.object({
   artifact_type: z.literal("runtime_baseline"),
-  id: z.null().default(null),
+  // The target this baseline is scoped to (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md). Was always-null when
+  // RuntimeBaseline was a repo-wide singleton; now the per-target id. Defaults to DEFAULT_TARGET_ID so a
+  // ref minted/migrated without an explicit target resolves to the single-app default baseline.
+  id: z.string().min(1).default(DEFAULT_TARGET_ID),
   revision: z.number().int().positive(),
   accepted_at: TimestampSchema,
   acceptance_decision_id: z.string().min(1),

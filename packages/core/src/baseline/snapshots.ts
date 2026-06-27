@@ -27,7 +27,10 @@ export function baselineReviewPayload(baseline: RuntimeBaseline): BaselineReview
 }
 
 export function baselineSourceRefs(baseline: RuntimeBaseline): SourceArtifactRef[] {
-  return normalizeSourceArtifactRefs([{ artifact_type: "runtime_baseline", id: null, revision: baseline.revision }]);
+  // The acceptance source ref identifies the per-target baseline artifact (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md
+  // §6/S3); was always-null under the singleton. Threading the real id makes a non-default target's acceptance
+  // anchor correct, and shifts the default target's acceptance hash (re-baselined intentionally).
+  return normalizeSourceArtifactRefs([{ artifact_type: "runtime_baseline", id: baseline.id, revision: baseline.revision }]);
 }
 
 export function createBaselineReviewSnapshot(baseline: RuntimeBaseline, validationOverride?: BaselineValidationReport): BaselineReviewSnapshot {

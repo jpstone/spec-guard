@@ -1,6 +1,6 @@
 {
   "name": "@jpstone/spec-guard",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": false,
   "description": "Local governance layer for agentic implementation workflows: a role-based implementation loop with human gates, a deterministic state machine, and a focused review loop.",
   "license": "MIT",

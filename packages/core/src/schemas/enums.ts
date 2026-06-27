@@ -14,11 +14,18 @@ export type WorkClassification = z.infer<typeof WorkClassificationSchema>;
 
 // Work origination (WORK_ORIGINATION_DESIGN.md): does this packet modify an existing thing, build a new
 // thing entirely, or add a new thing inside an existing thing? Drives per-dimension establish-vs-inherit.
-// v1 supports modify_existing + new_entirely; new_in_existing is reserved in the schema but rejected by
-// v1 actions (it needs target-scoped baselines, deferred to v2).
+// All three are first-class: modify_existing INHERITS an existing target's baseline; new_entirely + new_in_existing
+// ESTABLISH a new target's baseline (new_in_existing requires a fresh, explicit target_id).
+// (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §4.)
 export const WorkOriginations = ["modify_existing", "new_entirely", "new_in_existing"] as const;
 export const WorkOriginationSchema = z.enum(WorkOriginations);
 export type WorkOrigination = z.infer<typeof WorkOriginationSchema>;
+
+// The reserved target id for the single-app/default case: a repo with one runnable deliverable (or none)
+// uses this so callers need no explicit target_id and existing single-baseline behavior is preserved.
+// RuntimeBaseline is scoped per target (runtime_baseline/<target_id>); the default keeps the prior singleton
+// semantics under an explicit name. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §2.)
+export const DEFAULT_TARGET_ID = "default";
 
 // The role-loop workflow_state (workflow/state-machine.ts) is the authoritative lifecycle. `disposition`
 // captures the orthogonal states that are not lifecycle positions: a declined human gate (blocked), a

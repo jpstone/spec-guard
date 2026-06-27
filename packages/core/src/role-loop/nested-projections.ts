@@ -123,7 +123,9 @@ export function buildStackProjectionV1(stack: ApprovedStackProjectionV1): Approv
 // RuntimeBaselineRef for inclusion in the packet approval hash. It keeps only the fields that
 // identify the governed baseline content — `revision`, `acceptance_snapshot_hash` (the governed
 // baseline content hash), and `acceptance_decision_id` — and EXCLUDES `accepted_at` (a
-// timestamp), `acceptance_snapshot_revision` (a storage revision), and the always-null `id`.
+// timestamp), `acceptance_snapshot_revision` (a storage revision), and `id` (the target id —
+// deliberately dropped so the approval hash is INVARIANT to which target a packet inherits, §6;
+// the target is bound to approval once at the aggregate top level instead).
 // Re-accepting an identical baseline mints a fresh `accepted_at`/`acceptance_snapshot_revision`
 // but, because neither is projected, must not stale an otherwise-current approval (§5 / appendix
 // work_packet_approval_hash exclusion rule). `null` maps to `null`.

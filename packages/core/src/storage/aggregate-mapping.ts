@@ -20,7 +20,10 @@ export function specAsV1WorkPacket(aggregate: AggregateWorkPacket, spec: Spec): 
       title: spec.title,
       goal: aggregate.intent.goal,
       classification: spec.classification,
-      origination: spec.origination,
+      // Origination is the CONTAINER's posture (one per packet, §3/NF4), not a per-Spec value — so a
+      // decomposed modify_existing packet's Specs inherit modify_existing rather than resetting to the
+      // schema default.
+      origination: aggregate.origination,
       acceptance_criteria: spec.acceptance_criteria,
       allowed_globs: spec.scope.allowed_globs
     }),
@@ -32,6 +35,8 @@ export function specAsV1WorkPacket(aggregate: AggregateWorkPacket, spec: Spec): 
     architecture: aggregate.architecture,
     stack: aggregate.stack,
     runtime_baseline_ref: aggregate.runtime_baseline_ref,
+    target_id: aggregate.target_id, // container-level (§3); every gate runs on this synthesized leaf
+    runtime_not_relevant_reason: aggregate.runtime_not_relevant_reason,
     mockup_decision: spec.mockup_decision,
     work_kind_resolution: spec.work_kind_resolution,
     work_kind_resolution_hash: spec.work_kind_resolution_hash,
@@ -110,11 +115,14 @@ export function foldIntoAggregate(workPacket: WorkPacket, children: WorkPacket[]
     updated_at: workPacket.updated_at,
     disposition: workPacket.disposition,
     title: workPacket.title,
+    origination: workPacket.origination, // container posture (§3/NF4); children inherit it via specAsV1WorkPacket
     intent: workPacket.intent,
     platform: workPacket.platform,
     architecture: workPacket.architecture,
     stack: workPacket.stack,
     runtime_baseline_ref: workPacket.runtime_baseline_ref,
+    target_id: workPacket.target_id,
+    runtime_not_relevant_reason: workPacket.runtime_not_relevant_reason,
     decision_history: workPacket.decision_history,
     diagnostics: workPacket.diagnostics,
     lifecycle: {

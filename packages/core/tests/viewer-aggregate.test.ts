@@ -4,13 +4,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { ArtifactStore } from "../src/storage/artifact-store.ts";
 import { aggregateStoreForContext } from "../src/actions/config.ts";
-import { workCreate, workDecompose, workSpecAcs, workSpecPlan, workReview, workIntent, workApprove } from "../src/actions/work.ts";
+import { workCreate, workDecompose, workSpecAcs, workSpecPlan, workReview, workIntent, workApprove, workTargetAttach } from "../src/actions/work.ts";
+import { initAction } from "../src/actions/init.ts";
+import { baselineInit, baselineEstablish } from "../src/actions/baseline.ts";
 import { aggregateApprovalProjection } from "../src/role-loop/aggregate-approval.ts";
 import type { LineageProducer } from "../src/lineage/records.ts";
 import { buildWorkPacketSpecView, buildSpecDetailView, rawWorkPacketJson } from "../src/viewer-data/work-packet-spec-view.ts";
 import { buildContractsOverview, buildContractVersionView } from "../src/viewer-data/contract-view.ts";
 import { buildDashboardSummary } from "../src/viewer-data/dashboard-summary.ts";
 import { buildArtifactList } from "../src/viewer-data/artifact-lists.ts";
+import { aggregateRuntimeSummary } from "../src/viewer-data/aggregate-work-packet-view.ts";
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(path.join(tmpdir(), "viewer-agg-")); });
@@ -132,7 +135,12 @@ describe("viewer reads v2 aggregate Work Packets", () => {
   });
 
   it("an APPROVED Work Packet still shows its content (intent/ACs/plan/structural NOT blanked by approval)", async () => {
+    // modify_existing must inherit its target's accepted baseline before approval — stand one up + attach it.
+    await initAction({ project_id: "demo" }, { projectRoot: root });
+    await baselineInit({ commands: { test: null, test_not_applicable_reason: "n/a", build: null, build_not_applicable_reason: "n/a", runtime_production: null, runtime_production_not_applicable_reason: "n/a", runtime_development: null, runtime_development_not_applicable_reason: "n/a" } } as never, { projectRoot: root });
+    await baselineEstablish({}, { projectRoot: root });
     await workCreate({ id: "WP1", title: "App", goal: "g", classification: "direct_behavior", origination: "modify_existing" }, { projectRoot: root });
+    await workTargetAttach({ id: "WP1" }, { projectRoot: root });
     await workIntent({ id: "WP1", desired_outcomes: ["ship it"], in_scope: ["the feature"], out_of_scope: ["x"], users_actors: ["user"], edge_cases: ["empty"], open_questions: ["none"] }, { projectRoot: root });
     await workSpecAcs({ id: "WP1", spec_id: "WP1", acceptance_criteria: [{ id: "ac1", text: "a tracked behaviour", source: "human", source_evidence: null }] }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: { kind: "standard_plan", template_id: "t", template_version: 1, summary: "p", approach: ["go"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" }, { path: "docs/api.md", purpose: "docs", change_type: "create" }], tests: [] }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] } }, { projectRoot: root });
@@ -147,6 +155,18 @@ describe("viewer reads v2 aggregate Work Packets", () => {
     expect(approvedSpec).toContain("a tracked behaviour"); // ACs survived
     expect(approvedSpec).toContain("desired_outcomes"); // intent survived
     expect(approvedSpec).toContain("implementation_plan"); // plan survived
+  });
+
+  it("the runtime summary surfaces target_id + the runtime-less badge for the detail page", async () => {
+    await workCreate({ id: "DOCS", title: "Docs", goal: "g", classification: "operational_document" }, { projectRoot: root });
+    const docs = aggregateRuntimeSummary(await aggregateStoreForContext({ projectRoot: root }).read("DOCS"));
+    expect(docs.runtime_less).toBe(true);
+    expect(docs.target_id).toBeNull();
+
+    await workCreate({ id: "APIWP", title: "Api", goal: "g", classification: "rest_api", target_id: "api" }, { projectRoot: root });
+    const api = aggregateRuntimeSummary(await aggregateStoreForContext({ projectRoot: root }).read("APIWP"));
+    expect(api.runtime_less).toBe(false);
+    expect(api.target_id).toBe("api");
   });
 
   it("the artifact list includes aggregate packets", async () => {

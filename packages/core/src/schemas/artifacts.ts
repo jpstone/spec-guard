@@ -3,7 +3,8 @@ import {
   DispositionSchema,
   DocsPolicySchema,
   WorkClassificationSchema,
-  WorkOriginationSchema
+  WorkOriginationSchema,
+  DEFAULT_TARGET_ID
 } from "./enums.ts";
 import {
   AcceptanceCriterionSchema,
@@ -102,6 +103,11 @@ export type Blocker = z.infer<typeof BlockerSchema>;
 export const RuntimeBaselineSchema = z.object({
   artifact_type: z.literal("runtime_baseline"),
   schema_version: z.literal(1),
+  // The target this baseline describes (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §3). The store keys the
+  // artifact at runtime_baseline/<id> via idOf; the default keeps the prior singleton's storage semantics
+  // under an explicit name. NOT part of the acceptance review payload (BaselineReviewSnapshotPayloadSchema),
+  // so adding it does not move an existing baseline's acceptance anchor — only its governed_content_hash.
+  id: z.string().min(1).default(DEFAULT_TARGET_ID),
   revision: z.number().int().positive(),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
@@ -206,6 +212,15 @@ export const WorkPacketSchema = z.object({
     decision_ids: z.array(z.string())
   }).strict().default({ required: false, required_reason: null, not_required_reason: "stack_choice_not_required", decision_ids: [] }),
   runtime_baseline_ref: RuntimeBaselineRefSchema.nullable(),
+  // The target (app/deliverable) this packet operates on (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §3).
+  // null = runtime-less work (docs / cross-cutting): no baseline, no dev-runtime/build gates (policed §5).
+  // Defaults to DEFAULT_TARGET_ID so existing packets migrate to the single-app default target. When set,
+  // runtime_baseline_ref.id must equal target_id.
+  target_id: z.string().min(1).nullable().default(DEFAULT_TARGET_ID),
+  // The human-approved justification REQUIRED when target_id is null and the work is not purely
+  // operational_document (runtime-relevance Layer 2). Bound into the approval hash at the aggregate top
+  // level. null otherwise.
+  runtime_not_relevant_reason: z.string().min(1).nullable().default(null),
   // Back-link to the Work Breakdown (Plan) that decomposes this packet; null until one is created.
   // Not in WORK_PACKET_APPROVED_FIELDS, so it is excluded from the approval snapshot. (Slice 0 adds the
   // field; later slices populate it.) (WORK_ORIGINATION_DESIGN.md §7.)

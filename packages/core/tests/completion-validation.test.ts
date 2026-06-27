@@ -2,7 +2,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { initAction, completionValidationDiagnostics, baselineInit, baselineEstablish, commandRun } from "../src/index.ts";
+import { initAction, completionValidationDiagnostics, baselineInit, baselineEstablish, commandRun, buildDefaultWorkPacket } from "../src/index.ts";
+
+// A leaf scoped to the DEFAULT target (where acceptBaselineWithBuild establishes its baseline).
+const defaultTargetWork = buildDefaultWorkPacket({ title: "t", goal: "g", classification: "rest_api" });
 
 // A stateful BUILD command: passes iff build-ok.txt exists. We create the marker so the build passes at
 // establish/accept time, then delete it so the SAME build fails when the completion validator re-runs it.
@@ -35,16 +38,16 @@ describe("end-state validation gate (validator wired into completion)", () => {
   it("BLOCKS completion when the final build fails (COMPLETION_VALIDATION_FAILED)", async () => {
     await acceptBaselineWithBuild();
     await rm(path.join(root, "build-ok.txt")); // the code regressed: the build now fails
-    const diags = await completionValidationDiagnostics({ projectRoot: root });
+    const diags = await completionValidationDiagnostics(defaultTargetWork, { projectRoot: root });
     expect(diags.some((d) => d.code === "COMPLETION_VALIDATION_FAILED")).toBe(true);
   });
 
   it("ALLOWS completion when the final build passes", async () => {
     await acceptBaselineWithBuild(); // marker still present -> build passes
-    expect(await completionValidationDiagnostics({ projectRoot: root })).toEqual([]);
+    expect(await completionValidationDiagnostics(defaultTargetWork, { projectRoot: root })).toEqual([]);
   });
 
   it("is a no-op when there is no accepted baseline", async () => {
-    expect(await completionValidationDiagnostics({ projectRoot: root })).toEqual([]);
+    expect(await completionValidationDiagnostics(defaultTargetWork, { projectRoot: root })).toEqual([]);
   });
 });

@@ -139,11 +139,19 @@ export const AggregateWorkPacketSchema = z
       updated_at: true,
       disposition: true,
       title: true,
+      // origination is ONE posture per packet (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §3 / NF4): it lives
+      // on the container and is propagated to every Spec at create + decompose, so a decomposed
+      // modify_existing packet does not silently reset to new_entirely.
+      origination: true,
       intent: true,
       platform: true,
       architecture: true,
       stack: true,
       runtime_baseline_ref: true,
+      // The one target this packet operates on (or null = runtime-less). Container-level: every Spec
+      // inherits it. (§3.)
+      target_id: true,
+      runtime_not_relevant_reason: true,
       decision_history: true,
       spec_review_cycles: true,
       diagnostics: true

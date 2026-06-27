@@ -12,7 +12,10 @@ export interface DashboardSummary {
   pending_gates_count: number;
   pending_gates_by_action: Record<string, number>;
   blocked_packet_count: number;
+  /** Last-seen runtime baseline status (back-compat; single-app repos have exactly one). */
   baseline_status: string | null;
+  /** Per-target runtime baseline status, keyed by target_id — multi-app repos have one per app. */
+  baseline_targets: Record<string, string>;
   validation_failures_count: number;
 }
 
@@ -79,6 +82,7 @@ export async function buildDashboardSummary(store: ArtifactStore): Promise<Dashb
     pending_gates_by_action: {},
     blocked_packet_count: 0,
     baseline_status: null,
+    baseline_targets: {},
     validation_failures_count: 0
   };
 
@@ -101,7 +105,11 @@ export async function buildDashboardSummary(store: ArtifactStore): Promise<Dashb
         increment(summary.pending_gates_by_action, pendingAction ?? status);
       }
       if (artifactType === "work_packet" && status === "blocked") summary.blocked_packet_count += 1;
-      if (artifactType === "runtime_baseline") summary.baseline_status = status;
+      if (artifactType === "runtime_baseline") {
+        summary.baseline_status = status;
+        const targetId = (artifact as { id?: unknown }).id;
+        if (typeof targetId === "string") summary.baseline_targets[targetId] = status;
+      }
     }
   }
 

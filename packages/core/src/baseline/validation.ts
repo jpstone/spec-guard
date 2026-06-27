@@ -13,11 +13,12 @@ import { detectInvalidBaselineCommand } from "../commands/placeholder.ts";
 const COMMAND_SLOTS = ["test", "build", "runtime_production"] as const;
 type CommandSlot = typeof COMMAND_SLOTS[number];
 
-// Platforms whose runtime baseline must establish a real dev runtime (it cannot be N/A'd). A dev runtime
-// is established ONCE on the project's runtime baseline (a singleton) and inherited by every packet, so
-// incremental work (e.g. adding a page to an existing app) never re-chooses it. (A dedicated game platform
-// would belong here too; games built as desktop apps are already covered.)
-const DEV_RUNTIME_REQUIRED_PLATFORMS = new Set(["web_app", "desktop_app", "mobile_app"]);
+// Platforms whose runtime baseline must establish a real dev runtime (it cannot be N/A'd). A dev runtime is
+// established ONCE PER TARGET (app) on that target's runtime baseline and inherited by every packet scoped to
+// it (work.target.attach), so incremental work (e.g. adding a page to an existing app) never re-chooses it. A
+// monorepo has one baseline per app, keyed by target_id. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §3. A dedicated
+// game platform would belong here too; games built as desktop apps are already covered.)
+export const DEV_RUNTIME_REQUIRED_PLATFORMS = new Set(["web_app", "desktop_app", "mobile_app"]);
 
 export interface BaselineCommandCheck {
   slot: CommandSlot;

@@ -10,6 +10,8 @@ import type { ActionExecutionContext } from "./context.ts";
 import type { ActionResult } from "./result.ts";
 import { affectsApprovedRuntimeBaselinePath, validateRuntimeBaselineWithStoredCommandResults } from "../baseline/validation.ts";
 import { createBaselineReviewSnapshot, sourceRefsEqual, type BaselineReviewSnapshot } from "../baseline/snapshots.ts";
+import { readRuntimeBaselineCurrent, relocateLegacyDefaultBaseline } from "../baseline/target-store.ts";
+import { DEFAULT_TARGET_ID } from "../schemas/enums.ts";
 
 const BaselineDraftFieldsSchema = RuntimeBaselineSchema.pick({
   stack: true,
@@ -18,11 +20,14 @@ const BaselineDraftFieldsSchema = RuntimeBaselineSchema.pick({
   dependency_modes: true,
   diff_policy: true
 }).partial().strict();
-export const BaselineInitInputSchema = BaselineDraftFieldsSchema;
-export const BaselineUpdateInputSchema = z.object({ patch: JsonPatchSchema }).strict();
-export const BaselineReviewInputSchema = z.object({ include_full: z.boolean().optional() }).strict();
-export const BaselineCheckInputSchema = z.object({ include_full: z.boolean().optional() }).strict();
-export const BaselineBlockInputSchema = z.object({ reason: z.string().min(1), owner: z.string().min(1).optional(), next_action: z.string().min(1).optional() }).strict();
+// Every baseline action targets ONE runtime baseline, keyed by target_id (default = the single-app
+// DEFAULT_TARGET_ID). (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §9.)
+const TargetIdInputSchema = z.string().min(1).optional();
+export const BaselineInitInputSchema = BaselineDraftFieldsSchema.extend({ target_id: TargetIdInputSchema });
+export const BaselineUpdateInputSchema = z.object({ patch: JsonPatchSchema, target_id: TargetIdInputSchema }).strict();
+export const BaselineReviewInputSchema = z.object({ include_full: z.boolean().optional(), target_id: TargetIdInputSchema }).strict();
+export const BaselineCheckInputSchema = z.object({ include_full: z.boolean().optional(), target_id: TargetIdInputSchema }).strict();
+export const BaselineBlockInputSchema = z.object({ reason: z.string().min(1), owner: z.string().min(1).optional(), next_action: z.string().min(1).optional(), target_id: TargetIdInputSchema }).strict();
 export const BaselineAcceptInputSchema = z.object({
   selected_number: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   raw_response: z.string(),
@@ -33,7 +38,8 @@ export const BaselineAcceptInputSchema = z.object({
   source_artifact_refs: z.array(z.unknown()),
   prompt_id: z.string().min(1).optional(),
   actor: z.string().min(1).optional(),
-  source_interface: z.string().min(1).optional()
+  source_interface: z.string().min(1).optional(),
+  target_id: TargetIdInputSchema
 }).strict();
 
 function defaultRuntimeBaseline(now = isoNow()): RuntimeBaseline {
@@ -66,8 +72,8 @@ function defaultRuntimeBaseline(now = isoNow()): RuntimeBaseline {
   });
 }
 
-async function readBaseline(context: ActionExecutionContext): Promise<RuntimeBaseline> {
-  const current = await storeForContext(context).readCurrent<RuntimeBaseline>("runtime_baseline", null);
+async function readBaseline(context: ActionExecutionContext, targetId: string = DEFAULT_TARGET_ID): Promise<RuntimeBaseline> {
+  const current = await readRuntimeBaselineCurrent<RuntimeBaseline>(storeForContext(context), targetId);
   return RuntimeBaselineSchema.parse(current.artifact);
 }
 
@@ -79,9 +85,11 @@ export async function baselineInit(input: z.infer<typeof BaselineInitInputSchema
   } catch (error) {
     return failureResult("baseline.init", "Runtime baseline init rejected.", [diagnostic("BASELINE_INIT_REJECTED", error instanceof Error ? error.message : String(error), "error", "/runtime_baseline")]) as ActionResult<{ baseline: RuntimeBaseline; revision: number }>;
   }
+  const { target_id, ...draftFields } = parsed;
+  const targetId = target_id ?? DEFAULT_TARGET_ID;
 
   try {
-    const existing = await store.readCurrent<RuntimeBaseline>("runtime_baseline", null);
+    const existing = await readRuntimeBaselineCurrent<RuntimeBaseline>(store, targetId);
     const baseline = RuntimeBaselineSchema.parse(existing.artifact);
     return { ok: true, action_id: "baseline.init", data: { baseline, revision: baseline.revision }, diagnostics: [diagnostic("BASELINE_ALREADY_EXISTS", "RuntimeBaseline already exists; init was idempotent.", "info", "/runtime_baseline")], mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: "RuntimeBaseline already existed; no mutation." }], next_actions: [], summary: "Runtime baseline already initialized." };
   } catch (error) {
@@ -89,9 +97,9 @@ export async function baselineInit(input: z.infer<typeof BaselineInitInputSchema
   }
 
   try {
-    const baseline = RuntimeBaselineSchema.parse({ ...defaultRuntimeBaseline(), ...parsed, validation: { command_results: [], diagnostics: [] }, revision: 1, status: "draft", acceptance: null, decision_history: [], blocker: null });
+    const baseline = RuntimeBaselineSchema.parse({ ...defaultRuntimeBaseline(), ...draftFields, id: targetId, validation: { command_results: [], diagnostics: [] }, revision: 1, status: "draft", acceptance: null, decision_history: [], blocker: null });
     const created = await store.create(baseline);
-    return { ok: true, action_id: "baseline.init", data: { baseline: created.artifact, revision: created.revision }, diagnostics: [], mutations: [{ artifact: "runtime_baseline", operation: "create", paths: ["/runtime_baseline"], summary: "Created singleton draft RuntimeBaseline revision 1." }], next_actions: [], summary: "Runtime baseline initialized." };
+    return { ok: true, action_id: "baseline.init", data: { baseline: created.artifact, revision: created.revision }, diagnostics: [], mutations: [{ artifact: "runtime_baseline", operation: "create", paths: ["/runtime_baseline"], summary: `Created draft RuntimeBaseline for target ${created.artifact.id} revision 1.` }], next_actions: [], summary: "Runtime baseline initialized." };
   } catch (error) {
     return failureResult("baseline.init", "Runtime baseline init rejected.", [diagnostic("BASELINE_INIT_REJECTED", error instanceof Error ? error.message : String(error), "error", "/runtime_baseline")]) as ActionResult<{ baseline: RuntimeBaseline; revision: number }>;
   }
@@ -104,7 +112,7 @@ export async function baselineUpdate(input: z.infer<typeof BaselineUpdateInputSc
     if (parsed.patch.some((op) => op.path === "/validation" || op.path.startsWith("/validation/"))) {
       throw new Error("baseline.update cannot patch validation; validation.command_results are updated only by command.run");
     }
-    const baseline = await readBaseline(context);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     const patched = applyJsonPatch(baseline, parsed.patch, { protectedPrefixes: ["/artifact_type", "/schema_version", "/id", "/revision", "/created_at", "/updated_at", "/status", "/acceptance", "/decision_history", "/blocker", "/validation"] });
     const affectedApprovedPath = patched.affectedPaths.some(affectsApprovedRuntimeBaselinePath);
     const diagnostics: Diagnostic[] = [];
@@ -135,20 +143,20 @@ async function createStoredValidationReviewSnapshot(baseline: RuntimeBaseline, c
 }
 
 export async function baselineCheck(input: z.infer<typeof BaselineCheckInputSchema> = {}, context: ActionExecutionContext = {}): Promise<ActionResult> {
-  BaselineCheckInputSchema.parse(input);
+  const parsed = BaselineCheckInputSchema.parse(input);
   try {
-    const baseline = await readBaseline(context);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     const validation = await validateRuntimeBaselineWithStoredCommandResults(baseline, storeForContext(context).root);
-    return { ok: true, action_id: "baseline.check", data: { baseline: input.include_full === false ? null : baseline, validation, acceptance_ready: validation.acceptance_ready }, diagnostics: validation.diagnostics, mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: "Read RuntimeBaseline and computed deterministic validation diagnostics." }], next_actions: [], summary: validation.acceptance_ready ? "Runtime baseline is acceptance-ready." : "Runtime baseline is not acceptance-ready." };
+    return { ok: true, action_id: "baseline.check", data: { baseline: parsed.include_full === false ? null : baseline, validation, acceptance_ready: validation.acceptance_ready }, diagnostics: validation.diagnostics, mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: "Read RuntimeBaseline and computed deterministic validation diagnostics." }], next_actions: [], summary: validation.acceptance_ready ? "Runtime baseline is acceptance-ready." : "Runtime baseline is not acceptance-ready." };
   } catch (error) {
     return failureResult("baseline.check", "Runtime baseline could not be checked.", [diagnostic("BASELINE_NOT_FOUND", error instanceof Error ? error.message : String(error), "error", "/runtime_baseline")]);
   }
 }
 
 export async function baselineReview(input: z.infer<typeof BaselineReviewInputSchema> = {}, context: ActionExecutionContext = {}): Promise<ActionResult> {
-  BaselineReviewInputSchema.parse(input);
+  const parsed = BaselineReviewInputSchema.parse(input);
   try {
-    const baseline = await readBaseline(context);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     const snapshot = await createStoredValidationReviewSnapshot(baseline, context);
     return { ok: true, action_id: "baseline.review", data: { ...snapshot, validation_diagnostics: snapshot.validation.diagnostics }, diagnostics: snapshot.validation.diagnostics, mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: "Produced ephemeral RuntimeBaseline review snapshot without mutation." }], next_actions: [], summary: "Runtime baseline review snapshot produced." };
   } catch (error) {
@@ -160,7 +168,7 @@ export async function baselineBlock(input: z.infer<typeof BaselineBlockInputSche
   const store = storeForContext(context);
   try {
     const parsed = BaselineBlockInputSchema.parse(input);
-    const baseline = await readBaseline(context);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     const candidate = RuntimeBaselineSchema.parse({ ...baseline, status: "blocked", blocker: { reason: parsed.reason, owner: parsed.owner ?? null, next_action: parsed.next_action ?? null, at: isoNow() }, updated_at: isoNow() });
     const updated = await store.update(candidate);
     return { ok: true, action_id: "baseline.block", data: { baseline: updated.artifact, revision: updated.revision }, diagnostics: [], mutations: [{ artifact: "runtime_baseline", operation: "update", paths: ["/status", "/blocker"], summary: `Blocked RuntimeBaseline at revision ${updated.revision}.` }], next_actions: [], summary: "Runtime baseline blocked." };
@@ -180,7 +188,7 @@ export async function baselineAccept(input: z.infer<typeof BaselineAcceptInputSc
       return { ok: true, action_id: "baseline.accept", data: { decision: null, runtime_baseline_ref: null }, diagnostics: [], mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: "Discuss selected; no HumanDecision or RuntimeBaseline mutation." }], next_actions: [], summary: "Discuss selected; baseline unchanged." };
     }
 
-    const baseline = await readBaseline(context);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     const snapshot = await createStoredValidationReviewSnapshot(baseline, context);
     if (snapshot.snapshot_hash !== parsed.review_snapshot_hash || snapshot.snapshot_revision !== parsed.review_snapshot_revision || !sourceRefsEqual(snapshot.source_artifact_refs, parsed.source_artifact_refs)) {
       return failureResult("baseline.accept", "Runtime baseline acceptance snapshot is stale or mismatched.", [diagnostic("BASELINE_REVIEW_SNAPSHOT_STALE", "Submitted review snapshot hash/revision/source refs do not match the current RuntimeBaseline review snapshot.", "error", "/review_snapshot_hash")], { decision: null, runtime_baseline_ref: null }) as ActionResult<{ baseline?: RuntimeBaseline; decision: HumanDecision | null; runtime_baseline_ref: RuntimeBaselineRef | null }>;
@@ -204,7 +212,7 @@ export async function baselineAccept(input: z.infer<typeof BaselineAcceptInputSc
     const postRevision = baseline.revision + 1;
     const decision = buildHumanDecision({ action_id: "baseline.accept", decision_type: "runtime_baseline_acceptance", selected_number: 1, raw_response: parsed.raw_response, decision_prompt: parsed.decision_prompt, human_confirmed: true, prompt_id: parsed.prompt_id, normalized_decision: "yes", final_decision: true, review_snapshot_hash: snapshot.snapshot_hash, review_snapshot_revision: snapshot.snapshot_revision, source_artifact_refs: snapshot.source_artifact_refs, source_interface: parsed.source_interface ?? "core", target_artifact_revision: postRevision });
     await log.append(decision);
-    const runtimeBaselineRef: RuntimeBaselineRef = { artifact_type: "runtime_baseline", id: null, revision: postRevision, accepted_at: acceptedAt, acceptance_decision_id: decision.id, acceptance_snapshot_hash: snapshot.snapshot_hash, acceptance_snapshot_revision: snapshot.snapshot_revision };
+    const runtimeBaselineRef: RuntimeBaselineRef = { artifact_type: "runtime_baseline", id: baseline.id, revision: postRevision, accepted_at: acceptedAt, acceptance_decision_id: decision.id, acceptance_snapshot_hash: snapshot.snapshot_hash, acceptance_snapshot_revision: snapshot.snapshot_revision };
     const candidate = RuntimeBaselineSchema.parse({ ...baseline, status: "accepted", acceptance: decision, decision_history: [...baseline.decision_history, decision], blocker: null, updated_at: acceptedAt });
     const updated = await store.update(candidate);
     return { ok: true, action_id: "baseline.accept", data: { baseline: updated.artifact, decision, runtime_baseline_ref: runtimeBaselineRef }, diagnostics: [], mutations: [{ artifact: "decision_log", operation: "create", paths: [`/decisions/${decision.id}`], summary: "Recorded runtime baseline acceptance HumanDecision." }, { artifact: "runtime_baseline", operation: "update", paths: ["/status", "/acceptance", "/decision_history"], summary: `Accepted RuntimeBaseline at revision ${updated.revision}.` }], next_actions: [], summary: "Runtime baseline accepted." };
@@ -213,7 +221,7 @@ export async function baselineAccept(input: z.infer<typeof BaselineAcceptInputSc
   }
 }
 
-export const BaselineEstablishInputSchema = z.object({}).strict();
+export const BaselineEstablishInputSchema = z.object({ target_id: TargetIdInputSchema }).strict();
 
 // Deterministic runtime-baseline acceptance (sub-slice C). When the baseline's deterministic validation
 // passes (commands valid + dev runtime PROVEN by baseline.dev_runtime.run), accept it AUTOMATICALLY with a
@@ -224,11 +232,11 @@ export const BaselineEstablishInputSchema = z.object({}).strict();
 export async function baselineEstablish(input: z.infer<typeof BaselineEstablishInputSchema> = {}, context: ActionExecutionContext = {}): Promise<ActionResult<{ baseline?: RuntimeBaseline; runtime_baseline_ref: RuntimeBaselineRef | null }>> {
   const store = storeForContext(context);
   try {
-    BaselineEstablishInputSchema.parse(input);
-    const baseline = await readBaseline(context);
+    const parsed = BaselineEstablishInputSchema.parse(input);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     if (baseline.status === "accepted" && baseline.acceptance !== null && baseline.acceptance.review_snapshot_hash !== null && baseline.acceptance.review_snapshot_revision !== null) {
       const accepted = baseline.acceptance;
-      const ref = RuntimeBaselineRefSchema.parse({ artifact_type: "runtime_baseline", id: null, revision: accepted.target_artifact_revision ?? baseline.revision, accepted_at: accepted.at, acceptance_decision_id: accepted.id, acceptance_snapshot_hash: accepted.review_snapshot_hash, acceptance_snapshot_revision: accepted.review_snapshot_revision });
+      const ref = RuntimeBaselineRefSchema.parse({ artifact_type: "runtime_baseline", id: baseline.id, revision: accepted.target_artifact_revision ?? baseline.revision, accepted_at: accepted.at, acceptance_decision_id: accepted.id, acceptance_snapshot_hash: accepted.review_snapshot_hash, acceptance_snapshot_revision: accepted.review_snapshot_revision });
       return { ok: true, action_id: "baseline.establish", data: { baseline, runtime_baseline_ref: ref }, diagnostics: [], mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: "RuntimeBaseline already established (accepted)." }], next_actions: [], summary: "Runtime baseline already established." };
     }
     const snapshot = await createStoredValidationReviewSnapshot(baseline, context);
@@ -240,7 +248,7 @@ export async function baselineEstablish(input: z.infer<typeof BaselineEstablishI
     const decision = buildHumanDecision({ action_id: "baseline.establish", decision_type: "runtime_baseline_acceptance", selected_number: 1, raw_response: "deterministic acceptance: commands valid and dev-runtime proof passed", decision_prompt: "Deterministic runtime baseline acceptance (no human gate; the dev-runtime proof is deterministic).", human_confirmed: false, normalized_decision: "yes", final_decision: true, review_snapshot_hash: snapshot.snapshot_hash, review_snapshot_revision: snapshot.snapshot_revision, source_artifact_refs: snapshot.source_artifact_refs, source_interface: "deterministic_acceptance", target_artifact_revision: postRevision });
     const log = new DecisionLog(store.root);
     await log.append(decision);
-    const runtimeBaselineRef: RuntimeBaselineRef = { artifact_type: "runtime_baseline", id: null, revision: postRevision, accepted_at: acceptedAt, acceptance_decision_id: decision.id, acceptance_snapshot_hash: snapshot.snapshot_hash, acceptance_snapshot_revision: snapshot.snapshot_revision };
+    const runtimeBaselineRef: RuntimeBaselineRef = { artifact_type: "runtime_baseline", id: baseline.id, revision: postRevision, accepted_at: acceptedAt, acceptance_decision_id: decision.id, acceptance_snapshot_hash: snapshot.snapshot_hash, acceptance_snapshot_revision: snapshot.snapshot_revision };
     const candidate = RuntimeBaselineSchema.parse({ ...baseline, status: "accepted", acceptance: decision, decision_history: [...baseline.decision_history, decision], blocker: null, updated_at: acceptedAt });
     const updated = await store.update(candidate);
     return { ok: true, action_id: "baseline.establish", data: { baseline: updated.artifact, runtime_baseline_ref: runtimeBaselineRef }, diagnostics: [], mutations: [{ artifact: "decision_log", operation: "create", paths: [`/decisions/${decision.id}`], summary: "Recorded deterministic runtime baseline acceptance (system-actor)." }, { artifact: "runtime_baseline", operation: "update", paths: ["/status", "/acceptance", "/decision_history"], summary: `Established (accepted) RuntimeBaseline at revision ${updated.revision}.` }], next_actions: [], summary: "Runtime baseline established (deterministic acceptance)." };
@@ -249,7 +257,7 @@ export async function baselineEstablish(input: z.infer<typeof BaselineEstablishI
   }
 }
 
-export const BaselineDevRuntimeRunInputSchema = z.object({}).strict();
+export const BaselineDevRuntimeRunInputSchema = z.object({ target_id: TargetIdInputSchema }).strict();
 
 // Slice 3b: actually run the declared dev runtime (start the process group, poll the readiness probe, tear
 // down) and record the result on the draft baseline so dev_runtime_check can require a PASSED run. This is
@@ -257,8 +265,8 @@ export const BaselineDevRuntimeRunInputSchema = z.object({}).strict();
 export async function baselineDevRuntimeRun(input: z.infer<typeof BaselineDevRuntimeRunInputSchema> = {}, context: ActionExecutionContext = {}): Promise<ActionResult<{ baseline?: RuntimeBaseline; run_result: DevRuntimeRunResult | null }>> {
   const store = storeForContext(context);
   try {
-    BaselineDevRuntimeRunInputSchema.parse(input);
-    const baseline = await readBaseline(context);
+    const parsed = BaselineDevRuntimeRunInputSchema.parse(input);
+    const baseline = await readBaseline(context, parsed.target_id ?? DEFAULT_TARGET_ID);
     if (baseline.status !== "draft") throw new Error(`runtime baseline must be in draft to record a dev-runtime run (current status: ${baseline.status})`);
     const dev = baseline.commands.runtime_development;
     if (dev === null) {
@@ -274,9 +282,35 @@ export async function baselineDevRuntimeRun(input: z.infer<typeof BaselineDevRun
   }
 }
 
-export async function appendBaselineCommandResult(context: ActionExecutionContext, result: z.infer<typeof CommandResultSchema>, draftRevision: number): Promise<RuntimeBaseline> {
+export const BaselineListInputSchema = z.object({}).strict();
+
+export interface BaselineTargetSummary { target_id: string; status: string; revision: number; product_platform: string | null; has_dev_runtime: boolean; accepted: boolean }
+
+// List every per-target RuntimeBaseline (target_id + acceptance status) so an agent can DISCOVER existing
+// targets — needed to pick a consistent target_id and for modify_existing to find the target to inherit
+// (work.target.attach). (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §9.)
+export async function baselineList(input: z.infer<typeof BaselineListInputSchema> = {}, context: ActionExecutionContext = {}): Promise<ActionResult<{ targets: BaselineTargetSummary[] }>> {
   const store = storeForContext(context);
-  const baseline = await readBaseline(context);
+  try {
+    BaselineListInputSchema.parse(input);
+    await relocateLegacyDefaultBaseline(store, DEFAULT_TARGET_ID);
+    const entries = await store.listCurrent<RuntimeBaseline>();
+    const targets: BaselineTargetSummary[] = entries
+      .filter((entry) => entry.artifact_type === "runtime_baseline")
+      .map((entry) => {
+        const baseline = RuntimeBaselineSchema.parse(entry.artifact);
+        return { target_id: baseline.id, status: baseline.status, revision: baseline.revision, product_platform: baseline.stack.product_platform, has_dev_runtime: baseline.commands.runtime_development !== null, accepted: baseline.status === "accepted" };
+      })
+      .sort((a, b) => a.target_id.localeCompare(b.target_id));
+    return { ok: true, action_id: "baseline.list", data: { targets }, diagnostics: [], mutations: [{ artifact: "runtime_baseline", operation: "none", paths: [], summary: `Listed ${targets.length} runtime baseline target(s).` }], next_actions: [], summary: `${targets.length} runtime baseline target(s).` };
+  } catch (error) {
+    return failureResult("baseline.list", "Runtime baseline list failed.", [diagnostic("BASELINE_LIST_FAILED", error instanceof Error ? error.message : String(error), "error", "/runtime_baseline")]) as ActionResult<{ targets: BaselineTargetSummary[] }>;
+  }
+}
+
+export async function appendBaselineCommandResult(context: ActionExecutionContext, result: z.infer<typeof CommandResultSchema>, draftRevision: number, targetId: string = DEFAULT_TARGET_ID): Promise<RuntimeBaseline> {
+  const store = storeForContext(context);
+  const baseline = await readBaseline(context, targetId);
   if (baseline.revision !== draftRevision || baseline.status !== "draft") throw new Error(`stale runtime baseline draft revision: expected current draft revision ${baseline.revision}, got ${draftRevision}`);
   const candidate = RuntimeBaselineSchema.parse({ ...baseline, validation: { ...baseline.validation, command_results: [...baseline.validation.command_results, result] }, updated_at: isoNow() });
   return (await store.update(candidate)).artifact;

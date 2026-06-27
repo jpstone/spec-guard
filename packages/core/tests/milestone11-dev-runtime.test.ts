@@ -17,7 +17,7 @@ const passedRun = (dev: DevRuntime): DevRuntimeRunResult => ({
 });
 
 const baseline = (partial: Partial<RuntimeBaseline["commands"]>, productPlatform: string | null = null, devRun?: DevRuntimeRunResult): RuntimeBaseline => ({
-  artifact_type: "runtime_baseline", schema_version: 1, revision: 1,
+  artifact_type: "runtime_baseline", schema_version: 1, id: "default", revision: 1,
   created_at: "2026-06-21T00:00:00.000Z", updated_at: "2026-06-21T00:00:00.000Z", status: "draft",
   stack: { product_platform: productPlatform, runtime: null, language: null, package_manager: null, framework: null, build_tool: null, architecture: null },
   commands: { test: null, test_not_applicable_reason: "no tests", build: null, build_not_applicable_reason: "no build", runtime_production: null, runtime_production_not_applicable_reason: "no prod runtime", runtime_development: null, runtime_development_not_applicable_reason: "no dev runtime", ...partial },

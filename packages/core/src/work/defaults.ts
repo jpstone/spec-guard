@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { WorkPacketSchema, type WorkPacket } from "../schemas/artifacts.ts";
 import type { AcceptanceCriterion } from "../schemas/embedded.ts";
-import type { DocsPolicy, WorkClassification, WorkOrigination } from "../schemas/enums.ts";
+import { DEFAULT_TARGET_ID, type DocsPolicy, type WorkClassification, type WorkOrigination } from "../schemas/enums.ts";
 import { isoNow } from "../actions/config.ts";
 import { defaultDocsPolicy } from "./docs-policy.ts";
 import { architectureRequirementDefaults, stackRequirementDefaults } from "./architecture-requirement.ts";
@@ -24,6 +24,15 @@ export interface WorkPacketDefaultsInput {
   acceptance_criteria?: AcceptanceCriterion[] | undefined;
   allowed_globs?: string[] | undefined;
   scope_deviations?: string[] | undefined;
+  target_id?: string | null | undefined;
+  runtime_not_relevant_reason?: string | null | undefined;
+}
+
+// The default target when none is supplied: operational_document is docs-only → runtime-less (null);
+// every other classification defaults to the single-app DEFAULT_TARGET_ID. Mirrors platformDefaults'
+// classification-awareness. work.create overrides with the agent's explicit target_id. (§3/§5.)
+export function defaultTargetId(classification: WorkClassification): string | null {
+  return classification === "operational_document" ? null : DEFAULT_TARGET_ID;
 }
 
 export function platformDefaults(classification: WorkClassification): WorkPacket["platform"] {
@@ -101,6 +110,8 @@ export function buildDefaultWorkPacket(input: WorkPacketDefaultsInput): WorkPack
     architecture: inherits ? inheritedArchitecture() : architectureDefaults(input.classification),
     stack: inherits ? inheritedStack() : stackDefaults(input.classification),
     runtime_baseline_ref: null,
+    target_id: input.target_id === undefined ? defaultTargetId(input.classification) : input.target_id,
+    runtime_not_relevant_reason: input.runtime_not_relevant_reason ?? null,
     change_baseline: null,
     lifecycle: { ac_approval: null, packet_approval: null, authorization: null, history: [] },
     decision_history: [],

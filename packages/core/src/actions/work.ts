@@ -3,12 +3,13 @@ import { randomUUID } from "node:crypto";
 import type { ActionResult } from "./result.ts";
 import { aggregateStoreForContext, storeForContext, diagnostic, failureResult, isoNow } from "./config.ts";
 import { capturePacketChangeBaseline } from "../baselines/packet-change-baseline.ts";
-import { ConfigSchema, WorkPacketSchema, type Config } from "../schemas/artifacts.ts";
+import { ConfigSchema, WorkPacketSchema, RuntimeBaselineSchema, type Config, type RuntimeBaseline } from "../schemas/artifacts.ts";
+import { readRuntimeBaselineCurrent, acceptedBaselineRef } from "../baseline/target-store.ts";
 import { resolveProjectRoot, type ActionExecutionContext } from "./context.ts";
 import { buildDefaultWorkPacket } from "../work/defaults.ts";
 import { foldIntoAggregate, specFromWorkPacket, specAsV1WorkPacket } from "../storage/aggregate-mapping.ts";
 import { aggregateApprovalProjection, specReviewContentHash } from "../role-loop/aggregate-approval.ts";
-import { buildStandardImplementationPlanProjectionV1, buildPlanWaivedNoopProjectionV1, implementationPlanHash, PlanExpectedFileV1Schema, PlanTestV1Schema } from "../role-loop/implementation-plan.ts";
+import { buildStandardImplementationPlanProjectionV1, buildPlanWaivedNoopProjectionV1, implementationPlanHash, PlanExpectedFileV1Schema, PlanTestV1Schema, DevRuntimeProofPlanV1Schema } from "../role-loop/implementation-plan.ts";
 import { buildApprovedWorkPacketProjectionV1 } from "../role-loop/packet-approval.ts";
 import { HumanDecisionRefV1Schema, SourceArtifactRefV1Schema } from "../role-loop/human-decision.ts";
 import { AggregateWorkPacketSchema, SpecDependenciesSchema, CONTRACT_PRODUCING_CLASSIFICATIONS, type AggregateWorkPacket, type Spec } from "../schemas/work-packet.ts";
@@ -18,6 +19,8 @@ import { validateDocsPolicyForClassification } from "../work/docs-policy.ts";
 import { mockupGateDiagnostics } from "../work/mockup-gate.ts";
 import { validateAcceptanceCriteria, normalizeAcceptanceCriteria } from "../work/source-evidence.ts";
 import { bootstrapAcsMissing } from "../work/bootstrap-acs.ts";
+import { runtimeRelevanceApprovalDiagnostics, runtimeLessDiffContradiction, devRuntimeProofApprovalDiagnostics } from "../work/runtime-relevance.ts";
+import { establishesNewTarget } from "../work/runtime-baseline-ref.ts";
 import { completionReadinessDiagnostics, completionValidationDiagnostics } from "./completion-readiness.ts";
 import { acContentHash } from "../work/ac-snapshots.ts";
 import { enforceSpecReviewIdentity } from "../role-loop/loop-identity.ts";
@@ -62,7 +65,7 @@ function effectiveScopeGlobs(spec: Spec): string[] {
 import { enforceImplementationAttemptIdentity, enforceReviewCycleIdentity } from "../role-loop/loop-identity.ts";
 import { loadRoleConfig } from "../role-config/load.ts";
 import { resolveRoleModel, type RoleName, type SpecGuardRoleConfig } from "../role-config/config.ts";
-import { WorkClassificationSchema, WorkOriginationSchema } from "../schemas/enums.ts";
+import { WorkClassificationSchema, WorkOriginationSchema, DEFAULT_TARGET_ID } from "../schemas/enums.ts";
 import type { Diagnostic, JsonValue } from "../schemas/embedded.ts";
 
 /**
@@ -97,18 +100,38 @@ export const WorkCreateInputSchema = z.object({
   classification: WorkClassificationSchema,
   // new_entirely establishes structural decisions via classification defaults; modify_existing inherits them.
   origination: WorkOriginationSchema.optional(),
+  // The target (app) this packet operates on (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §3): omit for the
+  // classification default (operational_document → null, else the single-app default), or null for runtime-less.
+  target_id: z.string().min(1).nullable().optional(),
+  runtime_not_relevant_reason: z.string().min(1).optional(),
   allowed_globs: z.array(z.string()).optional()
 }).strict();
 
 export async function workCreate(input: z.infer<typeof WorkCreateInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
   try {
     const parsed = WorkCreateInputSchema.parse(input);
+    // new_in_existing stands up a BRAND-NEW target (app) inside an existing repo (§4.2): it must name a FRESH
+    // target — an explicit, non-default id with no accepted baseline yet. Otherwise it is really modify_existing
+    // (the target already exists and should be INHERITED), and deferring its baseline would let the packet
+    // silently complete against an existing app's baseline.
+    if (parsed.origination === "new_in_existing") {
+      if (parsed.target_id === undefined || parsed.target_id === null || parsed.target_id === DEFAULT_TARGET_ID) {
+        return failureResult("work.create", "new_in_existing requires an explicit, non-default target_id (the new app's id).", [diagnostic("NEW_IN_EXISTING_TARGET_REQUIRED", "A new app added to an existing repo needs its OWN target_id — pass an explicit non-default target_id (not the single-app default, not null). To extend an EXISTING app, use modify_existing.", "error", "/target_id")]);
+      }
+      let existing: RuntimeBaseline | null = null;
+      try { existing = RuntimeBaselineSchema.parse((await readRuntimeBaselineCurrent(storeForContext(context), parsed.target_id)).artifact); } catch { existing = null; }
+      if (existing !== null && existing.status === "accepted") {
+        return failureResult("work.create", `Target '${parsed.target_id}' already has an accepted runtime baseline; it is not new.`, [diagnostic("NEW_IN_EXISTING_TARGET_NOT_FRESH", `Target '${parsed.target_id}' already exists (it has an accepted runtime baseline), so this is not new_in_existing — use modify_existing to inherit it.`, "error", "/target_id")]);
+      }
+    }
     const leaf = buildDefaultWorkPacket({
       id: parsed.id,
       title: parsed.title,
       goal: parsed.goal,
       classification: parsed.classification,
       origination: parsed.origination,
+      target_id: parsed.target_id,
+      runtime_not_relevant_reason: parsed.runtime_not_relevant_reason,
       allowed_globs: parsed.allowed_globs
     });
     const created = await aggregateStoreForContext(context).create(foldIntoAggregate(leaf));
@@ -140,7 +163,10 @@ export const WorkIntentInputSchema = z.object({
   out_of_scope: z.array(z.string()).optional(),
   users_actors: z.array(z.string()).optional(),
   edge_cases: z.array(z.string()).optional(),
-  open_questions: z.array(z.string()).optional()
+  open_questions: z.array(z.string()).optional(),
+  // The runtime-less justification (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §5). Settable here so a runtime-less
+  // (target_id null) packet that needs a Layer-2 reason isn't a permanent orphan when it wasn't given one at create.
+  runtime_not_relevant_reason: z.string().min(1).nullable().optional()
 }).strict();
 
 export async function workIntent(input: z.infer<typeof WorkIntentInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
@@ -159,18 +185,62 @@ export async function workIntent(input: z.infer<typeof WorkIntentInputSchema>, c
       edge_cases: parsed.edge_cases ?? current.edge_cases,
       open_questions: parsed.open_questions ?? current.open_questions
     };
-    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...aggregate, intent }));
+    const runtime_not_relevant_reason = parsed.runtime_not_relevant_reason !== undefined ? parsed.runtime_not_relevant_reason : aggregate.runtime_not_relevant_reason;
+    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...aggregate, intent, runtime_not_relevant_reason }));
+    const intentPaths = parsed.runtime_not_relevant_reason !== undefined ? ["/intent", "/runtime_not_relevant_reason"] : ["/intent"];
     return {
       ok: true,
       action_id: "work.intent",
       data: { work_packet: updated },
       diagnostics: [],
-      mutations: [{ artifact: "work_packet", operation: "update", paths: ["/intent"], summary: `Set the Work Packet intent (${intent.desired_outcomes.length} outcome(s)).` }],
+      mutations: [{ artifact: "work_packet", operation: "update", paths: intentPaths, summary: `Set the Work Packet intent (${intent.desired_outcomes.length} outcome(s)).` }],
       next_actions: [],
       summary: `Work Packet ${aggregate.id}: intent updated.`
     };
   } catch (error) {
     return failureResult("work.intent", "Setting the Work Packet intent failed.", [diagnostic("WORK_INTENT_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+/**
+ * Inherit an existing target's ACCEPTED runtime baseline (the modify_existing path).
+ * (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §4.1.) Reads runtime_baseline/<target_id>, requires it accepted,
+ * and writes a fresh runtime_baseline_ref (id = target_id) onto the container. Pre-approval only (the ref is
+ * in the approval hash); re-runnable to refresh a stale ref. For establish originations (new_entirely /
+ * new_in_existing) the ref stays null pre-approval and is attached post-bootstrap from baseline.establish.
+ */
+export const WorkTargetAttachInputSchema = z.object({ id: z.string().min(1), target_id: z.string().min(1).optional() }).strict();
+
+export async function workTargetAttach(input: z.infer<typeof WorkTargetAttachInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkTargetAttachInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    if (aggregate.lifecycle.approval !== null) return failureResult("work.target.attach", "Work Packet is already approved; the runtime baseline reference is a pre-approval field (it is in the approval hash) — re-approve after re-attaching.", [diagnostic("WORK_TARGET_ATTACH_APPROVED", "Attach the target baseline before the bulk approval.", "error", "/lifecycle/approval")]);
+    const targetId = parsed.target_id ?? aggregate.target_id;
+    if (targetId === null) return failureResult("work.target.attach", "This Work Packet is runtime-less (target_id is null); there is no target runtime to inherit.", [diagnostic("WORK_TARGET_ATTACH_RUNTIME_LESS", "Declare a target_id (the app this work is coupled to) before attaching, or keep the packet runtime-less.", "error", "/target_id")]);
+    let baseline;
+    try {
+      baseline = RuntimeBaselineSchema.parse((await readRuntimeBaselineCurrent(storeForContext(context), targetId)).artifact);
+    } catch {
+      return failureResult("work.target.attach", `No runtime baseline exists for target '${targetId}'.`, [diagnostic("RUNTIME_TARGET_NOT_FOUND", `Target '${targetId}' has no runtime baseline. modify_existing inherits an EXISTING proven target — establish that target first, or use new_in_existing to create a brand-new target.`, "error", "/target_id")]);
+    }
+    const ref = acceptedBaselineRef(baseline);
+    if (ref === null) return failureResult("work.target.attach", `Target '${targetId}' runtime baseline is not accepted (status ${baseline.status}); cannot inherit.`, [diagnostic("RUNTIME_TARGET_NOT_ACCEPTED", `The runtime baseline for target '${targetId}' must be ACCEPTED (proven) before a modify_existing packet can inherit it. Prove + accept it first.`, "error", "/target_id")]);
+    // Attaching a real target makes any prior runtime-less justification moot — clear it so a stale reason
+    // can't linger on a now-targeted packet. (Review fold: SHOULD-FIX #2 dangling reason.)
+    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...aggregate, target_id: targetId, runtime_baseline_ref: ref, runtime_not_relevant_reason: null }));
+    return {
+      ok: true,
+      action_id: "work.target.attach",
+      data: { work_packet: updated },
+      diagnostics: [],
+      mutations: [{ artifact: "work_packet", operation: "update", paths: ["/runtime_baseline_ref", "/target_id"], summary: `Inherited accepted runtime baseline for target '${targetId}' (revision ${ref.revision}).` }],
+      next_actions: [],
+      summary: `Work Packet ${aggregate.id}: inherited target '${targetId}' runtime baseline.`
+    };
+  } catch (error) {
+    return failureResult("work.target.attach", "Attaching the target runtime baseline failed.", [diagnostic("WORK_TARGET_ATTACH_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
   }
 }
 
@@ -339,6 +409,21 @@ async function specApprovalReadiness(aggregate: AggregateWorkPacket, context: Ac
   if (intentMissing.length > 0) {
     errors.push(diagnostic("INTENT_INCOMPLETE", `The Work Packet intent is incomplete — every section must be populated before the bulk approval (set them with work.intent). Empty: ${intentMissing.join(", ")}.`, "error", "/intent"));
   }
+  // Runtime-relevance policing (Layers 1 + 2): a runtime-less (null target_id) claim must be legitimate
+  // (not a runtime-relevant classification / app platform) and, when not pure docs, carry a human-approved
+  // runtime_not_relevant_reason. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §5.)
+  errors.push(...runtimeRelevanceApprovalDiagnostics(aggregate));
+  // Runtime baseline INHERITANCE (modify_existing): a packet that inherits an existing target MUST attach its
+  // accepted runtime baseline BEFORE approval — the ref is in the approval hash, so attaching after approval is
+  // blocked (WORK_TARGET_ATTACH_APPROVED); requiring it here is what makes inherit-before-approval the only path
+  // (no deadlock). New targets (new_entirely / new_in_existing) establish theirs post-authorization as bootstrap
+  // work (deferred); runtime-less packets (null target_id) need none. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §4.)
+  if (aggregate.target_id !== null && !establishesNewTarget(aggregate) && aggregate.runtime_baseline_ref === null) {
+    errors.push(diagnostic("RUNTIME_BASELINE_REF_REQUIRED", `This packet modifies existing target '${aggregate.target_id}', so it must inherit that target's accepted runtime baseline before approval — run work.target.attach (target_id '${aggregate.target_id}'). If '${aggregate.target_id}' has no proven baseline yet, establish it (or use new_in_existing to create a new target).`, "error", "/runtime_baseline_ref"));
+  }
+  // Dev-runtime PROOF DESIGN reviewed at approval (§4.3): an establishing app packet must declare a dev_runtime_proof
+  // on >=1 Spec's plan (the run command + readiness assertion). Proven post-auth; its design is reviewed here.
+  errors.push(...devRuntimeProofApprovalDiagnostics(aggregate));
   // Independent pre-approval review, in TWO requirements (parallel spec reviews). Reviews may be PER-SPEC (run
   // concurrently) or a single WHOLE-WP review; both record each covered Spec's local hash so coverage is per-Spec.
   const currentWholeHash = aggregateApprovalProjection(aggregate).hash;
@@ -677,9 +762,18 @@ export async function workComplete(input: z.infer<typeof WorkCompleteInputSchema
         if (diag.severity === "error" && !seenCodes.has(diag.code)) { seenCodes.add(diag.code); completionErrors.push(diag); }
       }
     }
-    // End-state validation: run the project's declared validator commands (build + test) against the FINAL tree —
-    // this is where contract conformance bites (the build compiles each consumer against the producer's contract).
-    completionErrors.push(...await completionValidationDiagnostics(context));
+    // End-state validation: run the TARGET's declared build against the FINAL tree — this is where contract
+    // conformance bites (the build compiles each consumer against the producer's contract). Target-scoped; a
+    // runtime-less packet (target_id null) has nothing to build. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §10.)
+    completionErrors.push(...await completionValidationDiagnostics(specAsV1WorkPacket(aggregate, aggregate.specs[0]!), context));
+    // Layer 3 — runtime-less backstop: a runtime-less packet whose RECORDED changed files include executable
+    // source contradicts the runtime-less claim. (Under-reporting of the footprint is caught by
+    // unrecordedChangesDiagnostics below.) (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §5.)
+    if (aggregate.target_id === null) {
+      const config = ConfigSchema.parse((await storeForContext(context).readCurrent<Config>("config", null)).artifact);
+      const changedFiles = aggregate.specs.flatMap((spec) => spec.implementation_attempts.flatMap((attempt) => attempt.changed_files));
+      completionErrors.push(...runtimeLessDiffContradiction(aggregate.target_id, changedFiles, config));
+    }
     completionErrors.push(...await unrecordedChangesDiagnostics(aggregate, context));
     completionErrors.push(...await acEvidenceDiagnostics(aggregate, context));
     if (completionErrors.length > 0) return failureResult("work.complete", "Work Packet is not completion-ready (the dev-runtime proof and/or end-state validation is not satisfied).", completionErrors);
@@ -1093,7 +1187,10 @@ const StandardSpecPlanInputSchema = z.object({
   expected_files: z.array(PlanExpectedFileV1Schema),
   tests: z.array(PlanTestV1Schema),
   risks: z.array(z.string()).optional(),
-  out_of_scope_reminders: z.array(z.string()).optional()
+  out_of_scope_reminders: z.array(z.string()).optional(),
+  // The dev-runtime proof design — REQUIRED at approval on >=1 Spec when the packet establishes a new app
+  // target whose platform needs a real dev runtime (DEV_RUNTIME_PROOF_PLAN_REQUIRED); null/omitted otherwise.
+  dev_runtime_proof: DevRuntimeProofPlanV1Schema.nullable().optional()
 }).strict();
 const WaivedSpecPlanInputSchema = z.object({
   kind: z.literal("plan_waived_noop"),
@@ -1163,7 +1260,7 @@ export async function workSpecPlan(input: z.infer<typeof WorkSpecPlanInputSchema
       return failureResult("work.spec.plan", "The contract declaration is invalid.", [diagnostic("CONTRACT_REQUIRED", `Spec ${parsed.spec_id} (${spec.classification}) is a contract-producing surface; FREEZE its typed interface by passing contract_surface (a hard JSON-Schema of the operations + input/output types). Spec Guard owns the authoritative contract.`, "error", "/contract_surface")]);
     }
     const plan = parsed.plan.kind === "standard_plan"
-      ? buildStandardImplementationPlanProjectionV1({ identity_binding_policy: "content_only", template_id: parsed.plan.template_id, template_version: parsed.plan.template_version, source_refs: parsed.plan.source_refs ?? [], summary: parsed.plan.summary, approach: parsed.plan.approach, expected_files: parsed.plan.expected_files, tests: parsed.plan.tests, risks: parsed.plan.risks ?? [], out_of_scope_reminders: parsed.plan.out_of_scope_reminders ?? [], approval_bound_producer_ref: null })
+      ? buildStandardImplementationPlanProjectionV1({ identity_binding_policy: "content_only", template_id: parsed.plan.template_id, template_version: parsed.plan.template_version, source_refs: parsed.plan.source_refs ?? [], summary: parsed.plan.summary, approach: parsed.plan.approach, expected_files: parsed.plan.expected_files, tests: parsed.plan.tests, risks: parsed.plan.risks ?? [], out_of_scope_reminders: parsed.plan.out_of_scope_reminders ?? [], dev_runtime_proof: parsed.plan.dev_runtime_proof ?? null, approval_bound_producer_ref: null })
       : buildPlanWaivedNoopProjectionV1({ human_exception_ref: parsed.plan.human_exception_ref, reason: parsed.plan.reason, authorization_behavior: parsed.plan.authorization_behavior });
     const planHash = implementationPlanHash(plan);
     // Recompute the Spec's work-kind + evidence-policy resolutions from the new plan (via the v1 projection over

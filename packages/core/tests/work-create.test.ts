@@ -94,6 +94,15 @@ describe("workApprove (v2 cutover: whole-WP approve)", () => {
     expect(result.diagnostics.some((d) => d.code === "SPEC_REVIEW_REQUIRED")).toBe(true);
   });
 
+  it("blocks approval of a modify_existing packet that has not inherited its target baseline (RUNTIME_BASELINE_REF_REQUIRED)", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior", origination: "modify_existing" }, { projectRoot: root });
+    await seedBootstrapAcs(); // ACs + plan + intent (so only the inherit gate is left)
+    await recordReviews();
+    const result = await workApprove({ id: "WP1", review_snapshot_hash: await currentHash(), selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "RUNTIME_BASELINE_REF_REQUIRED")).toBe(true);
+  });
+
   it("blocks approval when a greenfield Spec has no bootstrap AC (BOOTSTRAP_ACS_MISSING)", async () => {
     await workCreate({ id: "WP1", title: "x", goal: "g", classification: "reusable_api" }, { projectRoot: root }); // greenfield, no bootstrap AC (no seedBootstrapAcs)
     await recordReviews();
@@ -548,6 +557,13 @@ describe("v2 parity: structural choice + origination", () => {
     const stored = await store().read("WP1");
     expect(stored.specs[0]?.origination).toBe("modify_existing");
     expect(stored.platform.required).toBe(false);
+  });
+
+  it("work.intent can set runtime_not_relevant_reason so a runtime-less packet isn't an un-approvable orphan", async () => {
+    await workCreate({ id: "WP1", title: "Comment cleanup", goal: "g", classification: "direct_behavior", target_id: null }, { projectRoot: root });
+    expect((await store().read("WP1")).target_id).toBeNull();
+    await workIntent({ id: "WP1", runtime_not_relevant_reason: "pure comment/refactor pass, ships no runnable code" }, { projectRoot: root });
+    expect((await store().read("WP1")).runtime_not_relevant_reason).toContain("pure comment/refactor");
   });
 });
 

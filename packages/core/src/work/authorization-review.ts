@@ -133,7 +133,7 @@ export async function authorizationReviewPayload(work: WorkPacket, config: Confi
   const projectRoot = resolveProjectRoot(context);
   const capturePlan = await buildCapturePlan(projectRoot, config, work);
   if (work.lifecycle.packet_approval === null) throw new Error("packet approval is required before authorization review");
-  if (work.runtime_baseline_ref === null && !greenfieldBaselineDeferred(work)) throw new Error("runtime_baseline_ref is required before authorization review");
+  if (work.runtime_baseline_ref === null && !greenfieldBaselineDeferred(work) && work.target_id !== null) throw new Error("runtime_baseline_ref is required before authorization review (modify_existing must inherit its target via work.target.attach)");
   if (capturePlan.plan === null) throw new Error(capturePlan.diagnostics.map((d) => d.message).join("; ") || "change baseline capture plan unavailable");
   const diagnostics = await authorizationDiagnostics(work, config, context);
   return AuthorizationReviewSnapshotPayloadSchema.parse({ id: work.id, work_packet_revision: work.revision, approved_packet_snapshot_hash: work.lifecycle.packet_approval.review_snapshot_hash, approved_packet_snapshot_revision: work.lifecycle.packet_approval.review_snapshot_revision, authorization_ready_diagnostics: diagnostics, allowed_globs: work.scope.allowed_globs, runtime_baseline_ref: work.runtime_baseline_ref, change_baseline_capture_plan: capturePlan.plan, expected_file_category_policy: expectedFileCategoryPolicy(config, work.scope.allowed_globs), implementation_boundary_summary: `Implementation for ${work.id} is constrained to allowed_globs: ${work.scope.allowed_globs.join(", ")}` });

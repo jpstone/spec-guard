@@ -35,6 +35,7 @@ const result = (overrides: Partial<CommandResult> = {}): CommandResult => ({
 const baseline = (partial: Partial<RuntimeBaseline>): RuntimeBaseline => ({
   artifact_type: "runtime_baseline",
   schema_version: 1,
+  id: "default",
   revision: 1,
   created_at: "2026-06-21T00:00:00.000Z",
   updated_at: "2026-06-21T00:00:00.000Z",

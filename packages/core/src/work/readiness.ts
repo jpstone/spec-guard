@@ -76,7 +76,7 @@ export async function workReadinessDiagnostics(work: WorkPacket, context: Action
   if (architectureRequirement.classification_required && work.architecture.required === false && !isValidArchitectureNotRequiredReason(work.architecture.not_required_reason)) diagnostics.push(diagnostic("ARCHITECTURE_REQUIREMENT_EXCEPTION_INVALID", "This classification requires an architecture/stack choice unless architecture.not_required_reason documents a valid explicit exception.", "warning", "/architecture/not_required_reason"));
   if (architectureRequirement.required && work.architecture.decision_ids.length === 0) diagnostics.push(diagnostic("ARCHITECTURE_CHOICE_PENDING", "Required architecture/stack choice has not been recorded.", "warning", "/architecture/decision_ids"));
   const packetNotes: string[] = [];
-  if (work.runtime_baseline_ref === null && !greenfieldBaselineDeferred(work)) packetNotes.push("runtime_baseline_ref is required for packet approval readiness");
+  if (work.runtime_baseline_ref === null && !greenfieldBaselineDeferred(work) && work.target_id !== null) packetNotes.push("runtime_baseline_ref is required for packet approval readiness (inherit the target via work.target.attach)");
   const draftBlocking = diagnostics.filter((diag) => diag.severity === "error" && AC_APPROVAL_BLOCKING_CODES.includes(diag.code));
   const config = await readConfigIfPresent(context);
   let packet_approval_ready = false;

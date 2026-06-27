@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ConfigSchema, RuntimeBaselineSchema, SourceArtifactSchema, WorkPacketSchema } from "../schemas/artifacts.ts";
 import { CommandResultSchema, DiagnosticSchema, HumanDecisionSchema, type Diagnostic } from "../schemas/embedded.ts";
 import { architectureRequirementDefaultsForUnknownClassification } from "../work/architecture-requirement.ts";
+import { DEFAULT_TARGET_ID } from "../schemas/enums.ts";
 
 const knownArtifactSchemas = {
   config: ConfigSchema,
@@ -332,6 +333,9 @@ function migrateRuntimeBaseline(raw: MutableRecord): ArtifactMigrationResult {
   let validationApprovedSemanticsChanged = false;
   setIfMissing(root, "schema_version", 1);
   setIfMissing(root, "revision", 1);
+  // Pre-target-scope baselines were the repo-wide singleton; they migrate to the DEFAULT target id (the
+  // file relocation __singleton__→default is handled lazily on read, baseline/target-store.ts §8).
+  setIfMissing(root, "id", DEFAULT_TARGET_ID);
   setIfMissing(root, "stack", { product_platform: null, runtime: null, language: null, package_manager: null, framework: null, build_tool: null, architecture: null });
   setIfMissing(root, "commands", { test: null, test_not_applicable_reason: null, build: null, build_not_applicable_reason: null, runtime_production: null, runtime_production_not_applicable_reason: null, runtime_development: null, runtime_development_not_applicable_reason: null });
   setIfMissing(root, "configuration", { environment_strategy: null, required_env_vars: [], greenfield_scaffold: false });

@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { baselineBlock, baselineCheck, baselineInit, baselineUpdate, initAction, type CommandResult } from "../src/index.ts";
+import { baselineBlock, baselineCheck, baselineInit, baselineList, baselineUpdate, initAction, type CommandResult } from "../src/index.ts";
 
 const fabricatedResult = (): CommandResult => ({
   id: "fabricated",
@@ -53,6 +53,30 @@ describe("baseline lifecycle actions", () => {
     expect(second.ok).toBe(true);
     expect(second.data.baseline.revision).toBe(1);
     expect(second.mutations[0]?.operation).toBe("none");
+  });
+
+  it("scopes baselines per target and lists them independently", async () => {
+    await baselineInit({}, { projectRoot }); // the default target
+    const web = await baselineInit({ target_id: "web" }, { projectRoot });
+    expect(web.ok).toBe(true);
+    expect(web.data.baseline.id).toBe("web");
+
+    // Updating the web target must NOT affect the default target's baseline.
+    await baselineUpdate({ target_id: "web", patch: [{ op: "replace", path: "/stack/runtime", value: "node" }] }, { projectRoot });
+    const webCheck = await baselineCheck({ target_id: "web" }, { projectRoot });
+    expect(webCheck.ok).toBe(true);
+    const webBaseline = webCheck.data.baseline as { id: string; stack: { runtime: string | null } };
+    expect(webBaseline.id).toBe("web");
+    expect(webBaseline.stack.runtime).toBe("node");
+
+    const defaultCheck = await baselineCheck({}, { projectRoot });
+    const defaultBaseline = defaultCheck.data.baseline as { id: string; stack: { runtime: string | null } };
+    expect(defaultBaseline.id).toBe("default");
+    expect(defaultBaseline.stack.runtime).toBeNull();
+
+    const list = await baselineList({}, { projectRoot });
+    expect(list.ok).toBe(true);
+    expect(list.data.targets.map((target) => target.target_id).sort()).toEqual(["default", "web"]);
   });
 
   it("baseline.update patches valid fields and rejects invalid/type-invalid patches", async () => {

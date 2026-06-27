@@ -70,6 +70,10 @@ export function aggregateApprovalProjection(aggregate: AggregateWorkPacket, opti
     aggregate_approval_version: AGGREGATE_APPROVAL_VERSION_V1,
     id: aggregate.id,
     title: aggregate.title,
+    // Container-level runtime scoping is approved design (§5/NF6): bind target_id + the runtime-less reason
+    // ONCE at the top level (not duplicated into each Spec sub-projection) so editing either re-stales approval.
+    target_id: aggregate.target_id,
+    runtime_not_relevant_reason: aggregate.runtime_not_relevant_reason,
     specs,
     // The declared dependency EDGES + the producer `contract` are approved design too — bind them to the approval
     // hash (a parallel key so the per-Spec sub-projection type stays clean) so the approved snapshot records them.

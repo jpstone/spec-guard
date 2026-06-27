@@ -50,9 +50,17 @@ export async function packetApprovalDiagnostics(work: WorkPacket, config: Config
   if (sourceDerived.length > 0 && work.lifecycle.ac_approval === null) diagnostics.push(diagnostic("SOURCE_DERIVED_ACS_UNAPPROVED", "Source-derived ACs require current AC approval before packet approval.", "error", "/acceptance_criteria"));
   if (bootstrapAcsMissing(work)) diagnostics.push(diagnostic("BOOTSTRAP_ACS_REQUIRED", "This work establishes a new architecture/stack, so at least one bootstrap AcceptanceCriterion (bootstrap: true) covering repo bootstrap is required before packet approval.", "error", "/acceptance_criteria"));
   diagnostics.push(...mockupGateDiagnostics(work));
-  // Greenfield establishes the baseline post-authorization as bootstrap work, so it is not required for
-  // packet approval; modify_existing must reference an accepted (proven) baseline. (Origination-aware.)
-  if (!greenfieldBaselineDeferred(work)) diagnostics.push(...(await validateRuntimeBaselineRef(work.runtime_baseline_ref, context)).diagnostics);
+  // Greenfield (new target) establishes the baseline post-authorization as bootstrap work, so it is not required
+  // for packet approval; modify_existing must reference its target's accepted (proven) baseline; runtime-less work
+  // (target_id null) needs none. (RUNTIME_BASELINE_TARGET_SCOPE_DESIGN.md §4/§10.)
+  if (!greenfieldBaselineDeferred(work) && work.target_id !== null) {
+    diagnostics.push(...(await validateRuntimeBaselineRef(work.runtime_baseline_ref, context)).diagnostics);
+    // Consistency: the attached ref must name the packet's target (work.target.attach sets them equal; this
+    // catches manual tampering). (§3.)
+    if (work.runtime_baseline_ref !== null && work.runtime_baseline_ref.id !== work.target_id) {
+      diagnostics.push(diagnostic("RUNTIME_BASELINE_TARGET_MISMATCH", `runtime_baseline_ref.id ('${work.runtime_baseline_ref.id}') does not match the packet's target_id ('${work.target_id}'). Re-attach the correct target (work.target.attach).`, "error", "/runtime_baseline_ref"));
+    }
+  }
   const docsError = validateDocsPolicyForClassification({ classification: work.classification, policy: work.docs.policy, none_required_reason: work.docs.none_required_reason, not_applicable_reason: work.docs.not_applicable_reason });
   if (docsError !== null) diagnostics.push(diagnostic("DOCS_POLICY_INVALID", docsError, "error", "/docs/policy"));
   if (work.scope.allowed_globs.length === 0) diagnostics.push(diagnostic("ALLOWED_GLOBS_REQUIRED", "scope.allowed_globs must contain at least one valid glob before packet approval.", "error", "/scope/allowed_globs"));

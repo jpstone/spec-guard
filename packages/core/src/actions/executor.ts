@@ -5,11 +5,11 @@ import { initAction } from "./init.ts";
 import { mcpQuickstart, mcpStatus } from "./quickstart.ts";
 import { decisionCreate, decisionGet, decisionList, decisionSupersede } from "./decision.ts";
 import { reviewSnapshotPersist } from "./review-snapshot.ts";
-import { baselineAccept, baselineBlock, baselineCheck, baselineDevRuntimeRun, baselineEstablish, baselineInit, baselineReview, baselineUpdate } from "./baseline.ts";
+import { baselineAccept, baselineBlock, baselineCheck, baselineDevRuntimeRun, baselineEstablish, baselineInit, baselineList, baselineReview, baselineUpdate } from "./baseline.ts";
 import { commandRun } from "./command.ts";
 import { sourceArtifactGet, sourceArtifactList, sourceArtifactRegister, sourceArtifactUpdate } from "./source-artifact.ts";
 import { validateParity } from "./parity.ts";
-import { workCreate, workDecompose, workApprove, workAuthorize, workSpecAdvance, workSpecRecord, workSpecMockup, workSpecAcs, workReview, workComplete, workChoice, workChoices, workGet, workList, workSpecPlan, workIntent } from "./work.ts";
+import { workCreate, workDecompose, workApprove, workAuthorize, workSpecAdvance, workSpecRecord, workSpecMockup, workSpecAcs, workReview, workComplete, workChoice, workChoices, workGet, workList, workSpecPlan, workIntent, workTargetAttach } from "./work.ts";
 import { aggregateApprovalProjection } from "../role-loop/aggregate-approval.ts";
 import type { AggregateWorkPacket } from "../schemas/work-packet.ts";
 
@@ -21,6 +21,8 @@ export async function executeAction(actionId: string, input: Record<string, unkn
       return workCreate(input as never, context);
     case "work.intent":
       return workIntent(input as never, context);
+    case "work.target.attach":
+      return workTargetAttach(input as never, context);
     case "work.get":
       return workGet(input as never, context);
     case "work.list":
@@ -89,6 +91,8 @@ export async function executeAction(actionId: string, input: Record<string, unkn
       return baselineBlock(input as never, context) as Promise<ActionResult>;
     case "baseline.check":
       return baselineCheck(input as never, context);
+    case "baseline.list":
+      return baselineList(input as never, context) as Promise<ActionResult>;
     case "command.run":
       return commandRun(input as never, context);
     case "source_artifact.register":
