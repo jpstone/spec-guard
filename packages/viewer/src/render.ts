@@ -51,6 +51,18 @@ function reviewsSection(label: string, reviews: ReviewView[]): string {
   return Section(label, reviews.map((r) => `<article class="sg-lane"><h4>${Badge(r.verdict ?? "pending", verdictTone(r.verdict))} <span class="sg-subtle">${escapeHtml(r.scope)} review · ${escapeHtml(r.reviewer)}${r.reviewed_at ? ` · ${escapeHtml(r.reviewed_at)}` : ""}</span></h4><p>${escapeHtml(r.summary)}</p>${r.blockers.length === 0 ? "" : `<strong>Blockers</strong>${bullets(r.blockers.map((b) => `${b.title}: ${b.detail}`))}`}</article>`).join(""));
 }
 
+function parallelismSection(view: WorkPacketSpecView): string {
+  const plan = view.implementation_parallelism_plan;
+  if (plan === null) return Section("Implementation parallelism plan", "<p class=\"sg-subtle\">No packet-level parallelism plan recorded yet.</p>");
+  const groups = Table(["Group", "Specs", "Rationale"], plan.execution_groups.map((group) => [escapeHtml(group.id), bullets(group.spec_ids), escapeHtml(group.rationale)]));
+  return Section("Implementation parallelism plan", `${kv([["Strategy", plan.strategy], ["Reasoning", plan.reasoning]])}<h4>Execution groups</h4>${groups}<h4>Constraints</h4>${bullets(plan.constraints)}<h4>Risks</h4>${bullets(plan.risks)}`);
+}
+
+function architectureGovernanceSection(view: WorkPacketSpecView): string {
+  const binding = view.architecture_governance;
+  return Section("Architecture governance", kv([["Mode", binding.mode], ["Charter revision", binding.charter_revision ?? "—"], ["Active ordinances", binding.active_ordinance_ids.length === 0 ? "none" : binding.active_ordinance_ids.join(", ")], ["Waiver reason", binding.waiver_reason ?? "—"]]));
+}
+
 // The work-packet page renders the CommittableSpec render model (clone-consistent), cleanly: bullets for
 // arrays, tables for hashes/delivery, no raw JSON lanes, raw packet behind a link.
 // Build every section from a CommittableSpec (used by BOTH the container page and a per-Spec page; each composes
@@ -93,7 +105,7 @@ export function renderWorkPacketSpec(view: WorkPacketSpecView): string {
   const s = specSections(view.spec, view.source);
   const specsSection = Section("Embedded Specs (the Work Breakdown — click a Spec for its ACs, plan, review)", Table(["Spec", "Classification", "State", "Attempts", "Reviews", "Spec review"], view.specs.map((sp) => [`<a href="/artifacts/work_packet/${encodeURIComponent(view.spec.work_id)}/spec/${encodeURIComponent(sp.id)}" title="${escapeHtml(sp.id)}">${escapeHtml(sp.title)}</a>`, Badge(sp.classification), Badge(sp.workflow_state, statusTone(sp.workflow_state)), escapeHtml(String(sp.attempts)), escapeHtml(String(sp.reviews)), sp.spec_review_verdict === null ? "—" : Badge(sp.spec_review_verdict)])));
   const rawLink = `<p><a href=\"/artifacts/work_packet/${encodeURIComponent(view.spec.work_id)}/raw\" target=\"_blank\" rel=\"noopener\">View raw JSON &#8599;</a> — the full work packet, opens in a new tab.</p>`;
-  return AppShell({ title: view.spec.title, subtitle: `Work Packet · ${view.spec.work_id}`, children: `${s.status}${s.proof}${s.specReview}${s.intent}${s.structural}${specsSection}${reviewsSection("Whole-WP coherence review", view.coherence_reviews)}${contractsSection("Contracts created by this Work Packet", view.contracts_created)}${contractsSection("Contracts updated by this Work Packet", view.contracts_updated)}${rawLink}` });
+  return AppShell({ title: view.spec.title, subtitle: `Work Packet · ${view.spec.work_id}`, children: `${s.status}${s.proof}${s.specReview}${s.intent}${s.structural}${architectureGovernanceSection(view)}${parallelismSection(view)}${specsSection}${reviewsSection("Whole-WP coherence review", view.coherence_reviews)}${contractsSection("Contracts created by this Work Packet", view.contracts_created)}${contractsSection("Contracts updated by this Work Packet", view.contracts_updated)}${rawLink}` });
 }
 
 // A Spec page is the embedded Spec's OWN content: its classification, ACs, scope, implementation plan, the
@@ -188,8 +200,46 @@ function kv(items: Array<[string, unknown]>): string {
   return `<dl class=\"sg-kv\">${items.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${value instanceof RawHtml ? value.html : typeof value === "string" ? escapeHtml(value) : value === null || value === undefined ? "—" : escapeHtml(JSON.stringify(value))}</dd>`).join("")}</dl>`;
 }
 
+function renderArchitectureCharterArtifact(artifact: unknown): string | null {
+  if (artifact === null || typeof artifact !== "object" || (artifact as { artifact_type?: unknown }).artifact_type !== "architecture_charter") return null;
+  const charter = artifact as {
+    status?: string;
+    revision?: number;
+    ordinances?: Array<{
+      id: string;
+      title: string;
+      rule: string;
+      rationale: string;
+      state: string;
+      severity: string;
+      applies_to: string[];
+      exceptions: string[];
+      supersedes?: string | null;
+      superseded_by?: string | null;
+      retired_at?: string | null;
+      retired_reason?: string | null;
+      enforcement_plan: null | { summary: string; enforcement_kind: string; command: unknown; expected_files: Array<{ path: string; purpose: string; change_type: string }>; validation_strategy: string };
+      latest_validation: null | { command_result: { status: string; command: string; id: string } };
+    }>;
+  };
+  const ordinances = charter.ordinances ?? [];
+  const rows = ordinances.map((ordinance) => [
+    escapeHtml(ordinance.id),
+    escapeHtml(ordinance.title),
+    Badge(ordinance.state, statusTone(ordinance.state)),
+    Badge(ordinance.severity, ordinance.severity === "blocking" ? "red" : "yellow"),
+    escapeHtml(ordinance.rule),
+    escapeHtml(ordinance.supersedes ?? ordinance.superseded_by ?? ""),
+    ordinance.enforcement_plan === null ? "—" : escapeHtml(ordinance.enforcement_plan.summary),
+    ordinance.latest_validation === null ? Badge("not run", "yellow") : Badge(ordinance.latest_validation.command_result.status, statusTone(ordinance.latest_validation.command_result.status))
+  ]);
+  const detail = ordinances.map((ordinance) => Section(`${ordinance.id}: ${ordinance.title}`, `${kv([["State", ordinance.state], ["Severity", ordinance.severity], ["Supersedes", ordinance.supersedes ?? null], ["Superseded by", ordinance.superseded_by ?? null], ["Retired at", ordinance.retired_at ?? null], ["Retired reason", ordinance.retired_reason ?? null], ["Rule", ordinance.rule], ["Rationale", ordinance.rationale]])}<h4>Applies to</h4>${bullets(ordinance.applies_to)}<h4>Exceptions</h4>${bullets(ordinance.exceptions)}${ordinance.enforcement_plan === null ? "<p class=\"sg-subtle\">No enforcement plan recorded.</p>" : `<h4>Enforcement</h4>${kv([["Kind", ordinance.enforcement_plan.enforcement_kind], ["Summary", ordinance.enforcement_plan.summary], ["Validation strategy", ordinance.enforcement_plan.validation_strategy], ["Command", JSON.stringify(ordinance.enforcement_plan.command)]])}${ordinance.enforcement_plan.expected_files.length === 0 ? "" : Table(["Path", "Purpose", "Change"], ordinance.enforcement_plan.expected_files.map((file) => [escapeHtml(file.path), escapeHtml(file.purpose), escapeHtml(file.change_type)]))}`}`)).join("");
+  return AppShell({ title: "Architecture Charter", subtitle: `${charter.status ?? "unknown"} · revision ${charter.revision ?? "?"}`, children: `${Section("Ordinances", rows.length === 0 ? "<p class=\"sg-subtle\">No ordinances drafted yet.</p>" : Table(["ID", "Title", "State", "Severity", "Rule", "Supersession", "Enforcement", "Validation"], rows))}${detail}` });
+}
 
 export function renderArtifactDetail(detail: ArtifactDetailData): string {
+  const charter = renderArchitectureCharterArtifact(detail.artifact);
+  if (charter !== null) return charter;
   return AppShell({ title: `${detail.artifact_type} ${detail.id ?? "singleton"}`, subtitle: detail.status ?? "artifact detail", children: `${Section("Artifact summary", kv([["Type", detail.artifact_type], ["Identifier", detail.id ?? "singleton"], ["Status", detail.status], ["Pending action", detail.pending_action], ["Revision", detail.revision], ["Governed content hash", detail.governed_content_hash]]))}${JsonDebug(detail.artifact)}` });
 }
 

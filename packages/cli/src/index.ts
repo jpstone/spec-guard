@@ -136,6 +136,18 @@ async function readAllStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) if (typeof value === "string" && value.length > 0) return value;
+  return null;
+}
+
+function toolInputFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const raw = payload.tool_input ?? payload.toolInput ?? payload.input;
+  if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw === "string") return { input: raw };
+  return {};
+}
+
 function relativizeNormalized(p: string, projectRoot: string): string {
   try {
     const forward = p.replace(/\\/g, "/");
@@ -154,8 +166,9 @@ function extractEditedPaths(toolInput: Record<string, unknown>, projectRoot: str
   const raw: string[] = [];
   if (typeof toolInput.file_path === "string") raw.push(toolInput.file_path);
   if (typeof toolInput.notebook_path === "string") raw.push(toolInput.notebook_path);
+  if (typeof toolInput.path === "string") raw.push(toolInput.path);
   // apply_patch (Codex): the patch text carries "*** Add/Update/Delete File: <path>" headers
-  const patch = [toolInput.command, toolInput.input, toolInput.patch].find((value) => typeof value === "string");
+  const patch = [toolInput.command, toolInput.input, toolInput.patch, toolInput.text].find((value) => typeof value === "string");
   if (typeof patch === "string") for (const match of patch.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)) if (match[1] !== undefined) raw.push(match[1].trim());
   return raw.map((p) => relativizeNormalized(p, projectRoot)).filter((p) => p.length > 0);
 }
@@ -189,9 +202,9 @@ async function readActiveLease(projectRoot: string): Promise<EditLease | null> {
 async function runSubagentStart(options: RunCliOptions, stdinContent: string): Promise<number> {
   try {
     const payload = JSON.parse(stdinContent) as Record<string, unknown>;
-    const agentType = typeof payload.agent_type === "string" ? payload.agent_type : "";
-    const agentId = typeof payload.agent_id === "string" ? payload.agent_id : null;
-    const projectRoot = options.cwd ?? (typeof payload.cwd === "string" ? payload.cwd : process.cwd());
+    const agentType = firstString(payload.agent_type, payload.subagent_type, payload.subagentType) ?? "";
+    const agentId = firstString(payload.agent_id, payload.subagent_id, payload.subagentId);
+    const projectRoot = options.cwd ?? firstString(payload.cwd, payload.project_root, payload.projectRoot) ?? process.cwd();
     if (!editCapableAgentNames(await loadRoleConfig(projectRoot)).has(agentType)) return 0;
     const leasePath = editLeasePath(projectRoot);
     await mkdir(path.dirname(leasePath), { recursive: true });
@@ -206,7 +219,7 @@ async function runSubagentStart(options: RunCliOptions, stdinContent: string): P
 async function runSubagentStop(options: RunCliOptions, stdinContent: string): Promise<number> {
   try {
     const payload = JSON.parse(stdinContent) as Record<string, unknown>;
-    const projectRoot = options.cwd ?? (typeof payload.cwd === "string" ? payload.cwd : process.cwd());
+    const projectRoot = options.cwd ?? firstString(payload.cwd, payload.project_root, payload.projectRoot) ?? process.cwd();
     await rm(editLeasePath(projectRoot), { force: true });
     return 0;
   } catch {
@@ -220,10 +233,10 @@ async function runSubagentStop(options: RunCliOptions, stdinContent: string): Pr
 async function runPreEditHook(options: RunCliOptions, stderr: (text: string) => void, stdinContent: string): Promise<number> {
   try {
     const payload = JSON.parse(stdinContent) as Record<string, unknown>;
-    const toolName = typeof payload.tool_name === "string" ? payload.tool_name : "";
-    const toolInput = payload.tool_input !== null && typeof payload.tool_input === "object" ? payload.tool_input as Record<string, unknown> : {};
-    const agentType = typeof payload.agent_type === "string" ? payload.agent_type : null;
-    const projectRoot = options.cwd ?? (typeof payload.cwd === "string" ? payload.cwd : process.cwd());
+    const toolName = firstString(payload.tool_name, payload.toolName, payload.tool) ?? "";
+    const toolInput = toolInputFromPayload(payload);
+    const agentType = firstString(payload.agent_type, payload.subagent_type, payload.subagentType);
+    const projectRoot = options.cwd ?? firstString(payload.cwd, payload.project_root, payload.projectRoot) ?? process.cwd();
     // Resolve the actor: Claude carries agent_type in the payload; Codex doesn't, so fall back to the edit lease
     // SubagentStart wrote. No agent_type AND no lease => the main session (coordinator) => denied below.
     const actor = agentType ?? (await readActiveLease(projectRoot))?.agent_type ?? null;

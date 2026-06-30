@@ -2,10 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { initAction, aggregateApprovalProjection, AggregateWorkPacketSchema, sealImplementationAttempt, ImplementationAttemptSchema, sealReviewCycle, ReviewCycleSchema, type LineageProducer, type ImplementationAttempt } from "../src/index.ts";
+import { initAction, aggregateApprovalProjection, AggregateWorkPacketSchema, sealImplementationAttempt, ImplementationAttemptSchema, sealReviewCycle, ReviewCycleSchema, executeActionForAgent, type LineageProducer, type ImplementationAttempt } from "../src/index.ts";
 import { aggregateStoreForContext } from "../src/actions/config.ts";
 import { DecisionLog } from "../src/decisions/decision-log.ts";
-import { workCreate, workApprove, workAuthorize, workSpecAdvance, workComplete, workSpecRecord, workDecompose, workSpecMockup, workSpecAcs, workReview, workChoice, workChoices, workGet, workList, workSpecPlan, workIntent } from "../src/actions/work.ts";
+import { workCreate, workApprove, workAuthorize, workSpecAdvance, workComplete, workSpecRecord, workDecompose, workSpecMockup, workSpecAcs, workReview, workChoicePrepare, workChoice, workChoices, workGet, workList, workSpecPlan, workParallelismPlan, workIntent, workRevise, workSpecRevise, workNext, workApprovalReady } from "../src/actions/work.ts";
+import { workArchitectureWaive } from "../src/actions/architecture.ts";
 import { normalizeAcceptanceCriteria, sourceEvidenceHash } from "../src/work/source-evidence.ts";
 import type { AcceptanceCriterion } from "../src/schemas/embedded.ts";
 import { buildAggregate } from "./helpers/aggregate-fixture.ts";
@@ -20,8 +21,35 @@ afterEach(async () => { await rm(root, { recursive: true, force: true }); });
 // The approval gate now requires ONE passing whole-WP independent review (over all Specs); record it right before
 // an approve so it binds to the current whole-WP content.
 const reviewProducer: LineageProducer = { role: "reviewer", principal_id: null, agent_instance_id: "agent-reviewer", provider: "claude_code", model: null, run_id: "rR" };
+const recordParallelismPlan = async () => {
+  const agg = await aggregateStoreForContext({ projectRoot: root }).read("WP1");
+  await workParallelismPlan({
+    id: "WP1",
+    strategy: "sequential",
+    reasoning: "Test fixture uses a conservative sequential implementation plan.",
+    execution_groups: agg.specs.map((spec, index) => ({ id: `wave-${index + 1}`, spec_ids: [spec.id], rationale: "Run this Spec in fixture order." })),
+    constraints: [],
+    risks: []
+  }, { projectRoot: root });
+};
 const recordReviews = async () => {
   await workReview({ id: "WP1", producer: reviewProducer, verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
+};
+const waiveArchitectureGovernanceIfNeeded = async (id = "WP1") => {
+  const store = aggregateStoreForContext({ projectRoot: root });
+  const aggregate = await store.read(id);
+  if (aggregate.architecture_governance.mode !== "pending") return;
+  if (aggregate.origination === "modify_existing") return;
+  if (aggregate.architecture.required !== true && aggregate.stack.required !== true) return;
+  const waived = await workArchitectureWaive({
+    id,
+    reason: "Test fixture explicitly waives project-level Architecture Charter ordinances.",
+    selected_number: 1,
+    raw_response: "waive",
+    decision_prompt: "Waive architecture ordinances for this fixture?",
+    human_confirmed: true
+  }, { projectRoot: root });
+  expect(waived.ok).toBe(true);
 };
 // Greenfield Specs (new_entirely + a required architecture/stack) must carry a bootstrap AC at approval; seed one
 // on every Spec of WP1 right after creation/decomposition (before the hash is computed, so it isn't staled).
@@ -33,8 +61,10 @@ const seedBootstrapAcs = async () => {
   for (const spec of (await store.read("WP1")).specs) {
     await workSpecPlan({ id: "WP1", spec_id: spec.id, plan: { kind: "standard_plan", template_id: "t", template_version: 1, summary: "plan", approach: ["build it"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" }, { path: "docs/api.md", purpose: "docs", change_type: "create" }], tests: [] }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["x"] } }, { projectRoot: root });
   }
+  await recordParallelismPlan();
   // The approval gate requires a COMPLETE whole-WP intent (all six sections); seed one (before the hash).
   await workIntent({ id: "WP1", desired_outcomes: ["delivered"], in_scope: ["the feature"], out_of_scope: ["unrelated work"], users_actors: ["end user"], edge_cases: ["empty input"], open_questions: ["none"] }, { projectRoot: root });
+  await waiveArchitectureGovernanceIfNeeded();
 };
 
 describe("workCreate (v2 cutover: create)", () => {
@@ -105,6 +135,7 @@ describe("workApprove (v2 cutover: whole-WP approve)", () => {
 
   it("blocks approval when a greenfield Spec has no bootstrap AC (BOOTSTRAP_ACS_MISSING)", async () => {
     await workCreate({ id: "WP1", title: "x", goal: "g", classification: "reusable_api" }, { projectRoot: root }); // greenfield, no bootstrap AC (no seedBootstrapAcs)
+    await waiveArchitectureGovernanceIfNeeded();
     await recordReviews();
     const result = await workApprove({ id: "WP1", review_snapshot_hash: await currentHash(), selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });
     expect(result.ok).toBe(false);
@@ -178,9 +209,63 @@ describe("workApprove (v2 cutover: whole-WP approve)", () => {
   });
 });
 
+describe("workRevise + workSpecRevise (post-approval correction)", () => {
+  const store = () => aggregateStoreForContext({ projectRoot: root });
+  const currentHash = async () => aggregateApprovalProjection(await store().read("WP1")).hash;
+  const createApproveAuthorize = async () => {
+    await workCreate({ id: "WP1", title: "My WP", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    await seedBootstrapAcs();
+    await recordReviews();
+    const hash = await currentHash();
+    await workApprove({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });
+    await workAuthorize({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Authorize?", human_confirmed: true }, { projectRoot: root });
+  };
+
+  it("reopens an approved + authorized packet back to draft for human-requested revision", async () => {
+    await createApproveAuthorize();
+    expect((await store().read("WP1")).lifecycle.authorization).not.toBeNull();
+    const result = await workRevise({ id: "WP1", selected_number: 1, raw_response: "Wrong classification", decision_prompt: "Reopen?", human_confirmed: true, reason: "Spec was misclassified as direct behavior." }, { projectRoot: root });
+    expect(result.ok).toBe(true);
+    const stored = await store().read("WP1");
+    expect(stored.lifecycle.approval).toBeNull();
+    expect(stored.lifecycle.authorization).toBeNull();
+    expect(stored.lifecycle.completion).toBeNull();
+    expect(stored.specs.every((spec) => spec.workflow_state === "packet_draft")).toBe(true);
+    expect(stored.specs.every((spec) => spec.change_baseline === null)).toBe(true);
+    expect(stored.decision_history.some((decision) => decision.decision_type === "aggregate_work_packet_revision")).toBe(true);
+  });
+
+  it("blocks Spec metadata edits while approved, then allows reclassification after work.revise and requires a new contract plan", async () => {
+    await createApproveAuthorize();
+    const blocked = await workSpecRevise({ id: "WP1", spec_id: "WP1", classification: "reusable_api" }, { projectRoot: root });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.diagnostics.some((d) => d.code === "WORK_SPEC_REVISE_APPROVED")).toBe(true);
+
+    await workRevise({ id: "WP1", selected_number: 1, raw_response: "API contract was missed", decision_prompt: "Reopen?", human_confirmed: true, reason: "Spec should be reusable_api so the contract is frozen." }, { projectRoot: root });
+    const revised = await workSpecRevise({ id: "WP1", spec_id: "WP1", classification: "reusable_api", allowed_globs: ["src/api/**"] }, { projectRoot: root });
+    expect(revised.ok).toBe(true);
+    expect(revised.diagnostics.some((d) => d.code === "WORK_SPEC_REVISE_PLAN_RESET")).toBe(true);
+    const spec = (await store().read("WP1")).specs[0]!;
+    expect(spec.classification).toBe("reusable_api");
+    expect(spec.scope.allowed_globs).toEqual(["src/api/**"]);
+    expect(spec.implementation_plan).toBeNull();
+    expect(spec.contract).toBeNull();
+    expect(spec.docs.policy).toBe("required");
+
+    const plan = { kind: "standard_plan" as const, template_id: "t", template_version: 1, summary: "plan", approach: ["build it"], expected_files: [{ path: "src/api/index.ts", purpose: "impl", change_type: "create" as const }, { path: "src/api/index.test.ts", purpose: "tests", change_type: "create" as const }, { path: "docs/api.md", purpose: "docs", change_type: "create" as const }], tests: [] };
+    const noContract = await workSpecPlan({ id: "WP1", spec_id: "WP1", plan, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] } }, { projectRoot: root });
+    expect(noContract.ok).toBe(false);
+    expect(noContract.diagnostics.some((d) => d.code === "CONTRACT_REQUIRED")).toBe(true);
+    const withContract = await workSpecPlan({ id: "WP1", spec_id: "WP1", plan, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { operations: [{ name: "doThing", input: { type: "object" }, output: { type: "object" } }] } }, { projectRoot: root });
+    expect(withContract.ok).toBe(true);
+    expect((await store().read("WP1")).specs[0]?.contract).not.toBeNull();
+  });
+});
+
 describe("workComplete (v2 cutover: whole-WP completion gate)", () => {
   const store = () => aggregateStoreForContext({ projectRoot: root });
   const approveAuthorize = async () => {
+    await waiveArchitectureGovernanceIfNeeded();
     const hash = aggregateApprovalProjection(await store().read("WP1")).hash;
     await recordReviews();
     await workApprove({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });
@@ -431,6 +516,7 @@ describe("workReview (v2: ONE whole-WP independent review over all Specs)", () =
     await workCreate({ id: "WP1", title: "x", goal: "g", classification: "reusable_api" }, { projectRoot: root });
     await workSpecAcs({ id: "WP1", spec_id: "WP1", acceptance_criteria: [{ id: "ac1", text: "do x", source: "human", source_evidence: null }], author_agent_instance_id: authorId }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: { kind: "standard_plan", template_id: "t", template_version: 1, summary: "plan", approach: ["build it"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" }, { path: "docs/api.md", purpose: "docs", change_type: "create" }], tests: [] }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["x"] } }, { projectRoot: root });
+    await recordParallelismPlan();
   };
 
   it("records the whole-WP review ON THE CONTAINER (reviewer != every Spec author)", async () => {
@@ -455,6 +541,7 @@ describe("workReview (v2: ONE whole-WP independent review over all Specs)", () =
     await workSpecAcs({ id: "WP1", spec_id: specs[0]!.id, acceptance_criteria: [{ id: "ac1", text: "do x", source: "human", source_evidence: null }], author_agent_instance_id: "agent-A" }, { projectRoot: root });
     await workSpecAcs({ id: "WP1", spec_id: specs[1]!.id, acceptance_criteria: [{ id: "ac1", text: "do y", source: "human", source_evidence: null }], author_agent_instance_id: "agent-B" }, { projectRoot: root });
     for (const s of specs) await workSpecPlan({ id: "WP1", spec_id: s.id, plan: { kind: "standard_plan", template_id: "t", template_version: 1, summary: "p", approach: ["go"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" }, { path: "docs/api.md", purpose: "docs", change_type: "create" }], tests: [] }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["x"] } }, { projectRoot: root });
+    await recordParallelismPlan();
     // reviewer == the SECOND Spec's author -> still blocked even though the first Spec is clean (dedupe must NOT mask it)
     const blocked = await workReview({ id: "WP1", producer: reviewer("agent-B"), verdict: "pass", blockers: [], summary: "x" }, { projectRoot: root });
     expect(blocked.ok).toBe(false);
@@ -485,69 +572,116 @@ describe("workReview (v2: ONE whole-WP independent review over all Specs)", () =
 
 describe("v2 parity: structural choice + origination", () => {
   const store = () => aggregateStoreForContext({ projectRoot: root });
+  const prepareChoice = async (choice_type: "platform_choice" | "architecture_choice" | "stack_choice", prompt_text: string, labels: string[], recommendedIndex = 0) => {
+    const result = await workChoicePrepare({
+      id: "WP1",
+      choice_type,
+      prompt_text,
+      options: labels.map((label, index) => ({
+        label,
+        ...(index === recommendedIndex ? { recommended: true, recommendation_rationale: "Best fit for this fixture." } : {})
+      }))
+    }, { projectRoot: root });
+    expect(result.ok).toBe(true);
+    return result.data as { human_gate_token: string; decision_prompt: string; options_presented: string[] };
+  };
 
   it("records a platform structural choice on the container", async () => {
     await workCreate({ id: "WP1", title: "x", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
-    const result = await workChoice({ id: "WP1", choice_type: "platform_choice", choice: "web", custom_response: null, option_details: null, options_presented: ["a", "Type your own answer", "Discuss"], selected_number: 1, raw_response: "web", decision_prompt: "Platform?", human_confirmed: true }, { projectRoot: root });
+    const gate = await prepareChoice("platform_choice", "Platform?", ["web", "Type your own answer", "Discuss"]);
+    const result = await workChoice({ id: "WP1", human_gate_token: gate.human_gate_token, choice_type: "platform_choice", choice: "web", custom_response: null, option_details: null, options_presented: gate.options_presented, selected_number: 1, raw_response: "web", decision_prompt: gate.decision_prompt, human_confirmed: true }, { projectRoot: root });
     expect(result.ok).toBe(true);
     const stored = await store().read("WP1");
     expect(stored.platform.choice).toBe("web");
     expect(stored.platform.decision_id).not.toBeNull();
   });
 
+  it("rejects work.choice without a prepared human gate token", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
+    const result = await workChoice({ id: "WP1", choice_type: "platform_choice", choice: "web", custom_response: null, option_details: null, options_presented: ["web", "Type your own answer", "Discuss"], selected_number: 1, raw_response: "web", decision_prompt: "Platform?", human_confirmed: true } as never, { projectRoot: root });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "HUMAN_GATE_TOKEN_REQUIRED")).toBe(true);
+  });
+
+  it("allows only one active prepared structural-choice gate at a time", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
+    await prepareChoice("platform_choice", "Platform?", ["web", "Type your own answer", "Discuss"]);
+    const second = await workChoicePrepare({ id: "WP1", choice_type: "stack_choice", prompt_text: "Stack?", options: [{ label: "react", recommended: true, recommendation_rationale: "Best fit." }, { label: "Type your own answer" }, { label: "Discuss" }] }, { projectRoot: root });
+    expect(second.ok).toBe(false);
+    expect(second.diagnostics.some((d) => d.code === "HUMAN_GATE_ALREADY_PENDING")).toBe(true);
+  });
+
+  it("rejects prepared structural-choice mega-prompts that include other human gates", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
+    const result = await workChoicePrepare({ id: "WP1", choice_type: "platform_choice", prompt_text: "Platform?\n\nMockup: Do you have an existing mockup?\nStack: Which framework?", options: [{ label: "web", recommended: true, recommendation_rationale: "Best fit." }, { label: "Type your own answer" }, { label: "Discuss" }] }, { projectRoot: root });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "HUMAN_GATE_MEGA_PROMPT_REJECTED")).toBe(true);
+  });
+
+  it("rejects answers whose prompt/options do not match the prepared gate", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
+    const gate = await prepareChoice("platform_choice", "Platform?", ["web", "Type your own answer", "Discuss"]);
+    const result = await workChoice({ id: "WP1", human_gate_token: gate.human_gate_token, choice_type: "platform_choice", choice: "web", custom_response: null, option_details: null, options_presented: ["web", "desktop", "Type your own answer", "Discuss"], selected_number: 1, raw_response: "web", decision_prompt: gate.decision_prompt, human_confirmed: true }, { projectRoot: root });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "HUMAN_GATE_OPTIONS_MISMATCH")).toBe(true);
+  });
+
   it("a UI stack choice must record its component library (WORK_CHOICE_UI_STACK_COMPONENT_LIBRARY_REQUIRED)", async () => {
     await workCreate({ id: "WP1", title: "App", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
-    const blocked = await workChoice({ id: "WP1", choice_type: "stack_choice", choice: "react+vite", custom_response: null, option_details: null, options_presented: ["a", "Type your own answer", "Discuss"], selected_number: 1, raw_response: "react", decision_prompt: "Stack?", human_confirmed: true }, { projectRoot: root });
+    const gate = await prepareChoice("stack_choice", "Stack?", ["react+vite", "Type your own answer", "Discuss"]);
+    const blocked = await workChoice({ id: "WP1", human_gate_token: gate.human_gate_token, choice_type: "stack_choice", choice: "react+vite", custom_response: null, option_details: null, options_presented: gate.options_presented, selected_number: 1, raw_response: "react", decision_prompt: gate.decision_prompt, human_confirmed: true }, { projectRoot: root });
     expect(blocked.ok).toBe(false);
     expect(blocked.diagnostics.some((d) => d.code === "WORK_CHOICE_UI_STACK_COMPONENT_LIBRARY_REQUIRED")).toBe(true);
-    const ok = await workChoice({ id: "WP1", choice_type: "stack_choice", choice: "react+vite", custom_response: null, option_details: { component_library: "shadcn/ui" }, options_presented: ["a", "Type your own answer", "Discuss"], selected_number: 1, raw_response: "react", decision_prompt: "Stack?", human_confirmed: true }, { projectRoot: root });
+    const ok = await workChoice({ id: "WP1", human_gate_token: gate.human_gate_token, choice_type: "stack_choice", choice: "react+vite", custom_response: null, option_details: { component_library: "shadcn/ui" }, options_presented: gate.options_presented, selected_number: 1, raw_response: "react", decision_prompt: gate.decision_prompt, human_confirmed: true }, { projectRoot: root });
     expect(ok.ok).toBe(true);
   });
 
   it("a reusable_ui (not a standalone app) stack choice does NOT require a component library", async () => {
     await workCreate({ id: "WP1", title: "Lib", goal: "g", classification: "reusable_ui" }, { projectRoot: root });
-    const ok = await workChoice({ id: "WP1", choice_type: "stack_choice", choice: "ts", custom_response: null, option_details: null, options_presented: ["a", "Type your own answer", "Discuss"], selected_number: 1, raw_response: "ts", decision_prompt: "Stack?", human_confirmed: true }, { projectRoot: root });
+    const gate = await prepareChoice("stack_choice", "Stack?", ["ts", "Type your own answer", "Discuss"]);
+    const ok = await workChoice({ id: "WP1", human_gate_token: gate.human_gate_token, choice_type: "stack_choice", choice: "ts", custom_response: null, option_details: null, options_presented: gate.options_presented, selected_number: 1, raw_response: "ts", decision_prompt: gate.decision_prompt, human_confirmed: true }, { projectRoot: root });
     expect(ok.ok).toBe(true);
   });
 
-  it("work.choices records platform + architecture + stack in ONE call", async () => {
+  it("work.choices rejects batched platform + architecture + stack choices", async () => {
     await workCreate({ id: "WP1", title: "App", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
     const result = await workChoices({ id: "WP1", human_confirmed: true, choices: [
       { choice_type: "platform_choice", choice: "web", selected_number: 1, raw_response: "web", decision_prompt: "Platform?", options_presented: ["web", "Type your own answer", "Discuss"] },
       { choice_type: "architecture_choice", choice: "monorepo", selected_number: 1, raw_response: "monorepo", decision_prompt: "Architecture?", options_presented: ["monorepo", "Type your own answer", "Discuss"] },
       { choice_type: "stack_choice", choice: "react+vite", option_details: { component_library: "mantine" }, selected_number: 1, raw_response: "react", decision_prompt: "Stack?", options_presented: ["react+vite", "Type your own answer", "Discuss"] }
     ] }, { projectRoot: root });
-    expect(result.ok).toBe(true);
-    expect((result.data as { decisions: unknown[] }).decisions.length).toBe(3);
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "WORK_CHOICES_SINGLE_GATE_REQUIRED")).toBe(true);
     const stored = await store().read("WP1");
-    expect(stored.platform.choice).toBe("web");
-    expect(stored.architecture.decision_ids.length).toBe(1);
-    expect(stored.stack.decision_ids.length).toBe(1);
+    expect(stored.platform.choice).toBeNull();
+    expect(stored.architecture.decision_ids.length).toBe(0);
+    expect(stored.stack.decision_ids.length).toBe(0);
   });
 
-  it("work.choices applies the per-choice UI-stack component_library rule (batch is not a bypass)", async () => {
+  it("work.choices rejects batches before mutating any structural choice", async () => {
     await workCreate({ id: "WP1", title: "App", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
     const blocked = await workChoices({ id: "WP1", human_confirmed: true, choices: [
       { choice_type: "platform_choice", choice: "web", selected_number: 1, raw_response: "web", decision_prompt: "Platform?", options_presented: ["web", "Type your own answer", "Discuss"] },
       { choice_type: "stack_choice", choice: "react", selected_number: 1, raw_response: "react", decision_prompt: "Stack?", options_presented: ["react", "Type your own answer", "Discuss"] } // no component_library
     ] }, { projectRoot: root });
     expect(blocked.ok).toBe(false);
-    expect(blocked.diagnostics.some((d) => d.code === "WORK_CHOICE_UI_STACK_COMPONENT_LIBRARY_REQUIRED")).toBe(true);
+    expect(blocked.diagnostics.some((d) => d.code === "WORK_CHOICES_SINGLE_GATE_REQUIRED")).toBe(true);
     expect((await store().read("WP1")).platform.choice).toBeNull(); // batch rejected -> nothing recorded
   });
 
   it("rejects a choice that omits the 'type your own' or 'Discuss' option (WORK_CHOICE_OPTIONS_INCOMPLETE)", async () => {
     await workCreate({ id: "WP1", title: "App", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
-    const noDiscuss = await workChoice({ id: "WP1", human_confirmed: true, choice_type: "architecture_choice", choice: "monorepo", selected_number: 1, raw_response: "monorepo", decision_prompt: "Architecture?", options_presented: ["monorepo", "separate", "Type your own answer"] }, { projectRoot: root });
+    const noDiscuss = await workChoicePrepare({ id: "WP1", choice_type: "architecture_choice", prompt_text: "Architecture?", options: [{ label: "monorepo", recommended: true, recommendation_rationale: "Best fit." }, { label: "separate" }, { label: "Type your own answer" }] }, { projectRoot: root });
     expect(noDiscuss.ok).toBe(false);
     expect(noDiscuss.diagnostics.some((d) => d.code === "WORK_CHOICE_OPTIONS_INCOMPLETE")).toBe(true);
-    const ok = await workChoice({ id: "WP1", human_confirmed: true, choice_type: "architecture_choice", choice: "monorepo", selected_number: 1, raw_response: "monorepo", decision_prompt: "Architecture?", options_presented: ["monorepo", "separate", "Type your own answer", "Discuss"] }, { projectRoot: root });
+    const gate = await prepareChoice("architecture_choice", "Architecture?", ["monorepo", "separate", "Type your own answer", "Discuss"]);
+    const ok = await workChoice({ id: "WP1", human_gate_token: gate.human_gate_token, human_confirmed: true, choice_type: "architecture_choice", choice: "monorepo", selected_number: 1, raw_response: "monorepo", decision_prompt: gate.decision_prompt, options_presented: gate.options_presented }, { projectRoot: root });
     expect(ok.ok).toBe(true);
   });
 
   it("the options gate ignores COINCIDENTAL wording — 'Type A' / 'Discussion-driven' don't satisfy it", async () => {
     await workCreate({ id: "WP1", title: "App", goal: "g", classification: "one_off_application_ui" }, { projectRoot: root });
-    const sneaky = await workChoice({ id: "WP1", human_confirmed: true, choice_type: "architecture_choice", choice: "Type A", selected_number: 1, raw_response: "a", decision_prompt: "Architecture?", options_presented: ["Type A", "Type B", "Discussion-driven design"] }, { projectRoot: root });
+    const sneaky = await workChoicePrepare({ id: "WP1", choice_type: "architecture_choice", prompt_text: "Architecture?", options: [{ label: "Type A", recommended: true, recommendation_rationale: "Best fit." }, { label: "Type B" }, { label: "Discussion-driven design" }] }, { projectRoot: root });
     expect(sneaky.ok).toBe(false); // neither a real "type your own" nor a real "Discuss" option
     expect(sneaky.diagnostics.some((d) => d.code === "WORK_CHOICE_OPTIONS_INCOMPLETE")).toBe(true);
   });
@@ -585,6 +719,32 @@ describe("workSpecPlan + plan-required gates", () => {
     const blocked = await workReview({ id: "WP1", producer: reviewProducer, verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
     expect(blocked.ok).toBe(false);
     expect(blocked.diagnostics.some((d) => d.code === "IMPLEMENTATION_PLAN_REQUIRED")).toBe(true);
+  });
+
+  it("blocks review after Spec plans until the packet-level parallelism plan is recorded", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    await workSpecAcs({ id: "WP1", spec_id: "WP1", acceptance_criteria: [{ id: "ac1", text: "do x", source: "human", source_evidence: null }] }, { projectRoot: root });
+    await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: planInput, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["x"] } }, { projectRoot: root });
+    const blocked = await workReview({ id: "WP1", producer: reviewProducer, verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.diagnostics.some((d) => d.code === "IMPLEMENTATION_PARALLELISM_PLAN_REQUIRED")).toBe(true);
+
+    const planned = await workParallelismPlan({ id: "WP1", strategy: "sequential", reasoning: "One Spec, so no parallel execution is useful.", execution_groups: [{ id: "wave-1", spec_ids: ["WP1"], rationale: "Only Spec." }] }, { projectRoot: root });
+    expect(planned.ok).toBe(true);
+    expect((await store().read("WP1")).implementation_parallelism_plan?.strategy).toBe("sequential");
+    expect((await workReview({ id: "WP1", producer: reviewProducer, verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root })).ok).toBe(true);
+  });
+
+  it("stales the packet-level parallelism plan when a Spec implementation plan changes", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    await workSpecAcs({ id: "WP1", spec_id: "WP1", acceptance_criteria: [{ id: "ac1", text: "do x", source: "human", source_evidence: null }] }, { projectRoot: root });
+    await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: planInput, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["x"] } }, { projectRoot: root });
+    await workParallelismPlan({ id: "WP1", strategy: "sequential", reasoning: "One Spec, so no parallel execution is useful.", execution_groups: [{ id: "wave-1", spec_ids: ["WP1"], rationale: "Only Spec." }] }, { projectRoot: root });
+
+    await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: { ...planInput, summary: "changed plan" }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["x"] } }, { projectRoot: root });
+    const result = await workReview({ id: "WP1", producer: reviewProducer, verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "IMPLEMENTATION_PARALLELISM_PLAN_STALE")).toBe(true);
   });
 
   it("rejects a plan whose expected_files omits the TEST file(s)", async () => {
@@ -643,6 +803,30 @@ describe("workIntent + intent gate", () => {
   });
 });
 
+describe("workflow ergonomics", () => {
+  it("workNext returns repair templates instead of forcing probe-by-failure", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    const result = await workNext({ id: "WP1" }, { projectRoot: root });
+    expect(result.ok).toBe(true);
+    const data = result.data as { phase: string; blockers: Array<{ repair_action?: string; repair_input_template?: unknown }> };
+    expect(data.phase).toBe("draft");
+    expect(data.blockers.some((diag) => diag.repair_action !== undefined && diag.repair_input_template !== undefined)).toBe(true);
+    expect(result.next_actions.some((action) => action.suggested_input !== null)).toBe(true);
+  });
+
+  it("workApprovalReady returns an approval_token that workApprove accepts", async () => {
+    await workCreate({ id: "WP1", title: "My WP", goal: "g", classification: "reusable_api" }, { projectRoot: root });
+    await seedBootstrapAcs();
+    await recordReviews();
+    const ready = await workApprovalReady({ id: "WP1" }, { projectRoot: root });
+    expect(ready.ok).toBe(true);
+    const token = (ready.data as { approval_token: string }).approval_token;
+    expect(token).toContain("work-approval-token:v1:WP1:");
+    const approved = await workApprove({ id: "WP1", approval_token: token, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });
+    expect(approved.ok).toBe(true);
+  });
+});
+
 describe("workGet + workList (read)", () => {
   const store = () => aggregateStoreForContext({ projectRoot: root });
 
@@ -650,9 +834,50 @@ describe("workGet + workList (read)", () => {
     await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
     const result = await workGet({ id: "WP1" }, { projectRoot: root });
     expect(result.ok).toBe(true);
-    const data = result.data as { work_packet: { id: string }; approval_hash: string };
+    const data = result.data as { work_packet: { id: string }; approval_hash: string; approval_token: string };
     expect(data.work_packet.id).toBe("WP1");
     expect(data.approval_hash).toBe(aggregateApprovalProjection(await store().read("WP1")).hash);
+    expect(data.approval_token).toContain("work-approval-token:v1:WP1:");
+  });
+
+  it("workGet can return a compact summary instead of the whole packet", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    const result = await workGet({ id: "WP1", view: "summary" }, { projectRoot: root });
+    expect(result.ok).toBe(true);
+    const data = result.data as { work_packet?: unknown; work_packet_summary: { id: string; specs: Array<{ classification: string }> }; approval_hash: string; approval_token: string };
+    expect(data.work_packet).toBeUndefined();
+    expect(data.work_packet_summary.id).toBe("WP1");
+    expect(data.work_packet_summary.specs[0]?.classification).toBe("direct_behavior");
+    expect(data.approval_hash).toBe(aggregateApprovalProjection(await store().read("WP1")).hash);
+    expect(data.approval_token).toContain("work-approval-token:v1:WP1:");
+  });
+
+  it("workGet returns compact Spec and coherence slices", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    const specResult = await workGet({ id: "WP1", view: "spec", spec_id: "WP1" }, { projectRoot: root });
+    expect(specResult.ok).toBe(true);
+    const specData = specResult.data as { work_packet?: unknown; work_packet_slice: { kind: string; spec: { id: string; omitted: string[] } } };
+    expect(specData.work_packet).toBeUndefined();
+    expect(specData.work_packet_slice.kind).toBe("spec");
+    expect(specData.work_packet_slice.spec.id).toBe("WP1");
+    expect(specData.work_packet_slice.spec.omitted).toContain("change_baseline");
+
+    const coherenceResult = await workGet({ id: "WP1", view: "coherence" }, { projectRoot: root });
+    expect(coherenceResult.ok).toBe(true);
+    const coherenceData = coherenceResult.data as { work_packet?: unknown; work_packet_slice: { kind: string; spec_slice_inputs: Array<{ view: string; spec_id: string }> } };
+    expect(coherenceData.work_packet).toBeUndefined();
+    expect(coherenceData.work_packet_slice.kind).toBe("coherence");
+    expect(coherenceData.work_packet_slice.spec_slice_inputs).toEqual([{ id: "WP1", view: "spec", spec_id: "WP1" }]);
+  });
+
+  it("agent-facing work.get never returns the full packet, even when view full is requested", async () => {
+    await workCreate({ id: "WP1", title: "x", goal: "g", classification: "direct_behavior" }, { projectRoot: root });
+    const result = await executeActionForAgent("work.get", { id: "WP1", view: "full" }, { projectRoot: root });
+    expect(result.ok).toBe(true);
+    const data = result.data as { work_packet?: unknown; work_packet_summary?: { id: string }; work_packet_slice?: unknown };
+    expect(data.work_packet).toBeUndefined();
+    expect(data.work_packet_slice).toBeUndefined();
+    expect(data.work_packet_summary?.id).toBe("WP1");
   });
 
   it("workList summarizes every Work Packet", async () => {
@@ -711,6 +936,7 @@ describe("workAuthorize (v2 cutover: whole-WP authorize)", () => {
 describe("workSpecAdvance (v2 cutover: per-Spec implementation advance)", () => {
   const store = () => aggregateStoreForContext({ projectRoot: root });
   const approveAuthorize = async () => {
+    await waiveArchitectureGovernanceIfNeeded();
     const hash = aggregateApprovalProjection(await store().read("WP1")).hash;
     await recordReviews();
     await workApprove({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });

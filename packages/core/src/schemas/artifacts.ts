@@ -30,6 +30,7 @@ import { WorkflowStateSchema } from "../workflow/state-machine.ts";
 
 export const ArtifactTypeSchema = z.enum([
   "config",
+  "architecture_charter",
   "runtime_baseline",
   "work_packet",
   "source_artifact"
@@ -158,6 +159,82 @@ export const RuntimeBaselineSchema = z.object({
 }).strict();
 export type RuntimeBaseline = z.infer<typeof RuntimeBaselineSchema>;
 
+export const ArchitectureOrdinanceStateSchema = z.enum([
+  "draft",
+  "planned",
+  "approved",
+  "implementation_authorized",
+  "validated",
+  "active",
+  "changes_requested",
+  "retired"
+]);
+
+export const ArchitectureOrdinanceEnforcementPlanSchema = z.object({
+  schema_version: z.literal(1).default(1),
+  summary: z.string().min(1),
+  enforcement_kind: z.enum(["static_check", "test", "lint", "build", "custom_command"]),
+  command: CommandSpecSchema,
+  expected_files: z.array(z.object({
+    path: z.string().min(1),
+    purpose: z.string().min(1),
+    change_type: z.enum(["create", "modify", "delete"])
+  }).strict()).default([]),
+  validation_strategy: z.string().min(1),
+  plan_hash: Sha256HexSchema
+}).strict();
+export type ArchitectureOrdinanceEnforcementPlan = z.infer<typeof ArchitectureOrdinanceEnforcementPlanSchema>;
+
+export const ArchitectureOrdinanceSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  rule: z.string().min(1),
+  rationale: z.string().min(1),
+  applies_to: z.array(z.string().min(1)).default(["**/*"]),
+  exceptions: z.array(z.string().min(1)).default([]),
+  severity: z.enum(["blocking", "warning"]).default("blocking"),
+  examples: z.object({
+    allowed: z.array(z.string().min(1)).default([]),
+    disallowed: z.array(z.string().min(1)).default([])
+  }).strict().default({ allowed: [], disallowed: [] }),
+  supersedes: z.string().min(1).nullable().default(null),
+  superseded_by: z.string().min(1).nullable().default(null),
+  retired_at: TimestampSchema.nullable().default(null),
+  retired_reason: z.string().min(1).nullable().default(null),
+  state: ArchitectureOrdinanceStateSchema.default("draft"),
+  enforcement_plan: ArchitectureOrdinanceEnforcementPlanSchema.nullable().default(null),
+  implementation_records: z.array(z.object({
+    summary: z.string().min(1),
+    changed_files: z.array(z.string().min(1)),
+    recorded_at: TimestampSchema
+  }).strict()).default([]),
+  latest_validation: z.object({
+    command_result: CommandResultSchema,
+    enforcement_plan_hash: Sha256HexSchema,
+    validated_at: TimestampSchema
+  }).strict().nullable().default(null)
+}).strict();
+export type ArchitectureOrdinance = z.infer<typeof ArchitectureOrdinanceSchema>;
+
+export const ArchitectureCharterSchema = z.object({
+  artifact_type: z.literal("architecture_charter"),
+  schema_version: z.literal(1),
+  revision: z.number().int().positive(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema,
+  status: z.enum(["empty", "draft", "planned", "approved", "implementation_authorized", "validated", "active", "blocked", "retired"]).default("empty"),
+  title: z.string().min(1).default("Architecture Charter"),
+  ordinances: z.array(ArchitectureOrdinanceSchema).default([]),
+  lifecycle: z.object({
+    approval: HumanDecisionSchema.nullable(),
+    authorization: HumanDecisionSchema.nullable(),
+    activation: HumanDecisionSchema.nullable(),
+    history: z.array(HumanDecisionSchema)
+  }).strict().default({ approval: null, authorization: null, activation: null, history: [] }),
+  diagnostics: z.array(DiagnosticSchema)
+}).strict();
+export type ArchitectureCharter = z.infer<typeof ArchitectureCharterSchema>;
+
 export const WorkPacketSchema = z.object({
   artifact_type: z.literal("work_packet"),
   schema_version: z.literal(1),
@@ -284,6 +361,7 @@ export type SourceArtifact = z.infer<typeof SourceArtifactSchema>;
 
 export const TopLevelArtifactSchema = z.discriminatedUnion("artifact_type", [
   ConfigSchema,
+  ArchitectureCharterSchema,
   RuntimeBaselineSchema,
   WorkPacketSchema,
   SourceArtifactSchema

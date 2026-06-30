@@ -28,6 +28,8 @@ const requiredFiles = [
   ".windsurf/mcp.json",
   ".windsurf/mcp_config.json",
   ".pi/extensions/spec-guard.ts",
+  ".claude/settings.json",
+  ".codex/config.toml",
   "SPEC_GUARD_AGENT_GUIDE.md",
   ".spec-guard/harness/claude-desktop-snippet.json",
   ".spec-guard/harness/pi-extension.md",
@@ -57,6 +59,11 @@ describe("init action", () => {
     expect(guide).toContain("Call status/quickstart first.");
     expect(guide).toContain("Human-approved content is canonical intent.");
     expect(guide).toContain("Documentation itself is never tested");
+
+    const quickstart = await readFile(path.join(projectRoot, ".spec-guard/harness/mcp-quickstart.md"), "utf8");
+    expect(quickstart).toContain("Codex reads MCP servers from .codex/config.toml");
+    const matrix = await readFile(path.join(projectRoot, ".spec-guard/harness/client-support-matrix.md"), "utf8");
+    expect(matrix).toContain("| Codex | .codex/config.toml | npx spec-guard-mcp stdio server |");
 
     const gitignore = await readFile(path.join(projectRoot, ".gitignore"), "utf8");
     expect(gitignore).toContain("!.spec-guard/packets/"); // the canonical committable Work Packet must NOT be gitignored

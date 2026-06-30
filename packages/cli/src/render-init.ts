@@ -8,7 +8,7 @@ export function renderInitPlainText(result: ActionResult): string {
     recommended_tool_calls?: string[];
   };
 
-  const lines = ["Spec Guard initialized successfully", "", `Artifact root: ${data.artifact_root ?? ".spec-guard/"}`, "", "Generated MCP/client/Pi config files:"];
+  const lines = ["Spec Guard initialized successfully", "", `Artifact root: ${data.artifact_root ?? ".spec-guard/"}`, "", "Generated project files:"];
   for (const file of data.generated_files ?? []) {
     lines.push(`- ${file.path} (${file.status})`);
   }

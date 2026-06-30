@@ -7,7 +7,7 @@ import { readAggregateForView, aggregateSpecSummaries, type SpecSummary } from "
 import { specAsV1WorkPacket } from "../storage/aggregate-mapping.ts";
 import { ContractStore } from "../storage/contract-store.ts";
 import type { WorkPacket } from "../schemas/artifacts.ts";
-import type { ContractRef } from "../schemas/work-packet.ts";
+import type { ArchitectureGovernanceBinding, ContractRef, ImplementationParallelismPlan } from "../schemas/work-packet.ts";
 import type { SpecReviewCycle } from "../lineage/records.ts";
 
 // A contract a Spec PRODUCES (its frozen surface), for the viewer's created/updated sections.
@@ -54,6 +54,8 @@ export interface WorkPacketSpecView {
   contracts_created: ContractView[];
   contracts_updated: ContractView[];
   coherence_reviews: ReviewView[];
+  implementation_parallelism_plan: ImplementationParallelismPlan | null;
+  architecture_governance: ArchitectureGovernanceBinding;
   source: "live" | "projection";
 }
 
@@ -67,13 +69,13 @@ export async function buildWorkPacketSpecView(store: ArtifactStore, id: string):
     const validation = await resolveValidation(store.root, id);
     const structural = await resolveStructuralDecisions(store.root, aggregate.work);
     const contracts = await producedContractViews(store.root, id, aggregate.aggregate.specs);
-    return { id, spec: buildCommittableSpec(aggregate.work, validation, structural), specs: aggregateSpecSummaries(aggregate.aggregate), contracts_created: contracts.created, contracts_updated: contracts.updated, coherence_reviews: toReviewViews(aggregate.aggregate.spec_review_cycles), source: "live" };
+    return { id, spec: buildCommittableSpec(aggregate.work, validation, structural), specs: aggregateSpecSummaries(aggregate.aggregate), contracts_created: contracts.created, contracts_updated: contracts.updated, coherence_reviews: toReviewViews(aggregate.aggregate.spec_review_cycles), implementation_parallelism_plan: aggregate.aggregate.implementation_parallelism_plan, architecture_governance: aggregate.aggregate.architecture_governance, source: "live" };
   }
   // No live aggregate (e.g. a fresh clone) — render the committed projection. Default newer fields so a
   // projection committed before they existed (e.g. spec_review) still renders.
   const parsed = JSON.parse(await readFile(specPath(store, id), "utf8")) as CommittableSpec;
   const spec: CommittableSpec = { ...parsed, spec_review: parsed.spec_review ?? { reviewed: false, verdict: null, summary: "", independence: "unverified", blockers: [] }, work_breakdown_ref: parsed.work_breakdown_ref ?? null, structural_decisions: parsed.structural_decisions ?? [] };
-  return { id, spec, specs: [], contracts_created: [], contracts_updated: [], coherence_reviews: [], source: "projection" };
+  return { id, spec, specs: [], contracts_created: [], contracts_updated: [], coherence_reviews: [], implementation_parallelism_plan: null, architecture_governance: { mode: "pending", charter_revision: null, active_ordinance_ids: [], waiver_decision: null, waiver_reason: null }, source: "projection" };
 }
 
 export interface SpecDetailView {

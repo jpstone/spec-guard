@@ -75,6 +75,8 @@ export function aggregateApprovalProjection(aggregate: AggregateWorkPacket, opti
     target_id: aggregate.target_id,
     runtime_not_relevant_reason: aggregate.runtime_not_relevant_reason,
     specs,
+    implementation_parallelism_plan: aggregate.implementation_parallelism_plan,
+    architecture_governance: aggregate.architecture_governance,
     // The declared dependency EDGES + the producer `contract` are approved design too — bind them to the approval
     // hash (a parallel key so the per-Spec sub-projection type stays clean) so the approved snapshot records them.
     spec_dependencies: aggregate.specs.map((spec) => ({ spec_id: spec.id, dependencies: spec.dependencies, contract: spec.contract }))

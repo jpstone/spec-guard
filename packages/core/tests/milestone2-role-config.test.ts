@@ -16,6 +16,10 @@ function diag(result: { diagnostics: Array<{ code: string }> }, code: string): b
   return result.diagnostics.some((d) => d.code === code);
 }
 
+function occurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}
+
 describe("M2 role-config schema + defaults", () => {
   it("default config is valid, with distinct edit/review identities and correct edit capability", () => {
     const cfg = buildDefaultRoleConfig();
@@ -137,18 +141,27 @@ describe("M2 init scaffolding + config.check reporting", () => {
     expect(await readFile(reviewerMd, "utf8")).toContain("<!-- touched -->");
   });
 
-  it("init emits the Claude PreToolUse hook + the Codex PreToolUse/SubagentStart/SubagentStop hooks, no dupes on re-run", async () => {
+  it("init emits the Claude PreToolUse hook + Codex inline PreToolUse/SubagentStart/SubagentStop hooks, no dupes on re-run", async () => {
     const claude = JSON.parse(await readFile(path.join(projectRoot, ".claude", "settings.json"), "utf8"));
     expect(claude.hooks.PreToolUse[0].matcher).toMatch(/Edit/);
-    const codex = JSON.parse(await readFile(path.join(projectRoot, ".codex", "hooks.json"), "utf8"));
-    expect(Object.keys(codex.hooks)).toEqual(expect.arrayContaining(["PreToolUse", "SubagentStart", "SubagentStop"]));
-    expect(JSON.stringify(codex)).toContain("spec-guard hook subagent-start");
-    expect(JSON.stringify(codex)).toContain("spec-guard hook subagent-stop");
+    const codex = await readFile(path.join(projectRoot, ".codex", "config.toml"), "utf8");
+    expect(codex).toContain('[mcp_servers."spec-guard"]');
+    expect(codex).toContain('args = ["spec-guard-mcp"]');
+    expect(codex).not.toContain('cwd = ".."');
+    expect(codex).toContain("[[hooks.PreToolUse]]");
+    expect(codex).toContain('matcher = "^apply_patch$"');
+    expect(codex).toContain("[[hooks.SubagentStart]]");
+    expect(codex).toContain("[[hooks.SubagentStop]]");
+    expect(codex).toContain("spec-guard hook subagent-start");
+    expect(codex).toContain("spec-guard hook subagent-stop");
     await initAction({ project_id: "demo" }, { projectRoot });
     const afterClaude = JSON.parse(await readFile(path.join(projectRoot, ".claude", "settings.json"), "utf8"));
-    const afterCodex = JSON.parse(await readFile(path.join(projectRoot, ".codex", "hooks.json"), "utf8"));
+    const afterCodex = await readFile(path.join(projectRoot, ".codex", "config.toml"), "utf8");
     expect((afterClaude.hooks.PreToolUse as unknown[]).filter((entry) => JSON.stringify(entry).includes("spec-guard hook pre-edit")).length).toBe(1);
-    expect((afterCodex.hooks.SubagentStart as unknown[]).length).toBe(1);
+    expect(occurrences(afterCodex, '[mcp_servers."spec-guard"]')).toBe(1);
+    expect(occurrences(afterCodex, "spec-guard hook pre-edit")).toBe(1);
+    expect(occurrences(afterCodex, "spec-guard hook subagent-start")).toBe(1);
+    expect(occurrences(afterCodex, "spec-guard hook subagent-stop")).toBe(1);
   });
 
   it("init MERGES the edit-gate hook into a pre-existing settings.json without clobbering other content", async () => {
@@ -158,6 +171,51 @@ describe("M2 init scaffolding + config.check reporting", () => {
     expect(merged.model).toBe("opus"); // unrelated content preserved
     expect((merged.hooks.PreToolUse as unknown[]).length).toBe(2); // their Bash hook + our edit gate
     expect(JSON.stringify(merged)).toContain("spec-guard hook pre-edit");
+  });
+
+  it("init MERGES Codex hooks into a pre-existing .codex/config.toml without clobbering other content", async () => {
+    await writeFile(path.join(projectRoot, ".codex", "config.toml"), 'model = "gpt-5-codex"\n\n[[hooks.PreToolUse]]\nmatcher = "^Bash$"\n\n[[hooks.PreToolUse.hooks]]\ntype = "command"\ncommand = "echo hi"\n', "utf8");
+    await initAction({ project_id: "demo" }, { projectRoot });
+    const merged = await readFile(path.join(projectRoot, ".codex", "config.toml"), "utf8");
+    expect(merged).toContain('model = "gpt-5-codex"');
+    expect(merged).toContain('command = "echo hi"');
+    expect(merged).toContain('[mcp_servers."spec-guard"]');
+    expect(merged).toContain("[[hooks.SubagentStart]]");
+    expect(occurrences(merged, '[mcp_servers."spec-guard"]')).toBe(1);
+    expect(occurrences(merged, "spec-guard hook pre-edit")).toBe(1);
+  });
+
+  it("init preserves an existing Codex hooks.json hook source instead of creating a second inline hook source", async () => {
+    await rm(path.join(projectRoot, ".codex", "config.toml"), { force: true });
+    await writeFile(path.join(projectRoot, ".codex", "hooks.json"), `${JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "echo hi" }] }] } }, null, 2)}\n`, "utf8");
+    const result = await initAction({ project_id: "demo" }, { projectRoot });
+    expect(result.data.generated_files.find((file) => file.path === ".codex/hooks.json")?.status).toBe("created");
+    const codexConfig = await readFile(path.join(projectRoot, ".codex", "config.toml"), "utf8");
+    expect(codexConfig).toContain('[mcp_servers."spec-guard"]');
+    expect(codexConfig).not.toContain("[[hooks.PreToolUse]]");
+    const hooks = JSON.parse(await readFile(path.join(projectRoot, ".codex", "hooks.json"), "utf8"));
+    expect(Object.keys(hooks.hooks)).toEqual(expect.arrayContaining(["PreToolUse", "SubagentStart", "SubagentStop"]));
+    expect(JSON.stringify(hooks)).toContain("spec-guard hook pre-edit");
+  });
+
+  it("init preserves a pre-existing Codex spec-guard MCP table without duplicating it", async () => {
+    await writeFile(path.join(projectRoot, ".codex", "config.toml"), '[mcp_servers."spec-guard"]\ncommand = "custom-spec-guard-mcp"\n\n', "utf8");
+    await initAction({ project_id: "demo" }, { projectRoot });
+    const merged = await readFile(path.join(projectRoot, ".codex", "config.toml"), "utf8");
+    expect(occurrences(merged, '[mcp_servers."spec-guard"]')).toBe(1);
+    expect(merged).toContain('command = "custom-spec-guard-mcp"');
+    expect(merged).toContain("[[hooks.PreToolUse]]");
+  });
+
+  it("init repairs the stale generated Codex MCP cwd that points Spec Guard at the parent directory", async () => {
+    await writeFile(path.join(projectRoot, ".codex", "config.toml"), '[mcp_servers."spec-guard"]\ncommand = "npx"\nargs = ["spec-guard-mcp"]\ncwd = ".."\nstartup_timeout_sec = 20\n\n', "utf8");
+    const result = await initAction({ project_id: "demo" }, { projectRoot });
+    expect(result.data.generated_files.find((file) => file.path === ".codex/config.toml")?.status).toBe("created");
+    const repaired = await readFile(path.join(projectRoot, ".codex", "config.toml"), "utf8");
+    expect(repaired).toContain('[mcp_servers."spec-guard"]');
+    expect(repaired).toContain('args = ["spec-guard-mcp"]');
+    expect(repaired).not.toContain('cwd = ".."');
+    expect(repaired).toContain("[[hooks.PreToolUse]]");
   });
 
   it("config.check reports a valid role config and stays ok (self-review not viable by default)", async () => {

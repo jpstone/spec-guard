@@ -14,6 +14,7 @@ import { buildContractsOverview, buildContractVersionView } from "../src/viewer-
 import { buildDashboardSummary } from "../src/viewer-data/dashboard-summary.ts";
 import { buildArtifactList } from "../src/viewer-data/artifact-lists.ts";
 import { aggregateRuntimeSummary } from "../src/viewer-data/aggregate-work-packet-view.ts";
+import { recordSequentialParallelismPlan } from "./helpers/parallelism-plan.ts";
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(path.join(tmpdir(), "viewer-agg-")); });
@@ -81,6 +82,7 @@ describe("viewer reads v2 aggregate Work Packets", () => {
     await workSpecAcs({ id: "WP1", spec_id: "WP1", acceptance_criteria: [{ id: "ac1", text: "feature", source: "human", source_evidence: null }] }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: { kind: "standard_plan", template_id: "t", template_version: 1, summary: "p", approach: ["go"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" }, { path: "docs/api.md", purpose: "docs", change_type: "create" }], tests: [] }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] } }, { projectRoot: root });
     const reviewer: LineageProducer = { role: "reviewer", principal_id: null, agent_instance_id: "rev", provider: "claude_code", model: null, run_id: "r" };
+    await recordSequentialParallelismPlan(root);
     await workReview({ id: "WP1", producer: reviewer, verdict: "pass", blockers: [], summary: "coherent" }, { projectRoot: root });
     const view = await buildWorkPacketSpecView(store(), "WP1");
     expect(view.spec.spec_review.reviewed).toBe(true);
@@ -93,6 +95,7 @@ describe("viewer reads v2 aggregate Work Packets", () => {
     const plan = { kind: "standard_plan" as const, template_id: "t", template_version: 1, summary: "p", approach: ["go"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" as const }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" as const }, { path: "docs/api.md", purpose: "docs", change_type: "create" as const }], tests: [] };
     await workSpecPlan({ id: "WP1", spec_id: "WP1", plan, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }, contract_surface: { ops: ["list", "add"] } }, { projectRoot: root });
     const reviewer: LineageProducer = { role: "reviewer", principal_id: null, agent_instance_id: "rev", provider: "claude_code", model: null, run_id: "r" };
+    await recordSequentialParallelismPlan(root);
     await workReview({ id: "WP1", producer: reviewer, verdict: "pass", blockers: [], summary: "coherent" }, { projectRoot: root }); // whole-WP coherence
     await workReview({ id: "WP1", producer: reviewer, spec_id: "WP1", verdict: "pass", blockers: [], summary: "spec ok" }, { projectRoot: root }); // per-Spec
     const wpView = await buildWorkPacketSpecView(store(), "WP1");
@@ -145,6 +148,7 @@ describe("viewer reads v2 aggregate Work Packets", () => {
     await workSpecAcs({ id: "WP1", spec_id: "WP1", acceptance_criteria: [{ id: "ac1", text: "a tracked behaviour", source: "human", source_evidence: null }] }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: { kind: "standard_plan", template_id: "t", template_version: 1, summary: "p", approach: ["go"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" }, { path: "docs/api.md", purpose: "docs", change_type: "create" }], tests: [] }, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] } }, { projectRoot: root });
     const reviewer: LineageProducer = { role: "reviewer", principal_id: null, agent_instance_id: "rev", provider: "claude_code", model: "claude-opus-4-8", run_id: "r" };
+    await recordSequentialParallelismPlan(root);
     await workReview({ id: "WP1", producer: reviewer, verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
     const hash = aggregateApprovalProjection(await aggregateStoreForContext({ projectRoot: root }).read("WP1")).hash;
     const approved = await workApprove({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });

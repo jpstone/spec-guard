@@ -13,7 +13,14 @@ export const STANDARD_DECISION_TYPES = [
   // so these carry approved_fields that actually match it (unlike the v1 leaf decision types).
   "aggregate_work_packet_approval",
   "aggregate_implementation_authorization",
-  "aggregate_work_packet_completion"
+  "aggregate_work_packet_completion",
+  "aggregate_work_packet_revision",
+  "architecture_charter_approval",
+  "architecture_charter_revision",
+  "architecture_charter_authorization",
+  "architecture_charter_activation",
+  "architecture_charter_retirement",
+  "architecture_governance_waiver"
 ] as const;
 
 export type StandardDecisionType = typeof STANDARD_DECISION_TYPES[number];
@@ -77,7 +84,7 @@ const definitions: DecisionTypeDefinition[] = [
   {
     decision_type: "aggregate_work_packet_approval",
     approved_field_root: "human_decision_approved_payload",
-    approved_fields: ["/id", "/title", "/specs"],
+    approved_fields: ["/id", "/title", "/specs", "/implementation_parallelism_plan", "/architecture_governance"],
     requires_specialized_action: true
   },
   {
@@ -90,6 +97,48 @@ const definitions: DecisionTypeDefinition[] = [
     decision_type: "aggregate_work_packet_completion",
     approved_field_root: "human_decision_approved_payload",
     approved_fields: ["/work_id"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "aggregate_work_packet_revision",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/work_id", "/reason", "/invalidated_lifecycle", "/re_review_required"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "architecture_charter_approval",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/charter_id", "/ordinances"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "architecture_charter_revision",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/charter_id", "/source_ordinance_id", "/replacement_ordinance_id", "/reason", "/replacement"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "architecture_charter_authorization",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/charter_id", "/approved_ordinance_ids"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "architecture_charter_activation",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/charter_id", "/active_ordinance_ids", "/retired_ordinance_ids", "/validation_results"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "architecture_charter_retirement",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/charter_id", "/retired_ordinance_ids", "/reason"],
+    requires_specialized_action: true
+  },
+  {
+    decision_type: "architecture_governance_waiver",
+    approved_field_root: "human_decision_approved_payload",
+    approved_fields: ["/work_id", "/reason", "/charter_status"],
     requires_specialized_action: true
   }
 ];

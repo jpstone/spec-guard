@@ -20,11 +20,22 @@ export const CONTAINER_KEYS = ["id", "revision", "created_at", "updated_at", "di
 export const specInput = (id: string, classification: string): Record<string, unknown> => pick(fullLeaf(id, classification), SPEC_KEYS);
 
 /** A valid AggregateWorkPacket with one Spec per classification (default: a single `reusable_api` Spec). */
-export const buildAggregate = (id: string, classifications: string[] = ["reusable_api"]): AggregateWorkPacket =>
-  AggregateWorkPacketSchema.parse({
+export const buildAggregate = (id: string, classifications: string[] = ["reusable_api"]): AggregateWorkPacket => {
+  const specs = classifications.map((c, i) => specInput(`${id}-s${i + 1}`, c));
+  return AggregateWorkPacketSchema.parse({
     ...pick(fullLeaf(id, classifications[0] ?? "reusable_api"), CONTAINER_KEYS),
     artifact_type: "work_packet",
     schema_version: 2,
     lifecycle: { approval: null, authorization: null, completion: null, history: [] },
-    specs: classifications.map((c, i) => specInput(`${id}-s${i + 1}`, c))
+    implementation_parallelism_plan: {
+      schema_version: 1,
+      strategy: "sequential",
+      reasoning: "Fixture packet runs Specs sequentially.",
+      execution_groups: specs.map((spec, index) => ({ id: `wave-${index + 1}`, spec_ids: [spec.id as string], rationale: "Fixture order." })),
+      constraints: [],
+      risks: [],
+      based_on_spec_plan_hashes: specs.map((spec) => ({ spec_id: spec.id as string, implementation_plan_hash: spec.implementation_plan_hash as string }))
+    },
+    specs
   });
+};

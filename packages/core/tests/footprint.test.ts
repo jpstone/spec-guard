@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initAction, aggregateStoreForContext, aggregateApprovalProjection, AggregateWorkPacketSchema, commandRun } from "../src/index.ts";
 import { workCreate, workIntent, workSpecAcs, workSpecPlan, workReview, workApprove, workAuthorize, workSpecRecord, unrecordedChangesDiagnostics, acEvidenceDiagnostics } from "../src/actions/work.ts";
+import { recordSequentialParallelismPlan } from "./helpers/parallelism-plan.ts";
 
 const PLAN = { kind: "standard_plan" as const, template_id: "t", template_version: 1, summary: "p", approach: ["go"], expected_files: [{ path: "src/index.ts", purpose: "impl", change_type: "create" as const }, { path: "src/index.test.ts", purpose: "tests", change_type: "create" as const }, { path: "docs/api.md", purpose: "docs", change_type: "create" as const }], tests: [] };
 const reviewer = (id: string) => ({ role: "reviewer" as const, principal_id: null, agent_instance_id: id, provider: "claude_code" as const, model: null, run_id: "r" });
@@ -20,6 +21,7 @@ async function driveToAuthorized(root: string, scopeGlobs: string[] = ["src/**"]
   const agg = await store.read("WP1");
   await store.update(AggregateWorkPacketSchema.parse({ ...agg, specs: agg.specs.map((s) => ({ ...s, scope: { ...s.scope, allowed_globs: scopeGlobs }, acceptance_criteria: s.acceptance_criteria.map((ac) => ({ ...ac, bootstrap: true })) })) }));
   await workSpecPlan({ id: "WP1", spec_id: "WP1", plan: PLAN, dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] } }, { projectRoot: root });
+  await recordSequentialParallelismPlan(root);
   await workReview({ id: "WP1", producer: reviewer("agent-C"), verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
   const hash = aggregateApprovalProjection(await store.read("WP1")).hash;
   await workApprove({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });

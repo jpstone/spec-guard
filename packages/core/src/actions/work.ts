@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import type { ActionResult } from "./result.ts";
+import type { ActionResult, NextAction } from "./result.ts";
 import { aggregateStoreForContext, storeForContext, diagnostic, failureResult, isoNow } from "./config.ts";
 import { capturePacketChangeBaseline } from "../baselines/packet-change-baseline.ts";
 import { ConfigSchema, WorkPacketSchema, RuntimeBaselineSchema, type Config, type RuntimeBaseline } from "../schemas/artifacts.ts";
@@ -12,16 +12,17 @@ import { aggregateApprovalProjection, specReviewContentHash } from "../role-loop
 import { buildStandardImplementationPlanProjectionV1, buildPlanWaivedNoopProjectionV1, implementationPlanHash, PlanExpectedFileV1Schema, PlanTestV1Schema, DevRuntimeProofPlanV1Schema } from "../role-loop/implementation-plan.ts";
 import { buildApprovedWorkPacketProjectionV1 } from "../role-loop/packet-approval.ts";
 import { HumanDecisionRefV1Schema, SourceArtifactRefV1Schema } from "../role-loop/human-decision.ts";
-import { AggregateWorkPacketSchema, SpecDependenciesSchema, CONTRACT_PRODUCING_CLASSIFICATIONS, type AggregateWorkPacket, type Spec } from "../schemas/work-packet.ts";
+import { AggregateWorkPacketSchema, SpecDependenciesSchema, ImplementationParallelismPlanSchema, CONTRACT_PRODUCING_CLASSIFICATIONS, type AggregateWorkPacket, type Spec, type ImplementationParallelismPlan, type ActiveHumanGate } from "../schemas/work-packet.ts";
 import { detectDependencyCycle, topologicalOrder } from "../role-loop/dependencies.ts";
 import path from "node:path";
-import { validateDocsPolicyForClassification } from "../work/docs-policy.ts";
+import { defaultDocsPolicy, validateDocsPolicyForClassification } from "../work/docs-policy.ts";
 import { mockupGateDiagnostics } from "../work/mockup-gate.ts";
 import { validateAcceptanceCriteria, normalizeAcceptanceCriteria } from "../work/source-evidence.ts";
 import { bootstrapAcsMissing } from "../work/bootstrap-acs.ts";
 import { runtimeRelevanceApprovalDiagnostics, runtimeLessDiffContradiction, devRuntimeProofApprovalDiagnostics } from "../work/runtime-relevance.ts";
 import { establishesNewTarget } from "../work/runtime-baseline-ref.ts";
 import { completionReadinessDiagnostics, completionValidationDiagnostics } from "./completion-readiness.ts";
+import { architectureGovernanceDiagnosticsForWork } from "./architecture.ts";
 import { acContentHash } from "../work/ac-snapshots.ts";
 import { enforceSpecReviewIdentity } from "../role-loop/loop-identity.ts";
 import { independenceBasis } from "../storage/spec-projection.ts";
@@ -41,6 +42,11 @@ import { sha256HexCanonical } from "../canonical/hashes.ts";
 import { normalizeGovernedPath, toPosixPath } from "../paths/normalize.ts";
 import { classifyPath, changedFileAllowedByGlobs } from "../paths/classify.ts";
 import { CommandResultStore } from "../commands/command-results.ts";
+import { enforceImplementationAttemptIdentity, enforceReviewCycleIdentity } from "../role-loop/loop-identity.ts";
+import { loadRoleConfig } from "../role-config/load.ts";
+import { resolveRoleModel, type RoleName, type SpecGuardRoleConfig } from "../role-config/config.ts";
+import { WorkClassificationSchema, WorkOriginationSchema, DEFAULT_TARGET_ID } from "../schemas/enums.ts";
+import type { Diagnostic, JsonValue } from "../schemas/embedded.ts";
 
 // Reported changed_files arrive RAW (`z.array(z.string())`); the real-diff side is normalized via the same
 // pipeline, so both must be normalized before any comparison (else `./src/x` or a Windows `src\x` falsely mismatches).
@@ -62,12 +68,528 @@ function effectiveScopeGlobs(spec: Spec): string[] {
   }
   return [...globs];
 }
-import { enforceImplementationAttemptIdentity, enforceReviewCycleIdentity } from "../role-loop/loop-identity.ts";
-import { loadRoleConfig } from "../role-config/load.ts";
-import { resolveRoleModel, type RoleName, type SpecGuardRoleConfig } from "../role-config/config.ts";
-import { WorkClassificationSchema, WorkOriginationSchema, DEFAULT_TARGET_ID } from "../schemas/enums.ts";
-import type { Diagnostic, JsonValue } from "../schemas/embedded.ts";
 
+function docsForClassification(classification: z.infer<typeof WorkClassificationSchema>): Spec["docs"] {
+  const policy = defaultDocsPolicy(classification);
+  return {
+    policy,
+    none_required_reason: policy === "none_required" ? "classification_default_none_required" : null,
+    not_applicable_reason: null,
+    requirements: []
+  };
+}
+
+export function summarizeWorkPacket(aggregate: AggregateWorkPacket) {
+  return {
+    id: aggregate.id,
+    title: aggregate.title,
+    revision: aggregate.revision,
+    disposition: aggregate.disposition,
+    target_id: aggregate.target_id,
+    lifecycle: {
+      approved: aggregate.lifecycle.approval !== null,
+      authorized: aggregate.lifecycle.authorization !== null,
+      completed: aggregate.lifecycle.completion !== null
+    },
+    intent: { goal: aggregate.intent.goal },
+    implementation_parallelism_plan: aggregate.implementation_parallelism_plan === null ? null : {
+      strategy: aggregate.implementation_parallelism_plan.strategy,
+      execution_group_count: aggregate.implementation_parallelism_plan.execution_groups.length,
+      based_on_spec_count: aggregate.implementation_parallelism_plan.based_on_spec_plan_hashes.length
+    },
+    architecture_governance: {
+      mode: aggregate.architecture_governance.mode,
+      charter_revision: aggregate.architecture_governance.charter_revision,
+      active_ordinance_count: aggregate.architecture_governance.active_ordinance_ids.length,
+      waiver_recorded: aggregate.architecture_governance.waiver_decision !== null
+    },
+    active_human_gate: aggregate.active_human_gate === null ? null : {
+      gate_kind: aggregate.active_human_gate.gate_kind,
+      action_id: aggregate.active_human_gate.action_id,
+      gate_token: aggregate.active_human_gate.gate_token,
+      prompt_text: aggregate.active_human_gate.prompt_text,
+      options_presented: aggregate.active_human_gate.options_presented,
+      recommended_option_number: aggregate.active_human_gate.recommended_option_number,
+      recommendation_rationale: aggregate.active_human_gate.recommendation_rationale
+    },
+    spec_count: aggregate.specs.length,
+    specs: aggregate.specs.map((spec) => ({
+      id: spec.id,
+      title: spec.title,
+      classification: spec.classification,
+      workflow_state: spec.workflow_state,
+      acceptance_criteria_count: spec.acceptance_criteria.length,
+      has_implementation_plan: spec.implementation_plan !== null,
+      contract: spec.contract,
+      dependency_counts: {
+        specs: spec.dependencies.spec_dependencies.length,
+        external: spec.dependencies.external_dependencies.length,
+        contracts: spec.dependencies.contract_dependencies.length
+      },
+      scope_allowed_globs: spec.scope.allowed_globs
+    }))
+  };
+}
+
+function summarizeImplementationPlan(plan: Spec["implementation_plan"]) {
+  if (plan === null) return null;
+  if (plan.kind === "standard_plan") {
+    return {
+      kind: plan.kind,
+      summary: plan.summary,
+      approach_count: plan.approach.length,
+      expected_file_count: plan.expected_files.length,
+      test_count: plan.tests.length,
+      risk_count: plan.risks.length,
+      has_dev_runtime_proof: plan.dev_runtime_proof !== null
+    };
+  }
+  return {
+    kind: plan.kind,
+    reason: plan.reason,
+    authorization_behavior: plan.authorization_behavior
+  };
+}
+
+function specIndexSlice(spec: Spec) {
+  return {
+    id: spec.id,
+    title: spec.title,
+    classification: spec.classification,
+    workflow_state: spec.workflow_state,
+    acceptance_criteria_count: spec.acceptance_criteria.length,
+    implementation_plan: summarizeImplementationPlan(spec.implementation_plan),
+    contract: spec.contract,
+    scope_allowed_globs: spec.scope.allowed_globs,
+    dependency_counts: {
+      specs: spec.dependencies.spec_dependencies.length,
+      external: spec.dependencies.external_dependencies.length,
+      contracts: spec.dependencies.contract_dependencies.length
+    },
+    review_counts: {
+      pre_approval: spec.spec_review_cycles.length,
+      implementation: spec.review_cycles.length
+    }
+  };
+}
+
+function specContentSlice(spec: Spec) {
+  return {
+    id: spec.id,
+    title: spec.title,
+    classification: spec.classification,
+    workflow_state: spec.workflow_state,
+    spec_author_agent_instance_id: spec.spec_author_agent_instance_id,
+    scope: spec.scope,
+    docs: spec.docs,
+    mockup_decision: spec.mockup_decision,
+    acceptance_criteria: spec.acceptance_criteria,
+    implementation_plan: spec.implementation_plan,
+    implementation_plan_hash: spec.implementation_plan_hash,
+    dependencies: spec.dependencies,
+    contract: spec.contract,
+    work_kind_resolution: spec.work_kind_resolution,
+    evidence_policy_resolution: spec.evidence_policy_resolution,
+    hashes: {
+      spec_review_content_hash: specReviewContentHash(spec)
+    },
+    omitted: ["change_baseline", "implementation_attempts", "review_cycles", "focused_fix_instructions"]
+  };
+}
+
+function currentSpecPlanHashRefs(aggregate: AggregateWorkPacket): Array<{ spec_id: string; implementation_plan_hash: string }> | null {
+  const refs: Array<{ spec_id: string; implementation_plan_hash: string }> = [];
+  for (const spec of aggregate.specs) {
+    if (spec.implementation_plan_hash === null) return null;
+    refs.push({ spec_id: spec.id, implementation_plan_hash: spec.implementation_plan_hash });
+  }
+  return refs;
+}
+
+function summarizeParallelismPlan(plan: ImplementationParallelismPlan | null) {
+  if (plan === null) return null;
+  return {
+    strategy: plan.strategy,
+    reasoning: plan.reasoning,
+    execution_groups: plan.execution_groups,
+    constraints: plan.constraints,
+    risks: plan.risks,
+    based_on_spec_plan_hashes: plan.based_on_spec_plan_hashes
+  };
+}
+
+function parallelismPlanTemplate(aggregate: AggregateWorkPacket): Record<string, JsonValue> {
+  const order = topologicalOrder(aggregate.specs);
+  return {
+    id: aggregate.id,
+    strategy: aggregate.specs.length <= 1 ? "sequential" : "staged",
+    reasoning: "Explain which Specs can safely run in the same implementation wave, or why sequential execution is safer for this Work Packet.",
+    execution_groups: order.map((specId, index) => ({
+      id: `wave-${index + 1}`,
+      spec_ids: [specId],
+      rationale: "Place Specs in this wave because their dependencies and risk profile make this ordering appropriate."
+    })),
+    constraints: ["Do not place a dependent Spec before the Spec or contract it depends on unless the contract is already frozen and the risk is explicitly accepted."],
+    risks: ["Reviewers should check whether the proposed waves match dependency edges, contract readiness, shared files, and test/runtime contention."]
+  };
+}
+
+function parallelismPlanDiagnostics(aggregate: AggregateWorkPacket): Diagnostic[] {
+  const expected = currentSpecPlanHashRefs(aggregate);
+  if (expected === null) return [];
+  const plan = aggregate.implementation_parallelism_plan;
+  if (plan === null) {
+    return [diagnostic("IMPLEMENTATION_PARALLELISM_PLAN_REQUIRED", "A packet-level implementation parallelism plan is required after every Spec implementation plan and before review/approval. It may explicitly choose sequential execution with reasoning.", "error", "/implementation_parallelism_plan")];
+  }
+  const expectedBySpec = new Map(expected.map((entry) => [entry.spec_id, entry.implementation_plan_hash]));
+  const actualBySpec = new Map(plan.based_on_spec_plan_hashes.map((entry) => [entry.spec_id, entry.implementation_plan_hash]));
+  const stale = actualBySpec.size !== expectedBySpec.size || [...expectedBySpec].some(([specId, hash]) => actualBySpec.get(specId) !== hash);
+  if (stale) {
+    return [diagnostic("IMPLEMENTATION_PARALLELISM_PLAN_STALE", "The implementation parallelism plan is not based on the current set of Spec implementation-plan hashes. Re-run work.parallelism.plan after Spec planning changes.", "error", "/implementation_parallelism_plan")];
+  }
+  return [];
+}
+
+function reviewCycleSlice(cycle: SpecReviewCycle) {
+  return {
+    id: cycle.id,
+    review_scope: cycle.review_scope,
+    state: cycle.state,
+    verdict: cycle.verdict,
+    summary: cycle.summary,
+    blocker_count: cycle.blockers.length,
+    blockers: cycle.blockers,
+    reviewed_ac_content_hash: cycle.reviewed_ac_content_hash,
+    reviewed_spec_content_hashes: cycle.reviewed_spec_content_hashes,
+    producer: cycle.producer
+  };
+}
+
+function workGetSliceInputs(aggregate: AggregateWorkPacket) {
+  return aggregate.specs.map((spec) => ({ id: aggregate.id, view: "spec", spec_id: spec.id }));
+}
+
+function workPacketIntentSlice(aggregate: AggregateWorkPacket) {
+  return {
+    id: aggregate.id,
+    title: aggregate.title,
+    revision: aggregate.revision,
+    disposition: aggregate.disposition,
+    target_id: aggregate.target_id,
+    origination: aggregate.origination,
+    platform: aggregate.platform,
+    architecture: aggregate.architecture,
+    stack: aggregate.stack,
+    runtime_baseline_ref: aggregate.runtime_baseline_ref,
+    intent: aggregate.intent,
+    implementation_parallelism_plan: summarizeParallelismPlan(aggregate.implementation_parallelism_plan),
+    architecture_governance: aggregate.architecture_governance,
+    active_human_gate: aggregate.active_human_gate
+  };
+}
+
+function workPacketReviewSlice(aggregate: AggregateWorkPacket) {
+  return {
+    id: aggregate.id,
+    revision: aggregate.revision,
+    implementation_parallelism_plan: summarizeParallelismPlan(aggregate.implementation_parallelism_plan),
+    architecture_governance: aggregate.architecture_governance,
+    whole_wp_reviews: aggregate.spec_review_cycles.map(reviewCycleSlice),
+    specs: aggregate.specs.map((spec) => ({
+      ...specIndexSlice(spec),
+      pre_approval_reviews: spec.spec_review_cycles.map(reviewCycleSlice)
+    }))
+  };
+}
+
+function workPacketCoherenceSlice(aggregate: AggregateWorkPacket) {
+  return {
+    id: aggregate.id,
+    title: aggregate.title,
+    revision: aggregate.revision,
+    intent: aggregate.intent,
+    structural_choices: {
+      origination: aggregate.origination,
+      platform: aggregate.platform,
+      architecture: aggregate.architecture,
+      stack: aggregate.stack,
+      target_id: aggregate.target_id,
+      runtime_baseline_ref: aggregate.runtime_baseline_ref
+    },
+    implementation_parallelism_plan: summarizeParallelismPlan(aggregate.implementation_parallelism_plan),
+    architecture_governance: aggregate.architecture_governance,
+    specs: aggregate.specs.map(specIndexSlice),
+    dependency_edges: aggregate.specs.flatMap((spec) => spec.dependencies.spec_dependencies.map((edge) => ({
+      from_spec_id: spec.id,
+      to_spec_id: edge.spec_id,
+      contract: edge.contract
+    }))),
+    external_dependencies: aggregate.specs.flatMap((spec) => spec.dependencies.external_dependencies.map((edge) => ({
+      spec_id: spec.id,
+      name: edge.name,
+      reason: edge.reason
+    }))),
+    contract_dependencies: aggregate.specs.flatMap((spec) => spec.dependencies.contract_dependencies.map((edge) => ({
+      spec_id: spec.id,
+      contract: edge.contract,
+      reason: edge.reason
+    }))),
+    implementation_order: topologicalOrder(aggregate.specs),
+    spec_slice_inputs: workGetSliceInputs(aggregate),
+    guidance: "For whole-WP coherence review, inspect this index first, then fetch each listed spec slice one at a time before recording work.review with no spec_id."
+  };
+}
+
+function resetSpecForPacketRevision(spec: Spec): Spec {
+  return { ...spec, workflow_state: "packet_draft", change_baseline: null, implementation_attempts: [], review_cycles: [], focused_fix_instructions: [] };
+}
+export function workApprovalToken(workId: string, approvalHash: string): string {
+  return `work-approval-token:v1:${workId}:${approvalHash}`;
+}
+
+function approvalHashFromToken(token: string, workId: string): string | null {
+  const prefix = `work-approval-token:v1:${workId}:`;
+  return token.startsWith(prefix) ? token.slice(prefix.length) : null;
+}
+
+function approvalHashFromGateInput(input: { review_snapshot_hash?: string | undefined; approval_token?: string | undefined }, workId: string): string | null {
+  if (input.review_snapshot_hash !== undefined) return input.review_snapshot_hash;
+  if (input.approval_token !== undefined) return approvalHashFromToken(input.approval_token, workId);
+  return null;
+}
+
+function specGuardMcpName(actionId: string): string {
+  return `spec_guard_${actionId.replaceAll(".", "_")}`;
+}
+
+function nextAction(actionId: string, reason: string, suggestedInput: Record<string, unknown> | null): NextAction {
+  return { action_id: actionId, cli: null, mcp: specGuardMcpName(actionId), reason, suggested_input: suggestedInput };
+}
+
+type RepairInstruction = { action_id: string; reason: string; suggested_input: Record<string, JsonValue>; human_required: boolean };
+
+type ReviewReadiness = {
+  spec_review_jobs: string[];
+  whole_wp_coherence_required: boolean;
+  ready: boolean;
+};
+
+function specIdFromDiagnostic(aggregate: AggregateWorkPacket, diag: Diagnostic): string {
+  const field = diag.field_path ?? "";
+  const fromField = field.match(/^\/specs\/([^/]+)/)?.[1];
+  if (fromField !== undefined && aggregate.specs.some((spec) => spec.id === fromField)) return fromField;
+  const fromMessage = diag.message.match(/Spec ([^\s:]+)/)?.[1];
+  if (fromMessage !== undefined && aggregate.specs.some((spec) => spec.id === fromMessage)) return fromMessage;
+  return aggregate.specs[0]?.id ?? aggregate.id;
+}
+
+function specForDiagnostic(aggregate: AggregateWorkPacket, diag: Diagnostic): Spec {
+  const id = specIdFromDiagnostic(aggregate, diag);
+  return aggregate.specs.find((spec) => spec.id === id) ?? aggregate.specs[0]!;
+}
+
+function standardPlanTemplate(spec: Spec): Record<string, JsonValue> {
+  const input: Record<string, JsonValue> = {
+    id: "<work packet id>",
+    spec_id: spec.id,
+    plan: {
+      kind: "standard_plan",
+      template_id: "standard",
+      template_version: 1,
+      summary: "<implementation plan summary>",
+      approach: ["<implementation step>"],
+      expected_files: [
+        { path: spec.scope.allowed_globs[0]?.replace(/\/\*\*$/, "/index.ts") ?? "src/<file>.ts", purpose: "impl", change_type: "modify" },
+        { path: "src/<file>.test.ts", purpose: "tests", change_type: "modify" },
+        { path: "docs/<topic>.md", purpose: "docs", change_type: "modify" }
+      ],
+      tests: []
+    },
+    dependencies: { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] }
+  };
+  if ((CONTRACT_PRODUCING_CLASSIFICATIONS as readonly string[]).includes(spec.classification)) {
+    input.contract_surface = { operations: [{ name: "<operation>", input: { type: "object" }, output: { type: "object" } }] };
+  }
+  return input;
+}
+
+function repairForDiagnostic(aggregate: AggregateWorkPacket, diag: Diagnostic): RepairInstruction | null {
+  const spec = specForDiagnostic(aggregate, diag);
+  switch (diag.code) {
+    case "INTENT_INCOMPLETE":
+      return { action_id: "work.intent", human_required: false, reason: "Fill the whole-Work-Packet intent sections before approval.", suggested_input: { id: aggregate.id, desired_outcomes: ["<required outcome>"], in_scope: ["<in-scope item>"], out_of_scope: ["<out-of-scope item or none>"], users_actors: ["<user or actor>"], edge_cases: ["<edge case or none>"], open_questions: ["none"] } };
+    case "RUNTIME_BASELINE_REF_REQUIRED":
+      return { action_id: "work.target.attach", human_required: false, reason: "Attach the accepted runtime baseline for this modify_existing target before approval.", suggested_input: { id: aggregate.id } };
+    case "MOCKUP_DECISION_REQUIRED":
+    case "MOCKUP_EVIDENCE_REQUIRED":
+      return { action_id: "work.spec.mockup", human_required: true, reason: "Resolve the human mockup/design question before drafting UI acceptance criteria.", suggested_input: { id: aggregate.id, spec_id: spec.id, mockup_decision: "none", human_confirmed: true, raw_response: "<human answer>", decision_prompt: `Do you have an existing mockup/design for ${spec.title}?` } };
+    case "ACCEPTANCE_CRITERIA_REQUIRED":
+    case "AC_ID_NOT_UNIQUE":
+    case "SOURCE_DERIVED_AC_MISSING_EVIDENCE":
+    case "SOURCE_EVIDENCE_REFS_EMPTY":
+    case "SOURCE_EVIDENCE_HASH_MISMATCH":
+    case "SOURCE_ARTIFACT_REF_UNRESOLVED":
+    case "BOOTSTRAP_ACS_MISSING":
+      return { action_id: "work.spec.acs", human_required: false, reason: "Draft or repair this Spec's acceptance criteria.", suggested_input: { id: aggregate.id, spec_id: spec.id, acceptance_criteria: [{ id: "ac1", text: "<observable acceptance criterion>", source: "human", source_evidence: null }] } };
+    case "IMPLEMENTATION_PLAN_REQUIRED":
+    case "PLAN_EXPECTED_TEST_FILE_MISSING":
+    case "PLAN_EXPECTED_DOC_FILE_MISSING":
+    case "CONTRACT_REQUIRED": {
+      const suggested = standardPlanTemplate(spec);
+      suggested.id = aggregate.id;
+      return { action_id: "work.spec.plan", human_required: false, reason: "Set or repair this Spec's implementation plan, dependency edges, and contract surface when required.", suggested_input: suggested };
+    }
+    case "IMPLEMENTATION_PARALLELISM_PLAN_REQUIRED":
+    case "IMPLEMENTATION_PARALLELISM_PLAN_STALE":
+      return { action_id: "work.parallelism.plan", human_required: false, reason: "Record the packet-level implementation parallelism plan after every Spec implementation plan; sequential is valid when reasoned.", suggested_input: parallelismPlanTemplate(aggregate) };
+    case "ARCHITECTURE_CHARTER_BINDING_REQUIRED":
+    case "ARCHITECTURE_CHARTER_BINDING_STALE":
+      return { action_id: "work.architecture.check", human_required: false, reason: "Bind this greenfield Work Packet to the current active Architecture Charter ordinances.", suggested_input: { id: aggregate.id } };
+    case "ARCHITECTURE_CHARTER_REQUIRED":
+      return { action_id: "architecture.quickstart", human_required: true, reason: "No active Architecture Charter ordinances exist; ask the human to create ordinances now or explicitly waive governance for this Work Packet.", suggested_input: {} };
+    case "WORK_APPROVE_SPEC_DOCS_INVALID":
+    case "WORK_SPEC_REVISE_PLAN_RESET":
+      return { action_id: "work.spec.revise", human_required: false, reason: "Correct the Spec metadata, then rerun planning if classification changed.", suggested_input: { id: aggregate.id, spec_id: spec.id, classification: spec.classification, allowed_globs: spec.scope.allowed_globs } };
+    case "SPEC_REVIEW_REQUIRED":
+    case "SPEC_REVIEW_STALE":
+    case "SPEC_REVIEW_NOT_READY":
+      return { action_id: "work.review", human_required: false, reason: "Run an independent per-Spec review after the Spec and its dependencies are drafted and planned.", suggested_input: { id: aggregate.id, spec_id: spec.id, producer: { role: "reviewer", principal_id: null, agent_instance_id: "<reviewer agent id>", provider: "<provider>", model: "<configured reviewer model>", run_id: "<run id>" }, verdict: "pass", blockers: [], summary: "<review summary>" } };
+    case "SPEC_REVIEW_COHERENCE_REQUIRED":
+      return { action_id: "work.review", human_required: false, reason: "Run one independent whole-WP coherence review over all Specs.", suggested_input: { id: aggregate.id, producer: { role: "reviewer", principal_id: null, agent_instance_id: "<reviewer agent id>", provider: "<provider>", model: "<configured reviewer model>", run_id: "<run id>" }, verdict: "pass", blockers: [], summary: "<whole-WP coherence review summary>" } };
+    case "DEPENDENCY_CYCLE":
+    case "DEPENDENCY_SELF":
+    case "DEPENDENCY_SPEC_UNKNOWN":
+    case "CONTRACT_DEP_UNKNOWN":
+    case "CONTRACT_EDGE_MISMATCH":
+      return { action_id: "work.spec.plan", human_required: false, reason: "Repair the declared dependency edges so they resolve and form a DAG.", suggested_input: { ...standardPlanTemplate(spec), id: aggregate.id } };
+    case "WORK_AUTHORIZE_NOT_APPROVED":
+    case "WORK_APPROVE_STALE":
+    case "WORK_AUTHORIZE_APPROVAL_STALE":
+    case "WORK_COMPLETE_APPROVAL_STALE":
+      return { action_id: "work.approval.ready", human_required: false, reason: "Refresh approval readiness and obtain the current approval_token.", suggested_input: { id: aggregate.id } };
+    case "WORK_AUTHORIZE_STALE":
+      return { action_id: "work.authorize", human_required: true, reason: "Retry authorization with the current approval_token.", suggested_input: { id: aggregate.id, approval_token: workApprovalToken(aggregate.id, aggregateApprovalProjection(aggregate).hash), selected_number: 1, raw_response: "<human authorization response>", decision_prompt: `Authorize implementation for ${aggregate.title}?`, human_confirmed: true } };
+    case "WORK_COMPLETE_NOT_AUTHORIZED":
+      return { action_id: "work.authorize", human_required: true, reason: "Authorize the approved Work Packet before implementation/completion.", suggested_input: { id: aggregate.id, approval_token: workApprovalToken(aggregate.id, aggregateApprovalProjection(aggregate).hash), selected_number: 1, raw_response: "<human authorization response>", decision_prompt: `Authorize implementation for ${aggregate.title}?`, human_confirmed: true } };
+    case "WORK_COMPLETE_SPECS_UNFINISHED":
+      return { action_id: "work.spec.record", human_required: false, reason: "Drive unfinished Specs through implementation, validation, and review records until each reaches review_complete.", suggested_input: { id: aggregate.id, spec_id: spec.id, record_kind: "implementation_attempt", record: { producer: { role: "implementer", principal_id: null, agent_instance_id: "<implementer agent id>", provider: "<provider>", model: "<configured implementer model>", run_id: "<run id>" }, summary: "<what changed>", changed_files: [] }, next_state: "implementation_attempt_complete" } };
+    case "COMPLETION_RUNTIME_BASELINE_REQUIRED":
+      return { action_id: "baseline.establish", human_required: false, reason: "Establish and accept the target runtime baseline before completing greenfield work.", suggested_input: aggregate.target_id === null ? {} : { target_id: aggregate.target_id } };
+    default:
+      return null;
+  }
+}
+
+function annotateDiagnostics(aggregate: AggregateWorkPacket, diagnostics: Diagnostic[]): Diagnostic[] {
+  return diagnostics.map((diag) => {
+    const repair = repairForDiagnostic(aggregate, diag);
+    return repair === null ? diag : { ...diag, repair_action: repair.action_id, repair_input_template: repair.suggested_input, human_required: repair.human_required, fix: diag.fix ?? repair.reason };
+  });
+}
+
+function nextActionsFromDiagnostics(aggregate: AggregateWorkPacket, diagnostics: Diagnostic[]): NextAction[] {
+  const seen = new Set<string>();
+  const actions: NextAction[] = [];
+  for (const diag of diagnostics) {
+    const repair = repairForDiagnostic(aggregate, diag);
+    if (repair === null) continue;
+    const key = `${repair.action_id}:${JSON.stringify(repair.suggested_input)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    actions.push(nextAction(repair.action_id, repair.reason, repair.suggested_input));
+  }
+  return actions;
+}
+
+function approvalGateInput(aggregate: AggregateWorkPacket, prompt: string): Record<string, JsonValue> {
+  return { id: aggregate.id, approval_token: workApprovalToken(aggregate.id, aggregateApprovalProjection(aggregate).hash), selected_number: 1, raw_response: "<human response>", decision_prompt: prompt, human_confirmed: true };
+}
+
+function passingReviewCycles(aggregate: AggregateWorkPacket): SpecReviewCycle[] {
+  return [...aggregate.spec_review_cycles.filter((cycle) => cycle.state === "sealed" && cycle.verdict === "pass"), ...aggregate.specs.flatMap((spec) => spec.spec_review_cycles.filter((cycle) => cycle.state === "sealed" && cycle.verdict === "pass"))];
+}
+
+function reviewReadinessForAggregate(aggregate: AggregateWorkPacket): ReviewReadiness {
+  const approval = aggregateApprovalProjection(aggregate);
+  const passing = passingReviewCycles(aggregate);
+  const spec_review_jobs: string[] = [];
+  for (const spec of aggregate.specs) {
+    const depIds = new Set(spec.dependencies.spec_dependencies.map((edge) => edge.spec_id));
+    const ready = aggregate.specs.every((other) => !(other.id === spec.id || depIds.has(other.id)) || (other.acceptance_criteria.length > 0 && other.implementation_plan !== null));
+    const localHash = specReviewContentHash(spec);
+    const covered = passing.some((cycle) => cycle.reviewed_spec_content_hashes.some((entry) => entry.spec_id === spec.id && entry.hash === localHash) || (cycle.review_scope === "whole_wp" && cycle.reviewed_spec_content_hashes.length === 0 && cycle.reviewed_ac_content_hash === approval.hash));
+    if (ready && !covered) spec_review_jobs.push(spec.id);
+  }
+  const allDraftedPlanned = aggregate.specs.every((spec) => spec.acceptance_criteria.length > 0 && spec.implementation_plan !== null);
+  const whole_wp_coherence_required = aggregate.specs.length > 1 && allDraftedPlanned && !aggregate.re_review_waived && !aggregate.spec_review_cycles.some((cycle) => cycle.state === "sealed" && cycle.verdict === "pass" && cycle.reviewed_ac_content_hash === approval.hash);
+  return { spec_review_jobs, whole_wp_coherence_required, ready: spec_review_jobs.length === 0 && !whole_wp_coherence_required };
+}
+
+function reviewSliceInputsForReadiness(aggregate: AggregateWorkPacket, review: ReviewReadiness) {
+  return {
+    per_spec: review.spec_review_jobs.map((specId) => ({
+      spec_id: specId,
+      read_before_recording: [{ id: aggregate.id, view: "spec", spec_id: specId }]
+    })),
+    whole_wp_coherence: review.whole_wp_coherence_required
+      ? {
+        read_index_first: { id: aggregate.id, view: "coherence" },
+        then_read_specs_one_at_a_time: workGetSliceInputs(aggregate)
+      }
+      : null
+  };
+}
+
+async function preReviewReadinessDiagnostics(aggregate: AggregateWorkPacket, context: ActionExecutionContext): Promise<Diagnostic[]> {
+  const errors: Diagnostic[] = [];
+  for (const spec of aggregate.specs) {
+    const docsError = validateDocsPolicyForClassification({ classification: spec.classification, policy: spec.docs.policy, none_required_reason: spec.docs.none_required_reason, not_applicable_reason: spec.docs.not_applicable_reason });
+    if (docsError !== null) errors.push(diagnostic("WORK_APPROVE_SPEC_DOCS_INVALID", `Spec ${spec.id} (${spec.classification}): ${docsError}`, "error", `/specs/${spec.id}/docs`));
+    for (const mockupDiag of mockupGateDiagnostics(specAsV1WorkPacket(aggregate, spec))) {
+      if (mockupDiag.severity === "error") errors.push(diagnostic(mockupDiag.code, `Spec ${spec.id}: ${mockupDiag.message}`, "error", `/specs/${spec.id}/mockup_decision`));
+    }
+    if (spec.acceptance_criteria.length === 0) errors.push(diagnostic("ACCEPTANCE_CRITERIA_REQUIRED", `Spec ${spec.id}: draft acceptance criteria with work.spec.acs before review.`, "error", `/specs/${spec.id}/acceptance_criteria`));
+    for (const acDiag of await validateAcceptanceCriteria(spec.acceptance_criteria, context)) {
+      if (acDiag.severity === "error") errors.push(diagnostic(acDiag.code, `Spec ${spec.id}: ${acDiag.message}`, "error", `/specs/${spec.id}/acceptance_criteria`));
+    }
+    if (bootstrapAcsMissing(specAsV1WorkPacket(aggregate, spec))) {
+      errors.push(diagnostic("BOOTSTRAP_ACS_MISSING", `Spec ${spec.id} (${spec.classification}): greenfield work that stands up new architecture/stack must include a bootstrap acceptance criterion (bootstrap: true).`, "error", `/specs/${spec.id}/acceptance_criteria`));
+    }
+    if (spec.implementation_plan === null) errors.push(diagnostic("IMPLEMENTATION_PLAN_REQUIRED", `Spec ${spec.id}: an implementation plan is required before review.`, "error", `/specs/${spec.id}/implementation_plan`));
+    if (spec.implementation_plan !== null && spec.contract === null && (CONTRACT_PRODUCING_CLASSIFICATIONS as readonly string[]).includes(spec.classification)) {
+      errors.push(diagnostic("CONTRACT_REQUIRED", `Spec ${spec.id} (${spec.classification}) is a contract-producing surface; rerun work.spec.plan with contract_surface.`, "error", `/specs/${spec.id}/contract`));
+    }
+  }
+  errors.push(...await architectureGovernanceDiagnosticsForWork(aggregate, context));
+  errors.push(...parallelismPlanDiagnostics(aggregate));
+  const cycle = detectDependencyCycle(aggregate.specs);
+  if (cycle !== null) errors.push(diagnostic("DEPENDENCY_CYCLE", `Cross-Spec dependencies form a cycle: ${cycle.join(" -> ")}. Resolve it before review.`, "error", "/specs"));
+  return errors;
+}
+
+function readyInParallelSpecIds(aggregate: AggregateWorkPacket, contractStore: ContractStore): Promise<string[]> {
+  return Promise.all(aggregate.specs.map(async (spec) => {
+    let unblocked = true;
+    for (const edge of spec.dependencies.spec_dependencies) {
+      const producer = aggregate.specs.find((candidate) => candidate.id === edge.spec_id);
+      const ref = edge.contract ?? producer?.contract ?? null;
+      if (ref === null) continue;
+      if (!(await contractStore.resolves(ref))) { unblocked = false; break; }
+    }
+    if (unblocked) for (const dep of spec.dependencies.contract_dependencies) { if (!(await contractStore.resolves(dep.contract))) { unblocked = false; break; } }
+    return unblocked ? spec.id : null;
+  })).then((values) => values.filter((value): value is string => value !== null));
+}
+
+function completionStructuralDiagnostics(aggregate: AggregateWorkPacket): Diagnostic[] {
+  const errors: Diagnostic[] = [];
+  if (aggregate.lifecycle.authorization === null) errors.push(diagnostic("WORK_COMPLETE_NOT_AUTHORIZED", "The whole-Work-Packet authorization gate must pass before completion.", "error", "/lifecycle/authorization"));
+  const unfinished = aggregate.specs.filter((spec) => spec.workflow_state !== "review_complete").map((spec) => spec.id);
+  if (unfinished.length > 0) errors.push(diagnostic("WORK_COMPLETE_SPECS_UNFINISHED", `Specs not yet review_complete: ${unfinished.join(", ")}.`, "error", "/specs"));
+  const approval = aggregateApprovalProjection(aggregate);
+  if (aggregate.lifecycle.approval !== null && aggregate.lifecycle.approval.review_snapshot_hash !== approval.hash) errors.push(diagnostic("WORK_COMPLETE_APPROVAL_STALE", "lifecycle.approval no longer matches the current whole-Work-Packet hash.", "error", "/lifecycle/approval"));
+  return errors;
+}
 /**
  * The work flow: ONE aggregate document per Work Packet (container + embedded specs[]), with THREE whole-WP human
  * gates — approve -> authorize -> complete — and per-Spec AGENT implementation (record/advance) between them. This
@@ -249,9 +771,31 @@ export async function workTargetAttach(input: z.infer<typeof WorkTargetAttachInp
  * This is how an agent re-inspects state and obtains the review_snapshot_hash to echo at a gate (work.approve /
  * work.authorize / work.complete) — especially a fresh session that doesn't hold a prior action's response.
  */
-export const WorkGetInputSchema = z.object({ id: z.string().min(1) }).strict();
+const WorkGetSliceViewSchema = z.enum(["summary", "intent", "spec", "review", "coherence"]);
+const WorkGetViewSchema = z.enum(["full", "summary", "intent", "spec", "review", "coherence"]);
 
-export async function workGet(input: z.infer<typeof WorkGetInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+function validateWorkGetSliceInput(value: { view?: string | undefined; spec_id?: string | undefined }, ctx: z.RefinementCtx): void {
+  if (value.view === "spec" && value.spec_id === undefined) {
+    ctx.addIssue({ code: "custom", path: ["spec_id"], message: "spec_id is required when view is 'spec'." });
+  }
+  if (value.view !== "spec" && value.spec_id !== undefined) {
+    ctx.addIssue({ code: "custom", path: ["spec_id"], message: "spec_id is only accepted when view is 'spec'." });
+  }
+}
+
+export const WorkGetInputSchema = z.object({
+  id: z.string().min(1),
+  view: WorkGetViewSchema.default("full"),
+  spec_id: z.string().min(1).optional()
+}).strict().superRefine(validateWorkGetSliceInput);
+
+export const WorkGetAgentInputSchema = z.object({
+  id: z.string().min(1),
+  view: WorkGetSliceViewSchema.default("summary"),
+  spec_id: z.string().min(1).optional()
+}).strict().superRefine(validateWorkGetSliceInput);
+
+export async function workGet(input: z.input<typeof WorkGetInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
   const store = aggregateStoreForContext(context);
   try {
     const parsed = WorkGetInputSchema.parse(input);
@@ -288,10 +832,31 @@ export async function workGet(input: z.infer<typeof WorkGetInputSchema>, context
       const covered = passingReviews.some((cycle) => cycle.reviewed_spec_content_hashes.some((entry) => entry.spec_id === spec.id && entry.hash === localHash) || (cycle.review_scope === "whole_wp" && cycle.reviewed_spec_content_hashes.length === 0 && cycle.reviewed_ac_content_hash === approval.hash));
       if (ready && !covered) specsAwaitingReview.push(spec.id);
     }
+    const common = { approval_hash: approval.hash, approval_token: workApprovalToken(aggregate.id, approval.hash), ready_in_parallel: readyInParallel, specs_awaiting_review: specsAwaitingReview };
+    const data = (() => {
+      switch (parsed.view) {
+        case "full":
+          return { work_packet: aggregate, ...common };
+        case "intent":
+          return { work_packet_slice: { kind: "intent", ...workPacketIntentSlice(aggregate) }, ...common };
+        case "spec": {
+          const spec = aggregate.specs.find((candidate) => candidate.id === parsed.spec_id);
+          if (spec === undefined) throw new Error(`Spec ${parsed.spec_id} is not part of Work Packet ${parsed.id}.`);
+          return { work_packet_slice: { kind: "spec", work_id: aggregate.id, work_title: aggregate.title, revision: aggregate.revision, spec: specContentSlice(spec) }, ...common };
+        }
+        case "review":
+          return { work_packet_slice: { kind: "review", ...workPacketReviewSlice(aggregate) }, ...common };
+        case "coherence":
+          return { work_packet_slice: { kind: "coherence", ...workPacketCoherenceSlice(aggregate) }, ...common };
+        case "summary":
+        default:
+          return { work_packet_summary: summarizeWorkPacket(aggregate), ...common };
+      }
+    })();
     return {
       ok: true,
       action_id: "work.get",
-      data: { work_packet: aggregate, approval_hash: approval.hash, ready_in_parallel: readyInParallel, specs_awaiting_review: specsAwaitingReview },
+      data,
       diagnostics: [],
       mutations: [],
       next_actions: [],
@@ -334,6 +899,280 @@ export async function workList(input: z.infer<typeof WorkListInputSchema>, conte
     };
   } catch (error) {
     return failureResult("work.list", "Work Packet list failed.", [diagnostic("WORK_LIST_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+export const WorkNextInputSchema = z.object({ id: z.string().min(1) }).strict();
+export const WorkPrepareForReviewInputSchema = z.object({ id: z.string().min(1) }).strict();
+export const WorkReviewReadyInputSchema = z.object({ id: z.string().min(1) }).strict();
+export const WorkApprovalReadyInputSchema = z.object({ id: z.string().min(1) }).strict();
+export const WorkCompletionReadyInputSchema = z.object({ id: z.string().min(1) }).strict();
+
+export async function workPrepareForReview(input: z.infer<typeof WorkPrepareForReviewInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkPrepareForReviewInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    const approval = aggregateApprovalProjection(aggregate);
+    const diagnostics = annotateDiagnostics(aggregate, await preReviewReadinessDiagnostics(aggregate, context));
+    const ready = diagnostics.every((diag) => diag.severity !== "error");
+    return {
+      ok: true,
+      action_id: "work.prepare_for_review",
+      data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: approval.hash, approval_token: workApprovalToken(aggregate.id, approval.hash), ready, blockers: diagnostics },
+      diagnostics,
+      mutations: [],
+      next_actions: ready ? [nextAction("work.review.ready", "Find the review jobs that are ready to run in parallel.", { id: aggregate.id })] : nextActionsFromDiagnostics(aggregate, diagnostics),
+      summary: ready ? `Work Packet ${aggregate.id} is ready for review.` : `Work Packet ${aggregate.id} needs ${diagnostics.filter((diag) => diag.severity === "error").length} repair(s) before review.`
+    };
+  } catch (error) {
+    return failureResult("work.prepare_for_review", "Work Packet review preparation check failed.", [diagnostic("WORK_PREPARE_FOR_REVIEW_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+export async function workReviewReady(input: z.infer<typeof WorkReviewReadyInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkReviewReadyInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    const approval = aggregateApprovalProjection(aggregate);
+    const preReviewDiagnostics = annotateDiagnostics(aggregate, await preReviewReadinessDiagnostics(aggregate, context));
+    if (preReviewDiagnostics.some((diag) => diag.severity === "error")) {
+      return {
+        ok: true,
+        action_id: "work.review.ready",
+        data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: approval.hash, approval_token: workApprovalToken(aggregate.id, approval.hash), ready: false, spec_review_jobs: [], whole_wp_coherence_required: false, blockers: preReviewDiagnostics },
+        diagnostics: preReviewDiagnostics,
+        mutations: [],
+        next_actions: nextActionsFromDiagnostics(aggregate, preReviewDiagnostics),
+        summary: `Work Packet ${aggregate.id} is not ready for review jobs yet.`
+      };
+    }
+    const review = reviewReadinessForAggregate(aggregate);
+    const review_slice_inputs = reviewSliceInputsForReadiness(aggregate, review);
+    const reviewActions: NextAction[] = [];
+    for (const specId of review.spec_review_jobs) {
+      const spec = aggregate.specs.find((candidate) => candidate.id === specId)!;
+      reviewActions.push(nextAction("work.get", `Read compact Spec slice for ${specId} before recording its independent review.`, { id: aggregate.id, view: "spec", spec_id: specId }));
+      reviewActions.push(nextAction("work.review", `Run independent per-Spec review for ${specId}.`, { id: aggregate.id, spec_id: specId, producer: { role: "reviewer", principal_id: null, agent_instance_id: "<reviewer agent id>", provider: "<provider>", model: "<configured reviewer model>", run_id: "<run id>" }, verdict: "pass", blockers: [], summary: `Review ${spec.title}` }));
+    }
+    if (review.whole_wp_coherence_required) {
+      reviewActions.push(nextAction("work.get", "Read the whole-WP coherence index first; then fetch each listed Spec slice one at a time before recording the coherence review.", { id: aggregate.id, view: "coherence" }));
+      reviewActions.push(nextAction("work.review", "Run whole-WP coherence review over all Specs.", { id: aggregate.id, producer: { role: "reviewer", principal_id: null, agent_instance_id: "<reviewer agent id>", provider: "<provider>", model: "<configured reviewer model>", run_id: "<run id>" }, verdict: "pass", blockers: [], summary: "Whole-WP coherence review" }));
+    }
+    if (review.ready) reviewActions.push(nextAction("work.approval.ready", "Check approval readiness and get the approval token.", { id: aggregate.id }));
+    return {
+      ok: true,
+      action_id: "work.review.ready",
+      data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: approval.hash, approval_token: workApprovalToken(aggregate.id, approval.hash), ready: review.ready, spec_review_jobs: review.spec_review_jobs, whole_wp_coherence_required: review.whole_wp_coherence_required, review_slice_inputs },
+      diagnostics: [],
+      mutations: [],
+      next_actions: reviewActions,
+      summary: review.ready ? `All review coverage is current for Work Packet ${aggregate.id}.` : `Work Packet ${aggregate.id} has ${reviewActions.length} review job(s) ready.`
+    };
+  } catch (error) {
+    return failureResult("work.review.ready", "Work Packet review readiness check failed.", [diagnostic("WORK_REVIEW_READY_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+export async function workApprovalReady(input: z.infer<typeof WorkApprovalReadyInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkApprovalReadyInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    const approval = aggregateApprovalProjection(aggregate);
+    const diagnostics = annotateDiagnostics(aggregate, await specApprovalReadiness(aggregate, context));
+    const ready = diagnostics.every((diag) => diag.severity !== "error");
+    return {
+      ok: true,
+      action_id: "work.approval.ready",
+      data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: approval.hash, approval_token: workApprovalToken(aggregate.id, approval.hash), ready, blockers: diagnostics },
+      diagnostics,
+      mutations: [],
+      next_actions: ready ? [nextAction("work.approve", "Ask the human for the single whole-WP approval and pass this approval_token.", approvalGateInput(aggregate, "Approve Work Packet"))] : nextActionsFromDiagnostics(aggregate, diagnostics),
+      summary: ready ? `Work Packet ${aggregate.id} is approval-ready.` : `Work Packet ${aggregate.id} is not approval-ready.`
+    };
+  } catch (error) {
+    return failureResult("work.approval.ready", "Work Packet approval readiness check failed.", [diagnostic("WORK_APPROVAL_READY_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+export async function workCompletionReady(input: z.infer<typeof WorkCompletionReadyInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkCompletionReadyInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    const approval = aggregateApprovalProjection(aggregate);
+    const diagnostics = annotateDiagnostics(aggregate, completionStructuralDiagnostics(aggregate));
+    const ready = diagnostics.every((diag) => diag.severity !== "error");
+    return {
+      ok: true,
+      action_id: "work.completion.ready",
+      data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: approval.hash, approval_token: workApprovalToken(aggregate.id, approval.hash), ready, blockers: diagnostics, note: "This is a structural readiness check. work.complete still runs runtime/build/evidence validation at the gate." },
+      diagnostics,
+      mutations: [],
+      next_actions: ready ? [nextAction("work.complete", "Ask the human to complete the whole Work Packet; work.complete will run final validation.", approvalGateInput(aggregate, "Complete Work Packet"))] : nextActionsFromDiagnostics(aggregate, diagnostics),
+      summary: ready ? `Work Packet ${aggregate.id} is structurally ready for completion.` : `Work Packet ${aggregate.id} is not completion-ready.`
+    };
+  } catch (error) {
+    return failureResult("work.completion.ready", "Work Packet completion readiness check failed.", [diagnostic("WORK_COMPLETION_READY_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+export async function workNext(input: z.infer<typeof WorkNextInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkNextInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    const approval = aggregateApprovalProjection(aggregate);
+    const approval_token = workApprovalToken(aggregate.id, approval.hash);
+    const ready_in_parallel = aggregate.lifecycle.authorization === null ? [] : await readyInParallelSpecIds(aggregate, new ContractStore(storeForContext(context).root));
+    let phase = "draft";
+    let diagnostics: Diagnostic[] = [];
+    let actions: NextAction[] = [];
+    let review_slice_inputs: ReturnType<typeof reviewSliceInputsForReadiness> | null = null;
+
+    if (aggregate.active_human_gate !== null) {
+      phase = "human_gate_pending";
+      actions = [nextAction("work.choice", "Ask the human exactly this prepared single structural-choice prompt, then record the answer with this human_gate_token.", workChoiceSuggestedInput(aggregate.id, aggregate.active_human_gate))];
+    } else if (aggregate.lifecycle.completion !== null) {
+      phase = "completed";
+    } else if (aggregate.lifecycle.approval === null) {
+      const prep = annotateDiagnostics(aggregate, await preReviewReadinessDiagnostics(aggregate, context));
+      if (prep.some((diag) => diag.severity === "error")) {
+        phase = "draft";
+        diagnostics = prep;
+        actions = nextActionsFromDiagnostics(aggregate, prep);
+      } else {
+        const review = reviewReadinessForAggregate(aggregate);
+        if (!review.ready) {
+          phase = "review";
+          review_slice_inputs = reviewSliceInputsForReadiness(aggregate, review);
+          for (const specId of review.spec_review_jobs) {
+            actions.push(nextAction("work.get", `Read compact Spec slice for ${specId} before recording its independent review.`, { id: aggregate.id, view: "spec", spec_id: specId }));
+            actions.push(nextAction("work.review", `Run independent per-Spec review for ${specId}.`, { id: aggregate.id, spec_id: specId, producer: { role: "reviewer", principal_id: null, agent_instance_id: "<reviewer agent id>", provider: "<provider>", model: "<configured reviewer model>", run_id: "<run id>" }, verdict: "pass", blockers: [], summary: `<review ${specId}>` }));
+          }
+          if (review.whole_wp_coherence_required) {
+            actions.push(nextAction("work.get", "Read the whole-WP coherence index first; then fetch each listed Spec slice one at a time before recording the coherence review.", { id: aggregate.id, view: "coherence" }));
+            actions.push(nextAction("work.review", "Run whole-WP coherence review over all Specs.", { id: aggregate.id, producer: { role: "reviewer", principal_id: null, agent_instance_id: "<reviewer agent id>", provider: "<provider>", model: "<configured reviewer model>", run_id: "<run id>" }, verdict: "pass", blockers: [], summary: "<whole-WP coherence review>" }));
+          }
+        } else {
+          const approvalDiagnostics = annotateDiagnostics(aggregate, await specApprovalReadiness(aggregate, context));
+          if (approvalDiagnostics.some((diag) => diag.severity === "error")) {
+            phase = "approval_blocked";
+            diagnostics = approvalDiagnostics;
+            actions = nextActionsFromDiagnostics(aggregate, approvalDiagnostics);
+          } else {
+            phase = "ready_for_approval";
+            actions = [nextAction("work.approve", "Ask the human for the single whole-WP approval and pass this approval_token.", approvalGateInput(aggregate, "Approve Work Packet"))];
+          }
+        }
+      }
+    } else if (aggregate.lifecycle.authorization === null) {
+      if (aggregate.lifecycle.approval.review_snapshot_hash !== approval.hash) {
+        phase = "approval_stale";
+        diagnostics = annotateDiagnostics(aggregate, [diagnostic("WORK_AUTHORIZE_APPROVAL_STALE", "lifecycle.approval no longer matches the current whole-Work-Packet hash; re-approve the whole Work Packet.", "error", "/lifecycle/approval")]);
+        actions = nextActionsFromDiagnostics(aggregate, diagnostics);
+      } else {
+        phase = "ready_for_authorization";
+        actions = [nextAction("work.authorize", "Ask the human for implementation authorization and pass this approval_token.", approvalGateInput(aggregate, "Authorize implementation"))];
+      }
+    } else {
+      const completionDiagnostics = annotateDiagnostics(aggregate, completionStructuralDiagnostics(aggregate));
+      if (completionDiagnostics.some((diag) => diag.severity === "error")) {
+        phase = "implementation";
+        diagnostics = completionDiagnostics;
+        actions = nextActionsFromDiagnostics(aggregate, completionDiagnostics);
+      } else {
+        phase = "ready_for_completion";
+        actions = [nextAction("work.complete", "Ask the human to complete the whole Work Packet; work.complete will run final validation.", approvalGateInput(aggregate, "Complete Work Packet"))];
+      }
+    }
+
+    return {
+      ok: true,
+      action_id: "work.next",
+      data: { work_packet_summary: summarizeWorkPacket(aggregate), phase, approval_hash: approval.hash, approval_token, ready_in_parallel, allowed_actions: actions.map((action) => action.action_id), blockers: diagnostics, review_slice_inputs },
+      diagnostics,
+      mutations: [],
+      next_actions: actions,
+      summary: actions.length === 0 ? `Work Packet ${aggregate.id}: ${phase}.` : `Work Packet ${aggregate.id}: ${phase}; ${actions.length} next action(s).`
+    };
+  } catch (error) {
+    return failureResult("work.next", "Work Packet next-step planning failed.", [diagnostic("WORK_NEXT_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+/**
+ * Human-requested revision gate. When the approved/authorized/completed packet is found to be wrong, this clears
+ * the active lifecycle gates and routes every Spec back to draft so the normal pre-approval edit actions work again.
+ * Active implementation evidence is cleared because it was bound to the invalidated approval/authorization; the
+ * prior state remains recoverable through git history and the recorded revision decision.
+ */
+export const WorkReviseInputSchema = z.object({
+  id: z.string().min(1),
+  selected_number: z.union([z.literal(1), z.literal(2)]),
+  raw_response: z.string(),
+  decision_prompt: z.string(),
+  human_confirmed: z.boolean(),
+  prompt_id: z.string().optional(),
+  reason: z.string().min(1).optional(),
+  re_review_required: z.boolean().default(true)
+}).strict();
+
+export async function workRevise(input: z.input<typeof WorkReviseInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkReviseInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    if (parsed.selected_number === 2) {
+      return { ok: true, action_id: "work.revise", data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: aggregateApprovalProjection(aggregate).hash }, diagnostics: [diagnostic("WORK_REVISE_DISCUSS", "Revision deferred for discussion; no changes recorded.", "info", "/lifecycle")], mutations: [], next_actions: [], summary: "Revision deferred for discussion (no mutation)." };
+    }
+    if (parsed.human_confirmed !== true) return failureResult("work.revise", "Revision requires human_confirmed: true.", [diagnostic("WORK_REVISE_UNCONFIRMED", "Reopening a governed packet is a human gate; human_confirmed must be true.", "error", "/human_confirmed")]);
+    if (parsed.reason === undefined) return failureResult("work.revise", "Revision requires the human's reason.", [diagnostic("WORK_REVISE_REASON_REQUIRED", "Record why the approved/authorized packet is being reopened, e.g. wrong Spec classification or missing contract surface.", "error", "/reason")]);
+
+    const invalidated = {
+      approval: aggregate.lifecycle.approval !== null,
+      authorization: aggregate.lifecycle.authorization !== null,
+      completion: aggregate.lifecycle.completion !== null
+    };
+    if (!invalidated.approval && !invalidated.authorization && !invalidated.completion) {
+      return { ok: true, action_id: "work.revise", data: { work_packet_summary: summarizeWorkPacket(aggregate), approval_hash: aggregateApprovalProjection(aggregate).hash }, diagnostics: [diagnostic("WORK_REVISE_ALREADY_DRAFT", "The Work Packet has no approval, authorization, or completion gate to invalidate; edit it directly with the pre-approval actions.", "info", "/lifecycle")], mutations: [], next_actions: [], summary: `Work Packet ${aggregate.id} is already editable.` };
+    }
+
+    const decision = buildHumanDecision({
+      action_id: "work.revise",
+      decision_type: "aggregate_work_packet_revision",
+      selected_number: parsed.selected_number,
+      raw_response: parsed.raw_response,
+      decision_prompt: parsed.decision_prompt,
+      human_confirmed: true,
+      prompt_id: parsed.prompt_id,
+      normalized_decision: "revise",
+      final_decision: true,
+      approved_payload: { work_id: aggregate.id, reason: parsed.reason, invalidated_lifecycle: invalidated, re_review_required: parsed.re_review_required } as unknown as Record<string, JsonValue>,
+      source_interface: "core",
+      target_artifact_revision: aggregate.revision + 1
+    });
+    const historyEntry = { event: "revision_requested", at: decision.at, decision_id: decision.id, reason: parsed.reason, invalidated_lifecycle: invalidated, re_review_required: parsed.re_review_required };
+    const updated = await store.update(AggregateWorkPacketSchema.parse({
+      ...aggregate,
+      re_review_waived: !parsed.re_review_required,
+      lifecycle: { approval: null, authorization: null, completion: null, history: [...aggregate.lifecycle.history, historyEntry] },
+      decision_history: [...aggregate.decision_history, decision],
+      specs: aggregate.specs.map(resetSpecForPacketRevision)
+    }));
+    await auditDecision(store.root, decision);
+    return {
+      ok: true,
+      action_id: "work.revise",
+      data: { work_packet: updated, decision },
+      diagnostics: [diagnostic("WORK_REVISE_REOPENED", `Invalidated lifecycle gates: ${Object.entries(invalidated).filter(([, value]) => value).map(([key]) => key).join(", ")}. The packet is back in draft and must be reviewed/approved/authorized again.`, "warning", "/lifecycle")],
+      mutations: [{ artifact: "work_packet", operation: "update", paths: ["/lifecycle", "/specs", "/decision_history", "/re_review_waived"], summary: `Reopened Work Packet ${aggregate.id} for revision.` }],
+      next_actions: [],
+      summary: `Work Packet ${aggregate.id} reopened for revision; approval/authorization/completion cleared.`
+    };
+  } catch (error) {
+    return failureResult("work.revise", "Work Packet revision failed.", [diagnostic("WORK_REVISE_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
   }
 }
 
@@ -404,6 +1243,8 @@ async function specApprovalReadiness(aggregate: AggregateWorkPacket, context: Ac
       errors.push(diagnostic("IMPLEMENTATION_PLAN_REQUIRED", `Spec ${spec.id}: an implementation plan is required before approval — set it with work.spec.plan.`, "error", `/specs/${spec.id}/implementation_plan`));
     }
   }
+  errors.push(...await architectureGovernanceDiagnosticsForWork(aggregate, context));
+  errors.push(...parallelismPlanDiagnostics(aggregate));
   // The whole-WP INTENT must be COMPLETE before the bulk approval: every section populated (set with work.intent).
   const intentMissing = (["desired_outcomes", "in_scope", "out_of_scope", "users_actors", "edge_cases", "open_questions"] as const).filter((field) => aggregate.intent[field].length === 0);
   if (intentMissing.length > 0) {
@@ -455,7 +1296,8 @@ async function specApprovalReadiness(aggregate: AggregateWorkPacket, context: Ac
 
 export const WorkApproveInputSchema = z.object({
   id: z.string().min(1),
-  review_snapshot_hash: z.string().min(1),
+  review_snapshot_hash: z.string().min(1).optional(),
+  approval_token: z.string().min(1).optional(),
   selected_number: z.number().int(),
   raw_response: z.string(),
   decision_prompt: z.string(),
@@ -494,8 +1336,10 @@ export async function workApprove(input: z.infer<typeof WorkApproveInputSchema>,
       };
     }
     const approval = aggregateApprovalProjection(aggregate);
-    if (parsed.review_snapshot_hash !== approval.hash) {
-      return failureResult("work.approve", "Approval snapshot is stale; the Work Packet changed since review.", [diagnostic("WORK_APPROVE_STALE", `Submitted review_snapshot_hash does not match the current whole-Work-Packet approval hash (${approval.hash}); re-review and approve the fresh state.`, "error", "/review_snapshot_hash")]);
+    const submittedApprovalHash = approvalHashFromGateInput(parsed, aggregate.id);
+    if (submittedApprovalHash === null) return failureResult("work.approve", "Approval requires approval_token or review_snapshot_hash.", [diagnostic("WORK_APPROVE_TOKEN_REQUIRED", "Pass approval_token from work.next/work.approval.ready/work.get, or the legacy review_snapshot_hash.", "error", "/approval_token")]);
+    if (submittedApprovalHash !== approval.hash) {
+      return failureResult("work.approve", "Approval snapshot is stale; the Work Packet changed since review.", [diagnostic("WORK_APPROVE_STALE", `Submitted approval token/hash does not match the current whole-Work-Packet approval hash (${approval.hash}); re-review and approve the fresh state.`, "error", "/approval_token")]);
     }
     const readiness = await specApprovalReadiness(aggregate, context);
     if (readiness.length > 0) return failureResult("work.approve", "Work Packet is not ready for approval; fix the Spec(s) below.", readiness);
@@ -509,7 +1353,7 @@ export async function workApprove(input: z.infer<typeof WorkApproveInputSchema>,
       prompt_id: parsed.prompt_id,
       normalized_decision: "yes",
       final_decision: true,
-      approved_payload: { id: aggregate.id, title: aggregate.title, specs: approval.specs } as unknown as Record<string, JsonValue>,
+      approved_payload: { id: aggregate.id, title: aggregate.title, specs: approval.specs, implementation_parallelism_plan: aggregate.implementation_parallelism_plan, architecture_governance: aggregate.architecture_governance } as unknown as Record<string, JsonValue>,
       review_snapshot_hash: approval.hash,
       approved_content_hash: approval.hash,
       source_interface: "core",
@@ -539,7 +1383,8 @@ export async function workApprove(input: z.infer<typeof WorkApproveInputSchema>,
  */
 export const WorkAuthorizeInputSchema = z.object({
   id: z.string().min(1),
-  review_snapshot_hash: z.string().min(1),
+  review_snapshot_hash: z.string().min(1).optional(),
+  approval_token: z.string().min(1).optional(),
   selected_number: z.number().int(),
   raw_response: z.string(),
   decision_prompt: z.string(),
@@ -555,7 +1400,9 @@ export async function workAuthorize(input: z.infer<typeof WorkAuthorizeInputSche
     const aggregate = await store.read(parsed.id);
     if (aggregate.lifecycle.approval === null) return failureResult("work.authorize", "Work Packet is not approved; approve it before authorizing.", [diagnostic("WORK_AUTHORIZE_NOT_APPROVED", "The whole-Work-Packet approval gate must pass before authorization.", "error", "/lifecycle/approval")]);
     const approval = aggregateApprovalProjection(aggregate);
-    if (parsed.review_snapshot_hash !== approval.hash) return failureResult("work.authorize", "Authorization snapshot is stale; the Work Packet changed since review.", [diagnostic("WORK_AUTHORIZE_STALE", `Submitted review_snapshot_hash does not match the current whole-Work-Packet hash (${approval.hash}).`, "error", "/review_snapshot_hash")]);
+    const submittedApprovalHash = approvalHashFromGateInput(parsed, aggregate.id);
+    if (submittedApprovalHash === null) return failureResult("work.authorize", "Authorization requires approval_token or review_snapshot_hash.", [diagnostic("WORK_AUTHORIZE_TOKEN_REQUIRED", "Pass approval_token from work.next/work.approval.ready/work.get, or the legacy review_snapshot_hash.", "error", "/approval_token")]);
+    if (submittedApprovalHash !== approval.hash) return failureResult("work.authorize", "Authorization snapshot is stale; the Work Packet changed since review.", [diagnostic("WORK_AUTHORIZE_STALE", `Submitted approval token/hash does not match the current whole-Work-Packet hash (${approval.hash}).`, "error", "/approval_token")]);
     if (aggregate.lifecycle.approval.review_snapshot_hash !== approval.hash) return failureResult("work.authorize", "The approval is stale (a Spec changed since approval); re-approve before authorizing.", [diagnostic("WORK_AUTHORIZE_APPROVAL_STALE", "lifecycle.approval no longer matches the current whole-Work-Packet hash; re-approve the whole Work Packet.", "error", "/lifecycle/approval")]);
     const decision = buildHumanDecision({
       action_id: "work.authorize",
@@ -666,7 +1513,8 @@ export async function workSpecAdvance(input: z.infer<typeof WorkSpecAdvanceInput
  */
 export const WorkCompleteInputSchema = z.object({
   id: z.string().min(1),
-  review_snapshot_hash: z.string().min(1),
+  review_snapshot_hash: z.string().min(1).optional(),
+  approval_token: z.string().min(1).optional(),
   selected_number: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   raw_response: z.string(),
   decision_prompt: z.string(),
@@ -750,7 +1598,9 @@ export async function workComplete(input: z.infer<typeof WorkCompleteInputSchema
       return { ok: true, action_id: "work.complete", data: { work_packet: declined, decision: declineDecision }, diagnostics: [diagnostic("WORK_COMPLETE_DECLINED", "Completion declined; every Spec routed back to review_blocked for rework.", "warning", "/specs")], mutations: [{ artifact: "work_packet", operation: "update", paths: ["/specs"], summary: "Completion declined; Specs -> review_blocked." }], next_actions: [], summary: `Completion declined; ${declined.specs.length} Spec(s) routed to review_blocked.` };
     }
     const approval = aggregateApprovalProjection(aggregate);
-    if (parsed.review_snapshot_hash !== approval.hash) return failureResult("work.complete", "Completion snapshot is stale; the Work Packet changed since review.", [diagnostic("WORK_COMPLETE_STALE", `Submitted review_snapshot_hash does not match the current whole-Work-Packet hash (${approval.hash}).`, "error", "/review_snapshot_hash")]);
+    const submittedApprovalHash = approvalHashFromGateInput(parsed, aggregate.id);
+    if (submittedApprovalHash === null) return failureResult("work.complete", "Completion requires approval_token or review_snapshot_hash.", [diagnostic("WORK_COMPLETE_TOKEN_REQUIRED", "Pass approval_token from work.next/work.completion.ready/work.get, or the legacy review_snapshot_hash.", "error", "/approval_token")]);
+    if (submittedApprovalHash !== approval.hash) return failureResult("work.complete", "Completion snapshot is stale; the Work Packet changed since review.", [diagnostic("WORK_COMPLETE_STALE", `Submitted approval token/hash does not match the current whole-Work-Packet hash (${approval.hash}).`, "error", "/approval_token")]);
     if (aggregate.lifecycle.approval !== null && aggregate.lifecycle.approval.review_snapshot_hash !== approval.hash) return failureResult("work.complete", "The approval is stale (a Spec changed since approval); re-approve before completing.", [diagnostic("WORK_COMPLETE_APPROVAL_STALE", "lifecycle.approval no longer matches the current whole-Work-Packet hash.", "error", "/lifecycle/approval")]);
     // Completion readiness — the dev-runtime proof (greenfield work can't complete until an accepted runtime
     // baseline exists). Run the v1 check per-Spec over the synthesized view (the baseline is project-level, so
@@ -1065,6 +1915,65 @@ export async function workDecompose(input: z.infer<typeof WorkDecomposeInputSche
     return failureResult("work.decompose", "Work Packet decomposition failed.", [diagnostic("WORK_DECOMPOSE_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
   }
 }
+/**
+ * Revise one existing Spec while the Work Packet is editable. This covers the common correction where a human
+ * catches the wrong Spec classification after approval has been reopened with work.revise. A classification change
+ * invalidates the old implementation plan/work-kind/evidence-policy and contract ref so work.spec.plan must be run
+ * again; contract-producing classifications will then require a contract_surface.
+ */
+export const WorkSpecReviseInputSchema = z.object({
+  id: z.string().min(1),
+  spec_id: z.string().min(1),
+  title: z.string().min(1).optional(),
+  classification: WorkClassificationSchema.optional(),
+  allowed_globs: z.array(z.string()).optional()
+}).strict().superRefine((value, ctx) => {
+  if (value.title === undefined && value.classification === undefined && value.allowed_globs === undefined) {
+    ctx.addIssue({ code: "custom", path: [], message: "At least one of title, classification, or allowed_globs is required" });
+  }
+});
+
+export async function workSpecRevise(input: z.infer<typeof WorkSpecReviseInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkSpecReviseInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    if (aggregate.lifecycle.approval !== null) return failureResult("work.spec.revise", "Work Packet is already approved; run work.revise first to reopen it for human-requested changes.", [diagnostic("WORK_SPEC_REVISE_APPROVED", "Spec content is approval-bound. Reopen the packet with work.revise, then revise the Spec and re-approve.", "error", "/lifecycle/approval")]);
+    const spec = aggregate.specs.find((candidate) => candidate.id === parsed.spec_id);
+    if (spec === undefined) return failureResult("work.spec.revise", `Spec ${parsed.spec_id} is not part of Work Packet ${parsed.id}.`, [diagnostic("WORK_SPEC_REVISE_NOT_FOUND", `No Spec ${parsed.spec_id} in the aggregate.`, "error", "/spec_id")]);
+
+    const classificationChanged = parsed.classification !== undefined && parsed.classification !== spec.classification;
+    const revisedSpec: Spec = {
+      ...spec,
+      title: parsed.title ?? spec.title,
+      classification: parsed.classification ?? spec.classification,
+      scope: parsed.allowed_globs !== undefined ? { ...spec.scope, allowed_globs: parsed.allowed_globs } : spec.scope,
+      ...(classificationChanged ? {
+        docs: docsForClassification(parsed.classification!),
+        contract: null,
+        implementation_plan: null,
+        implementation_plan_hash: null,
+        work_kind_resolution: null,
+        work_kind_resolution_hash: null,
+        evidence_policy_resolution: null,
+        evidence_policy_resolution_hash: null
+      } : {})
+    };
+    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...aggregate, specs: aggregate.specs.map((candidate) => (candidate.id === parsed.spec_id ? revisedSpec : candidate)) }));
+    const paths = [parsed.title !== undefined ? `/specs/${parsed.spec_id}/title` : null, parsed.classification !== undefined ? `/specs/${parsed.spec_id}/classification` : null, parsed.allowed_globs !== undefined ? `/specs/${parsed.spec_id}/scope/allowed_globs` : null].filter((value): value is string => value !== null);
+    return {
+      ok: true,
+      action_id: "work.spec.revise",
+      data: { work_packet: updated, spec_id: parsed.spec_id },
+      diagnostics: classificationChanged ? [diagnostic("WORK_SPEC_REVISE_PLAN_RESET", `Spec ${parsed.spec_id} classification changed to ${revisedSpec.classification}; implementation plan and contract ref were cleared. Re-run work.spec.plan${(CONTRACT_PRODUCING_CLASSIFICATIONS as readonly string[]).includes(revisedSpec.classification) ? " with contract_surface" : ""}.`, "warning", `/specs/${parsed.spec_id}/classification`)] : [],
+      mutations: [{ artifact: "work_packet", operation: "update", paths, summary: `Revised Spec ${parsed.spec_id}.` }],
+      next_actions: [],
+      summary: `Spec ${parsed.spec_id}: revised${classificationChanged ? ` classification -> ${revisedSpec.classification}` : ""}.`
+    };
+  } catch (error) {
+    return failureResult("work.spec.revise", "Spec revision failed.", [diagnostic("WORK_SPEC_REVISE_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
 
 /**
  * v2 CUTOVER — resolve a Spec's mockup question (companion to the mockup approval gate). For a UI Spec the mockup
@@ -1291,6 +2200,79 @@ export async function workSpecPlan(input: z.infer<typeof WorkSpecPlanInputSchema
  * INDEPENDENCE is enforced against EVERY Spec author; a self-review of any Spec is rejected. System-actor record
  * (no HumanDecision); the human gate is still work.approve.
  */
+const ParallelismExecutionGroupInputSchema = z.object({
+  id: z.string().min(1),
+  spec_ids: z.array(z.string().min(1)).min(1),
+  rationale: z.string().min(1)
+}).strict();
+
+export const WorkParallelismPlanInputSchema = z.object({
+  id: z.string().min(1),
+  strategy: z.enum(["sequential", "staged", "parallel"]),
+  reasoning: z.string().min(1),
+  execution_groups: z.array(ParallelismExecutionGroupInputSchema).min(1),
+  constraints: z.array(z.string().min(1)).default([]),
+  risks: z.array(z.string().min(1)).default([])
+}).strict();
+
+export async function workParallelismPlan(input: z.input<typeof WorkParallelismPlanInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkParallelismPlanInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    if (aggregate.lifecycle.approval !== null) return failureResult("work.parallelism.plan", "Work Packet is already approved; changing the implementation parallelism plan would re-stale the approval.", [diagnostic("WORK_PARALLELISM_PLAN_APPROVED", "The implementation parallelism plan is a pre-approval input bound into the whole-WP approval hash.", "error", "/lifecycle/approval")]);
+    const plannedRefs = currentSpecPlanHashRefs(aggregate);
+    if (plannedRefs === null) {
+      const planless = aggregate.specs.filter((spec) => spec.implementation_plan_hash === null).map((spec) => spec.id);
+      return failureResult("work.parallelism.plan", "Every Spec needs an implementation plan before the packet-level parallelism plan.", [diagnostic("IMPLEMENTATION_PLAN_REQUIRED", `Spec(s) without implementation plans: ${planless.join(", ")}. Run work.spec.plan for every Spec first.`, "error", "/specs")]);
+    }
+    const knownSpecIds = new Set(aggregate.specs.map((spec) => spec.id));
+    const seenSpecIds = new Set<string>();
+    const errors: Diagnostic[] = [];
+    for (const [groupIndex, group] of parsed.execution_groups.entries()) {
+      if (parsed.strategy === "sequential" && group.spec_ids.length > 1) {
+        errors.push(diagnostic("PARALLELISM_PLAN_SEQUENTIAL_GROUP_INVALID", `Execution group '${group.id}' contains multiple Specs but strategy is sequential. Use one Spec per group, or choose staged/parallel with reasoning.`, "error", `/execution_groups/${groupIndex}/spec_ids`));
+      }
+      for (const specId of group.spec_ids) {
+        if (!knownSpecIds.has(specId)) {
+          errors.push(diagnostic("PARALLELISM_PLAN_SPEC_UNKNOWN", `Execution group '${group.id}' references '${specId}', which is not a Spec in Work Packet ${aggregate.id}.`, "error", `/execution_groups/${groupIndex}/spec_ids`));
+        } else if (seenSpecIds.has(specId)) {
+          errors.push(diagnostic("PARALLELISM_PLAN_SPEC_DUPLICATE", `Spec '${specId}' appears in more than one execution group. Each Spec must appear exactly once.`, "error", `/execution_groups/${groupIndex}/spec_ids`));
+        } else {
+          seenSpecIds.add(specId);
+        }
+      }
+    }
+    const missing = [...knownSpecIds].filter((specId) => !seenSpecIds.has(specId));
+    if (missing.length > 0) errors.push(diagnostic("PARALLELISM_PLAN_SPEC_MISSING", `The parallelism plan does not place every Spec. Missing: ${missing.join(", ")}.`, "error", "/execution_groups"));
+    const cycle = detectDependencyCycle(aggregate.specs);
+    if (cycle !== null) errors.push(diagnostic("DEPENDENCY_CYCLE", `Cross-Spec dependencies form a cycle: ${cycle.join(" -> ")}. Resolve dependency edges before planning implementation order.`, "error", "/specs"));
+    if (errors.length > 0) return failureResult("work.parallelism.plan", "The implementation parallelism plan is invalid.", errors);
+
+    const plan = ImplementationParallelismPlanSchema.parse({
+      schema_version: 1,
+      strategy: parsed.strategy,
+      reasoning: parsed.reasoning,
+      execution_groups: parsed.execution_groups,
+      constraints: parsed.constraints,
+      risks: parsed.risks,
+      based_on_spec_plan_hashes: plannedRefs
+    });
+    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...aggregate, implementation_parallelism_plan: plan }));
+    return {
+      ok: true,
+      action_id: "work.parallelism.plan",
+      data: { work_packet: updated, implementation_parallelism_plan: plan },
+      diagnostics: [],
+      mutations: [{ artifact: "work_packet", operation: "update", paths: ["/implementation_parallelism_plan"], summary: `Set ${plan.strategy} implementation parallelism plan with ${plan.execution_groups.length} execution group(s).` }],
+      next_actions: [nextAction("work.review.ready", "Run independent review after the human-approval-bound parallelism plan is recorded.", { id: aggregate.id })],
+      summary: `Work Packet ${aggregate.id}: implementation parallelism plan set (${plan.strategy}).`
+    };
+  } catch (error) {
+    return failureResult("work.parallelism.plan", "Implementation parallelism plan could not be set.", [diagnostic("WORK_PARALLELISM_PLAN_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
 export const WorkReviewInputSchema = z.object({
   id: z.string().min(1),
   // Optional: a PER-SPEC pre-approval review (parallelizable). Omit for the whole-WP coherence review (all Specs).
@@ -1311,6 +2293,8 @@ export async function workReview(input: z.infer<typeof WorkReviewInputSchema>, c
     if (aggregate.lifecycle.approval !== null && aggregate.lifecycle.approval.review_snapshot_hash === aggregateApprovalProjection(aggregate).hash) {
       return failureResult("work.review", "Work Packet is already approved and current; the whole-WP review is a pre-approval gate.", [diagnostic("WORK_REVIEW_APPROVED", "The review is only needed when the approval is absent or stale.", "error", "/lifecycle/approval")]);
     }
+    const parallelismErrors = parallelismPlanDiagnostics(aggregate);
+    if (parallelismErrors.length > 0) return failureResult("work.review", "The implementation parallelism plan must be current before independent review.", parallelismErrors);
     // PER-SPEC pre-approval review (parallelizable): record on THIS Spec, pinned to its Spec-local hash. Readiness is
     // narrower than the whole-WP review — only this Spec and the Specs it depends on must be drafted+planned (so its
     // dependency edges resolve), letting reviewers fan out before the whole WP is complete. Independence is vs THIS
@@ -1427,10 +2411,12 @@ export async function workReview(input: z.infer<typeof WorkReviewInputSchema>, c
  * every Spec; this records the human's choice + a `*_choice` decision and sets the container field. Pre-approval
  * (structural decisions are in the approval hash; choosing after approval re-stales — re-approve).
  */
-// One structural choice (platform / architecture / stack). work.choice records ONE; work.choices records a BATCH
-// the human already made in a single upfront prompt — same per-choice validation + decisions, one write.
+// One structural choice (platform / architecture / stack). work.choice.prepare opens ONE gate; work.choice records
+// its answer. work.choices remains only as a rejected compatibility action.
+const StructuralChoiceTypeSchema = z.enum(["platform_choice", "architecture_choice", "stack_choice"]);
+
 const ChoiceItemSchema = z.object({
-  choice_type: z.enum(["platform_choice", "architecture_choice", "stack_choice"]),
+  choice_type: StructuralChoiceTypeSchema,
   choice: z.string().min(1),
   custom_response: z.string().nullable().optional(),
   option_details: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -1442,6 +2428,158 @@ const ChoiceItemSchema = z.object({
   options_presented: z.array(z.string().min(1)).min(1)
 }).strict();
 type ChoiceItem = z.infer<typeof ChoiceItemSchema>;
+
+const WorkChoicePrepareOptionSchema = z.object({
+  label: z.string().trim().min(1),
+  recommended: z.boolean().optional(),
+  recommendation_rationale: z.string().trim().min(1).optional()
+}).strict();
+
+export const WorkChoicePrepareInputSchema = z.object({
+  id: z.string().min(1),
+  choice_type: StructuralChoiceTypeSchema,
+  prompt_text: z.string().trim().min(1),
+  options: z.array(WorkChoicePrepareOptionSchema).min(1)
+}).strict();
+
+function hasCustomChoiceOption(options: string[]): boolean {
+  return options.map((opt) => opt.toLowerCase()).some((opt) => /type your own|your own answer|custom answer|free.?form|other \(specify\)|something else|write your own|enter your own/.test(opt));
+}
+
+function hasDiscussChoiceOption(options: string[]): boolean {
+  return options.map((opt) => opt.toLowerCase()).some((opt) => /\bdiscuss\b/.test(opt));
+}
+
+function customOrDiscussOption(label: string): boolean {
+  return hasCustomChoiceOption([label]) || hasDiscussChoiceOption([label]);
+}
+
+function choiceOptionsDiagnostic(choiceType: ChoiceItem["choice_type"], options: string[], fieldPath: string, exampleChoice = "<option A>"): Diagnostic | null {
+  const hasCustom = hasCustomChoiceOption(options);
+  const hasDiscuss = hasDiscussChoiceOption(options);
+  if (hasCustom && hasDiscuss) return null;
+  const missing = [hasCustom ? null : "a 'type your own answer' option", hasDiscuss ? null : "a 'Discuss' option"].filter(Boolean).join(" and ");
+  return diagnostic("WORK_CHOICE_OPTIONS_INCOMPLETE", `Structural ${choiceType} is missing ${missing} in options_presented. Prepare every choice as numbered options that include them, e.g. "1. ${exampleChoice}, 2. <other>, 3. Type your own answer, 4. Discuss" — then ask only that one gate.`, "error", fieldPath);
+}
+
+const HUMAN_GATE_LABELS: Array<{ kind: ChoiceItem["choice_type"] | "mockup" | "architecture_charter"; label: string; pattern: RegExp }> = [
+  { kind: "mockup", label: "Mockup", pattern: /^\s*mockup\s*:/im },
+  { kind: "platform_choice", label: "Platform", pattern: /^\s*platform\s*:/im },
+  { kind: "architecture_charter", label: "Architecture Charter", pattern: /^\s*architecture\s+charter\s*:/im },
+  { kind: "architecture_choice", label: "Architecture", pattern: /^\s*architecture\s*:/im },
+  { kind: "stack_choice", label: "Stack", pattern: /^\s*stack\s*:/im }
+];
+
+function megaPromptDiagnostic(choiceType: ChoiceItem["choice_type"], promptText: string, options: string[]): Diagnostic | null {
+  const combined = [promptText, ...options].join("\n");
+  const otherLabels = HUMAN_GATE_LABELS
+    .filter((entry) => entry.kind !== choiceType)
+    .filter((entry) => entry.pattern.test(combined))
+    .map((entry) => entry.label);
+  if (otherLabels.length === 0) return null;
+  return diagnostic("HUMAN_GATE_MEGA_PROMPT_REJECTED", `work.choice.prepare accepts exactly one structural choice. This ${choiceType} gate also appears to include other human gates (${otherLabels.join(", ")}). Prepare and ask one gate at a time.`, "error", "/prompt_text");
+}
+
+function workChoicePromptHash(input: { work_id: string; gate_kind: ChoiceItem["choice_type"]; prompt_text: string; options_presented: string[]; recommended_option_number: number | null; recommendation_rationale: string | null }): string {
+  return sha256HexCanonical({ schema_version: 1, action_id: "work.choice", ...input });
+}
+
+function workChoiceHumanGateToken(workId: string, gateId: string, promptHash: string): string {
+  return `human-gate-token:v1:${workId}:${gateId}:${promptHash}`;
+}
+
+function workChoiceSuggestedInput(workId: string, gate: ActiveHumanGate): Record<string, unknown> {
+  return {
+    id: workId,
+    human_gate_token: gate.gate_token,
+    choice_type: gate.gate_kind,
+    choice: "<normalized human choice>",
+    custom_response: null,
+    option_details: gate.gate_kind === "stack_choice" ? { component_library: "<chosen UI component library when applicable>" } : null,
+    selected_number: "<human selected option number>",
+    raw_response: "<human raw response>",
+    decision_prompt: gate.prompt_text,
+    options_presented: gate.options_presented,
+    human_confirmed: true
+  };
+}
+
+export async function workChoicePrepare(input: z.infer<typeof WorkChoicePrepareInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
+  const store = aggregateStoreForContext(context);
+  try {
+    const parsed = WorkChoicePrepareInputSchema.parse(input);
+    const aggregate = await store.read(parsed.id);
+    if (aggregate.lifecycle.approval !== null) return failureResult("work.choice.prepare", "Work Packet is already approved; a structural choice would re-stale it — re-approve instead.", [diagnostic("WORK_CHOICE_APPROVED", "Structural decisions are pre-approval (they are in the whole-WP approval hash).", "error", "/lifecycle/approval")]);
+    if (aggregate.active_human_gate !== null) {
+      return failureResult("work.choice.prepare", "A human gate is already pending; answer it before preparing another.", [diagnostic("HUMAN_GATE_ALREADY_PENDING", "Spec Guard allows one active human gate per Work Packet so agents cannot batch unrelated decisions into one prompt.", "error", "/active_human_gate")]);
+    }
+
+    const optionsPresented = parsed.options.map((option) => option.label);
+    const optionsError = choiceOptionsDiagnostic(parsed.choice_type, optionsPresented, "/options", optionsPresented[0] ?? "<option A>");
+    if (optionsError !== null) return failureResult("work.choice.prepare", "Structural choice options are incomplete.", [optionsError]);
+
+    const megaPromptError = megaPromptDiagnostic(parsed.choice_type, parsed.prompt_text, optionsPresented);
+    if (megaPromptError !== null) return failureResult("work.choice.prepare", "Structural choice prompt contains multiple human gates.", [megaPromptError]);
+
+    const recommendedIndexes = parsed.options.map((option, index) => option.recommended === true ? index : -1).filter((index) => index >= 0);
+    if (recommendedIndexes.length > 1) {
+      return failureResult("work.choice.prepare", "Only one option may be recommended.", [diagnostic("WORK_CHOICE_RECOMMENDATION_AMBIGUOUS", "Mark at most one option as recommended for a structural choice gate.", "error", "/options")]);
+    }
+    const recommendedIndex = recommendedIndexes[0] ?? null;
+    if (recommendedIndex !== null && customOrDiscussOption(optionsPresented[recommendedIndex]!)) {
+      return failureResult("work.choice.prepare", "The recommended option must be a concrete choice.", [diagnostic("WORK_CHOICE_RECOMMENDATION_INVALID", "Do not recommend 'Type your own answer' or 'Discuss'; recommend a concrete option or omit the recommendation.", "error", `/options/${recommendedIndex}`)]);
+    }
+    const recommendationRationale = recommendedIndex === null ? null : parsed.options[recommendedIndex]!.recommendation_rationale ?? null;
+    if (recommendedIndex !== null && recommendationRationale === null) {
+      return failureResult("work.choice.prepare", "A recommended option needs reasoning.", [diagnostic("WORK_CHOICE_RECOMMENDATION_RATIONALE_REQUIRED", "When recommending an option, include recommendation_rationale so the human can review why it fits the context.", "error", `/options/${recommendedIndex}/recommendation_rationale`)]);
+    }
+
+    const recommendedOptionNumber = recommendedIndex === null ? null : recommendedIndex + 1;
+    const prompt_hash = workChoicePromptHash({ work_id: parsed.id, gate_kind: parsed.choice_type, prompt_text: parsed.prompt_text, options_presented: optionsPresented, recommended_option_number: recommendedOptionNumber, recommendation_rationale: recommendationRationale });
+    const gate_id = `choice:${randomUUID()}`;
+    const gate: ActiveHumanGate = {
+      schema_version: 1,
+      gate_id,
+      gate_token: workChoiceHumanGateToken(parsed.id, gate_id, prompt_hash),
+      action_id: "work.choice",
+      gate_kind: parsed.choice_type,
+      prompt_text: parsed.prompt_text,
+      options_presented: optionsPresented,
+      recommended_option_number: recommendedOptionNumber,
+      recommendation_rationale: recommendationRationale,
+      prompt_hash,
+      created_at: isoNow()
+    };
+    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...aggregate, active_human_gate: gate }));
+    return {
+      ok: true,
+      action_id: "work.choice.prepare",
+      data: { work_packet_summary: summarizeWorkPacket(updated), human_gate: gate, human_gate_token: gate.gate_token, decision_prompt: gate.prompt_text, options_presented: gate.options_presented, recommended_option_number: gate.recommended_option_number, recommendation_rationale: gate.recommendation_rationale },
+      diagnostics: [],
+      mutations: [{ artifact: "work_packet", operation: "update", paths: ["/active_human_gate"], summary: `Prepared single ${gate.gate_kind} human gate.` }],
+      next_actions: [nextAction("work.choice", "Ask the human exactly this prepared single structural-choice prompt, then record the answer with this human_gate_token.", workChoiceSuggestedInput(updated.id, gate))],
+      summary: `Prepared ${gate.gate_kind} gate for Work Packet ${updated.id}.`
+    };
+  } catch (error) {
+    return failureResult("work.choice.prepare", "Structural choice gate preparation failed.", [diagnostic("WORK_CHOICE_PREPARE_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
+  }
+}
+
+function activeChoiceGateDiagnostics(aggregate: AggregateWorkPacket, item: ChoiceItem, humanGateToken: string): Diagnostic[] {
+  const gate = aggregate.active_human_gate;
+  if (gate === null) return [diagnostic("HUMAN_GATE_REQUIRED", "Call work.choice.prepare first and ask the human exactly that prepared single structural-choice prompt before recording work.choice.", "error", "/active_human_gate")];
+  if (gate.action_id !== "work.choice") return [diagnostic("HUMAN_GATE_ACTION_MISMATCH", `The active human gate is for ${gate.action_id}, not work.choice.`, "error", "/active_human_gate/action_id")];
+  if (gate.gate_kind !== item.choice_type) return [diagnostic("HUMAN_GATE_KIND_MISMATCH", `The active gate is ${gate.gate_kind}; this answer tried to record ${item.choice_type}.`, "error", "/choice_type")];
+  if (gate.gate_token !== humanGateToken) return [diagnostic("HUMAN_GATE_TOKEN_MISMATCH", "The supplied human_gate_token does not match the active prepared gate.", "error", "/human_gate_token")];
+  if (gate.prompt_text !== item.decision_prompt) return [diagnostic("HUMAN_GATE_PROMPT_MISMATCH", "decision_prompt must exactly match the prepared human gate prompt_text.", "error", "/decision_prompt")];
+  if (gate.options_presented.length !== item.options_presented.length || gate.options_presented.some((option, index) => option !== item.options_presented[index])) {
+    return [diagnostic("HUMAN_GATE_OPTIONS_MISMATCH", "options_presented must exactly match the prepared human gate options.", "error", "/options_presented")];
+  }
+  if (item.selected_number < 1 || item.selected_number > gate.options_presented.length) {
+    return [diagnostic("HUMAN_GATE_SELECTION_OUT_OF_RANGE", "selected_number must refer to one of the prepared gate options.", "error", "/selected_number")];
+  }
+  return [];
+}
 
 /** Validate ONE structural choice, build its human decision, and set the container field — returns the updated
  *  aggregate (threadable for a batch) + the decision, or the validation error. */
@@ -1476,25 +2614,34 @@ function applyStructuralChoice(aggregate: AggregateWorkPacket, item: ChoiceItem,
   return { ok: true, aggregate: withChoice, decision };
 }
 
-export const WorkChoiceInputSchema = z.object({ id: z.string().min(1), ...ChoiceItemSchema.shape, human_confirmed: z.boolean(), prompt_id: z.string().optional() }).strict();
+export const WorkChoiceInputSchema = z.object({ id: z.string().min(1), human_gate_token: z.string().min(1), ...ChoiceItemSchema.shape, human_confirmed: z.boolean(), prompt_id: z.string().optional() }).strict();
 
 export async function workChoice(input: z.infer<typeof WorkChoiceInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
   const store = aggregateStoreForContext(context);
   try {
-    const parsed = WorkChoiceInputSchema.parse(input);
+    const parseResult = WorkChoiceInputSchema.safeParse(input);
+    if (!parseResult.success) {
+      if (parseResult.error.issues.some((issue) => issue.path[0] === "human_gate_token")) {
+        return failureResult("work.choice", "A structural choice must answer a prepared human gate.", [diagnostic("HUMAN_GATE_TOKEN_REQUIRED", "Call work.choice.prepare first; work.choice requires the returned human_gate_token.", "error", "/human_gate_token")]);
+      }
+      return failureResult("work.choice", "Structural choice failed.", [diagnostic("WORK_CHOICE_REJECTED", parseResult.error.message, "error", "/work")]);
+    }
+    const parsed = parseResult.data;
     if (parsed.human_confirmed !== true) return failureResult("work.choice", "A structural choice requires human_confirmed: true.", [diagnostic("WORK_CHOICE_UNCONFIRMED", "Structural decisions are human choices.", "error", "/human_confirmed")]);
     const aggregate = await store.read(parsed.id);
     if (aggregate.lifecycle.approval !== null) return failureResult("work.choice", "Work Packet is already approved; a structural choice would re-stale it — re-approve instead.", [diagnostic("WORK_CHOICE_APPROVED", "Structural decisions are pre-approval (they are in the whole-WP approval hash).", "error", "/lifecycle/approval")]);
+    const gateDiagnostics = activeChoiceGateDiagnostics(aggregate, parsed, parsed.human_gate_token);
+    if (gateDiagnostics.length > 0) return failureResult("work.choice", "Structural choice does not match the active prepared human gate.", gateDiagnostics);
     const result = applyStructuralChoice(aggregate, parsed, parsed.id, aggregate.revision + 1, parsed.prompt_id);
-    if (!result.ok) return failureResult("work.choice", "A UI stack choice must record its component library.", [result.error]);
-    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...result.aggregate, decision_history: [...aggregate.decision_history, result.decision] }));
+    if (!result.ok) return failureResult("work.choice", "Structural choice failed validation.", [result.error]);
+    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...result.aggregate, active_human_gate: null, decision_history: [...aggregate.decision_history, result.decision] }));
     await auditDecision(store.root, result.decision);
     return {
       ok: true,
       action_id: "work.choice",
       data: { work_packet: updated, decision: result.decision },
       diagnostics: [],
-      mutations: [{ artifact: "work_packet", operation: "update", paths: [`/${parsed.choice_type.replace("_choice", "")}`], summary: `Recorded ${parsed.choice_type}: ${parsed.choice}.` }],
+      mutations: [{ artifact: "work_packet", operation: "update", paths: [`/${parsed.choice_type.replace("_choice", "")}`, "/active_human_gate"], summary: `Recorded ${parsed.choice_type}: ${parsed.choice}.` }],
       next_actions: [],
       summary: `Work Packet ${updated.id}: ${parsed.choice_type} -> ${parsed.choice}.`
     };
@@ -1503,40 +2650,14 @@ export async function workChoice(input: z.infer<typeof WorkChoiceInputSchema>, c
   }
 }
 
-/**
- * Record a BATCH of structural choices in ONE call (platform + architecture + stack the human already chose in a
- * single upfront prompt). Same per-choice validation + a human decision each, written together — no per-choice
- * ceremony. human_confirmed covers the batch (the human answered all of them).
- */
+/** Compatibility action: structural choice batching is rejected; use work.choice.prepare + work.choice one gate at a time. */
 export const WorkChoicesInputSchema = z.object({ id: z.string().min(1), choices: z.array(ChoiceItemSchema).min(1), human_confirmed: z.boolean(), prompt_id: z.string().optional() }).strict();
 
 export async function workChoices(input: z.infer<typeof WorkChoicesInputSchema>, context: ActionExecutionContext = {}): Promise<ActionResult> {
-  const store = aggregateStoreForContext(context);
+  void context;
   try {
-    const parsed = WorkChoicesInputSchema.parse(input);
-    if (parsed.human_confirmed !== true) return failureResult("work.choices", "Structural choices require human_confirmed: true.", [diagnostic("WORK_CHOICE_UNCONFIRMED", "Structural decisions are human choices.", "error", "/human_confirmed")]);
-    const aggregate = await store.read(parsed.id);
-    if (aggregate.lifecycle.approval !== null) return failureResult("work.choices", "Work Packet is already approved; a structural choice would re-stale it — re-approve instead.", [diagnostic("WORK_CHOICE_APPROVED", "Structural decisions are pre-approval (they are in the whole-WP approval hash).", "error", "/lifecycle/approval")]);
-    let working = aggregate;
-    const decisions: Array<ReturnType<typeof buildHumanDecision>> = [];
-    const targetRevision = aggregate.revision + 1;
-    for (const item of parsed.choices) {
-      const result = applyStructuralChoice(working, item, parsed.id, targetRevision, parsed.prompt_id);
-      if (!result.ok) return failureResult("work.choices", `Structural choice '${item.choice_type}' rejected.`, [result.error]);
-      working = result.aggregate;
-      decisions.push(result.decision);
-    }
-    const updated = await store.update(AggregateWorkPacketSchema.parse({ ...working, decision_history: [...aggregate.decision_history, ...decisions] }));
-    for (const decision of decisions) await auditDecision(store.root, decision);
-    return {
-      ok: true,
-      action_id: "work.choices",
-      data: { work_packet: updated, decisions },
-      diagnostics: [],
-      mutations: [{ artifact: "work_packet", operation: "update", paths: parsed.choices.map((item) => `/${item.choice_type.replace("_choice", "")}`), summary: `Recorded ${decisions.length} structural decision(s) in one call.` }],
-      next_actions: [],
-      summary: `Work Packet ${updated.id}: recorded ${decisions.map((decision) => decision.decision_type).join(", ")}.`
-    };
+    WorkChoicesInputSchema.parse(input);
+    return failureResult("work.choices", "Batched structural choices are not accepted.", [diagnostic("WORK_CHOICES_SINGLE_GATE_REQUIRED", "Prepare and answer platform, architecture, and stack one at a time with work.choice.prepare followed by work.choice. Spec Guard rejects batched structural-choice prompts so agents cannot merge unrelated human gates into one mega prompt.", "error", "/choices")]);
   } catch (error) {
     return failureResult("work.choices", "Structural choices failed.", [diagnostic("WORK_CHOICES_REJECTED", error instanceof Error ? error.message : String(error), "error", "/work")]);
   }

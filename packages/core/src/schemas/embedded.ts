@@ -9,13 +9,26 @@ export type Timestamp = z.infer<typeof TimestampSchema>;
 
 export const Sha256HexSchema = z.string().regex(/^[a-f0-9]{64}$/);
 
+const JsonLiteralSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+export type JsonValue = z.infer<typeof JsonValueSchema>;
+export const JsonValueSchema: z.ZodType<unknown> = z.lazy(() => z.union([
+  JsonLiteralSchema,
+  z.array(JsonValueSchema),
+  z.record(z.string(), JsonValueSchema)
+]));
+
 export const DiagnosticSchema = z.object({
   code: z.string().min(1),
   severity: z.enum(["error", "warning", "info"]),
   message: z.string(),
   field_path: z.string().nullable(),
   gate: z.string().nullable(),
-  fix: z.string().nullable()
+  fix: z.string().nullable(),
+  // Optional structured repair metadata for agent-facing readiness checks. Existing diagnostics remain valid without
+  // it, but workflow helpers can attach the exact tool and input shape that repairs a blocking condition.
+  repair_action: z.string().optional(),
+  repair_input_template: z.record(z.string(), JsonValueSchema).optional(),
+  human_required: z.boolean().optional()
 }).strict();
 export type Diagnostic = z.infer<typeof DiagnosticSchema>;
 
@@ -43,14 +56,6 @@ export const ApprovedPayloadRefSchema = z.object({
   payload_revision: z.string().min(1)
 }).strict();
 export type ApprovedPayloadRef = z.infer<typeof ApprovedPayloadRefSchema>;
-
-const JsonLiteralSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
-export type JsonValue = z.infer<typeof JsonValueSchema>;
-export const JsonValueSchema: z.ZodType<unknown> = z.lazy(() => z.union([
-  JsonLiteralSchema,
-  z.array(JsonValueSchema),
-  z.record(z.string(), JsonValueSchema)
-]));
 
 export const HumanDecisionSchema = z.object({
   id: z.string().min(1),

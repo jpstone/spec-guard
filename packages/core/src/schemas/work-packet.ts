@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { WorkPacketSchema } from "./artifacts.ts";
+import { HumanDecisionSchema, Sha256HexSchema, TimestampSchema } from "./embedded.ts";
 
 /**
  * v2 aggregate Work Packet schema (WORK_PACKET_AGGREGATE_V2_DESIGN.md).
@@ -79,6 +80,58 @@ export const SpecDependenciesSchema = z
   })
   .strict();
 export const EMPTY_SPEC_DEPENDENCIES: z.infer<typeof SpecDependenciesSchema> = { spec_dependencies: [], external_dependencies: [], contract_dependencies: [] };
+
+export const ImplementationParallelismPlanSchema = z.object({
+  schema_version: z.literal(1).default(1),
+  strategy: z.enum(["sequential", "staged", "parallel"]),
+  reasoning: z.string().min(1),
+  execution_groups: z.array(z.object({
+    id: z.string().min(1),
+    spec_ids: z.array(z.string().min(1)).min(1),
+    rationale: z.string().min(1)
+  }).strict()).min(1),
+  constraints: z.array(z.string().min(1)).default([]),
+  risks: z.array(z.string().min(1)).default([]),
+  based_on_spec_plan_hashes: z.array(z.object({
+    spec_id: z.string().min(1),
+    implementation_plan_hash: Sha256HexSchema
+  }).strict()).min(1)
+}).strict();
+export type ImplementationParallelismPlan = z.infer<typeof ImplementationParallelismPlanSchema>;
+
+export const ArchitectureGovernanceBindingSchema = z.object({
+  mode: z.enum(["pending", "charter_active", "waived"]).default("pending"),
+  charter_revision: z.number().int().positive().nullable().default(null),
+  active_ordinance_ids: z.array(z.string().min(1)).default([]),
+  waiver_decision: HumanDecisionSchema.nullable().default(null),
+  waiver_reason: z.string().min(1).nullable().default(null)
+}).strict().superRefine((value, ctx) => {
+  if (value.mode === "charter_active") {
+    if (value.charter_revision === null) ctx.addIssue({ code: "custom", path: ["charter_revision"], message: "charter_active governance requires charter_revision" });
+    if (value.active_ordinance_ids.length === 0) ctx.addIssue({ code: "custom", path: ["active_ordinance_ids"], message: "charter_active governance requires at least one active ordinance id" });
+    if (value.waiver_decision !== null || value.waiver_reason !== null) ctx.addIssue({ code: "custom", path: ["waiver_decision"], message: "charter_active governance must not carry a waiver" });
+  }
+  if (value.mode === "waived") {
+    if (value.waiver_decision === null) ctx.addIssue({ code: "custom", path: ["waiver_decision"], message: "waived governance requires a HumanDecision" });
+    if (value.waiver_reason === null) ctx.addIssue({ code: "custom", path: ["waiver_reason"], message: "waived governance requires a reason" });
+  }
+});
+export type ArchitectureGovernanceBinding = z.infer<typeof ArchitectureGovernanceBindingSchema>;
+
+export const ActiveHumanGateSchema = z.object({
+  schema_version: z.literal(1).default(1),
+  gate_id: z.string().min(1),
+  gate_token: z.string().min(1),
+  action_id: z.literal("work.choice"),
+  gate_kind: z.enum(["platform_choice", "architecture_choice", "stack_choice"]),
+  prompt_text: z.string().min(1),
+  options_presented: z.array(z.string().min(1)).min(1),
+  recommended_option_number: z.number().int().positive().nullable().default(null),
+  recommendation_rationale: z.string().min(1).nullable().default(null),
+  prompt_hash: Sha256HexSchema,
+  created_at: TimestampSchema
+}).strict();
+export type ActiveHumanGate = z.infer<typeof ActiveHumanGateSchema>;
 
 /** One homogeneous leaf of a Work Packet — AGENT-owned implementation lifecycle, no human gate of its own. */
 export const SpecSchema = z
@@ -163,6 +216,18 @@ export const AggregateWorkPacketSchema = z
     // the stale-whole-WP-review check (the human accepts the changes without a fresh agent review). Cleared on
     // approval. NOT part of the approval hash (a workflow flag, not approved content).
     re_review_waived: z.boolean().default(false),
+    // Coordinator-authored implementation execution strategy, created AFTER every Spec has an implementation plan.
+    // It is approval-bound: the human approves either the proposed parallel waves or the explicit reasoning for
+    // sequential execution. The stored plan is pinned to each Spec's implementation_plan_hash so re-planning a Spec
+    // stales this packet-level strategy and requires a fresh work.parallelism.plan before review/approval.
+    implementation_parallelism_plan: ImplementationParallelismPlanSchema.nullable().default(null),
+    // Greenfield architecture-governance binding: a new target must either bind to the current active Architecture
+    // Charter ordinances or carry an explicit human waiver. Bound into the Work Packet approval hash.
+    architecture_governance: ArchitectureGovernanceBindingSchema.default({ mode: "pending", charter_revision: null, active_ordinance_ids: [], waiver_decision: null, waiver_reason: null }),
+    // A single prepared human prompt awaiting a real human answer. This is workflow state, not approved content, so
+    // aggregateApprovalProjection deliberately excludes it. Recording the answer clears it and mutates the approved
+    // structural field.
+    active_human_gate: ActiveHumanGateSchema.nullable().default(null),
     // At least one Spec always (an undecomposed Work Packet is its own single Spec). Enforced so the approval
     // hash can never degenerate to one that ignores the container's structural decisions (they ride inside the
     // per-Spec projections, so zero Specs => zero coverage).

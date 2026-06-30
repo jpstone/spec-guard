@@ -58,6 +58,14 @@ export function pendingActionForArtifact(artifactType: string, artifact: unknown
     if (status === "draft") return "baseline.review / baseline.accept";
     if (status === "blocked") return "Resolve baseline blocker";
   }
+  if (artifactType === "architecture_charter") {
+    if (status === "draft") return "architecture.plan";
+    if (status === "planned") return "architecture.approve";
+    if (status === "approved") return "architecture.authorize";
+    if (status === "implementation_authorized") return "architecture.record / architecture.validate";
+    if (status === "validated") return "architecture.activate";
+    if (status === "blocked") return "Resolve charter blocker";
+  }
   return null;
 }
 
@@ -65,6 +73,7 @@ export function isPendingHumanGate(artifactType: string, artifact: unknown): boo
   const status = statusOf(artifact);
   if (artifactType === "work_packet") return status === "pending_ac_approval" || status === "pending_packet_approval" || status === "approved";
   if (artifactType === "runtime_baseline") return status === "draft";
+  if (artifactType === "architecture_charter") return status === "planned" || status === "approved" || status === "validated";
   return false;
 }
 

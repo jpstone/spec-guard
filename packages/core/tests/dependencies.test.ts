@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initAction, detectDependencyCycle, topologicalOrder, aggregateStoreForContext, aggregateApprovalProjection, AggregateWorkPacketSchema } from "../src/index.ts";
 import { workCreate, workDecompose, workSpecAcs, workSpecPlan, workReview, workApprove, workAuthorize, workSpecRecord, workGet, workIntent } from "../src/actions/work.ts";
 import { ContractStore } from "../src/storage/contract-store.ts";
+import { recordSequentialParallelismPlan } from "./helpers/parallelism-plan.ts";
 
 // --- pure helper unit tests (no fs) ---
 type Specs = Parameters<typeof detectDependencyCycle>[0];
@@ -104,11 +105,11 @@ describe("dependency edges — plan + review gates", () => {
     expect(result.diagnostics.some((d) => d.code === "DEPENDENCY_SPEC_UNKNOWN")).toBe(true);
   });
 
-  it("work.review rejects a cross-Spec dependency cycle", async () => {
+  it("work.parallelism.plan rejects a cross-Spec dependency cycle", async () => {
     const [s0, s1] = await twoSpecs();
     await workSpecPlan({ id: "WP1", spec_id: s0, plan: PLAN, dependencies: deps(s1) }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: s1, plan: PLAN, dependencies: deps(s0) }, { projectRoot: root });
-    const result = await workReview({ id: "WP1", producer: reviewer("agent-C"), verdict: "pass", blockers: [], summary: "x" }, { projectRoot: root });
+    const result = await recordSequentialParallelismPlan(root);
     expect(result.ok).toBe(false);
     expect(result.diagnostics.some((d) => d.code === "DEPENDENCY_CYCLE")).toBe(true);
   });
@@ -117,6 +118,7 @@ describe("dependency edges — plan + review gates", () => {
     const [s0, s1] = await twoSpecs();
     await workSpecPlan({ id: "WP1", spec_id: s0, plan: PLAN, dependencies: deps(s1) }, { projectRoot: root }); // s0 depends on s1
     await workSpecPlan({ id: "WP1", spec_id: s1, plan: PLAN, dependencies: deps() }, { projectRoot: root });
+    await recordSequentialParallelismPlan(root);
     const result = await workReview({ id: "WP1", producer: reviewer("agent-C"), verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
     expect(result.ok).toBe(true);
     const order = (result.data as { implementation_order: string[] }).implementation_order;
@@ -137,6 +139,7 @@ describe("dependency edges — plan + review gates", () => {
     const [api, ui] = await twoSpecsApiUi();
     await workSpecPlan({ id: "WP1", spec_id: api, plan: PLAN, dependencies: deps(), contract_surface: { ops: ["a"] } }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: ui, plan: PLAN, dependencies: { spec_dependencies: [{ spec_id: api, contract: { id: api, content_hash: "deadbeef" }, reason: "uses it" }], external_dependencies: [], contract_dependencies: [] } }, { projectRoot: root });
+    await recordSequentialParallelismPlan(root);
     const review = await workReview({ id: "WP1", producer: reviewer("agent-C"), verdict: "pass", blockers: [], summary: "x" }, { projectRoot: root });
     expect(review.ok).toBe(false);
     expect(review.diagnostics.some((d) => d.code === "CONTRACT_EDGE_MISMATCH")).toBe(true);
@@ -147,6 +150,7 @@ describe("dependency edges — plan + review gates", () => {
     const [api, ui] = await twoSpecsApiUi();
     await workSpecPlan({ id: "WP1", spec_id: api, plan: PLAN, dependencies: deps(), contract_surface: { ops: ["list", "add"] } }, { projectRoot: root });
     await workSpecPlan({ id: "WP1", spec_id: ui, plan: PLAN, dependencies: deps(api) }, { projectRoot: root }); // UI depends on API
+    await recordSequentialParallelismPlan(root);
     await workReview({ id: "WP1", producer: reviewer("agent-C"), verdict: "pass", blockers: [], summary: "ok" }, { projectRoot: root });
     const hash = aggregateApprovalProjection(await store.read("WP1")).hash;
     await workApprove({ id: "WP1", review_snapshot_hash: hash, selected_number: 1, raw_response: "1", decision_prompt: "Approve?", human_confirmed: true }, { projectRoot: root });

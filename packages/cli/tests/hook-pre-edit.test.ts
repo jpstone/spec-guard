@@ -59,6 +59,13 @@ describe("CLI hook pre-edit (the PreToolUse edit-gate adapter)", () => {
     expect((await runHook(codexEdit)).code).toBe(2); // lease cleared -> deny again
   });
 
+  it("Codex flow: raw apply_patch input and subagent_type payloads still hit the edit lease", async () => {
+    const rawCodexEdit = { toolName: "apply_patch", tool_input: "*** Update File: src/index.ts\n" };
+    expect((await runHook(rawCodexEdit)).code).toBe(2);
+    await subagent("subagent-start", { subagent_type: "spec-guard-implementer", subagent_id: "a2", cwd: root });
+    expect((await runHook(rawCodexEdit)).code).toBe(0);
+  });
+
   it("a read-only subagent (reviewer) start writes NO lease — edits stay denied", async () => {
     await subagent("subagent-start", { agent_type: "spec-guard-reviewer", agent_id: "r1", cwd: root });
     expect((await runHook(codexEdit)).code).toBe(2);

@@ -75,6 +75,10 @@ Or add it to any MCP client's config (`.mcp.json`):
 }
 ```
 
+Codex uses `.codex/config.toml` for project-scoped MCP servers; `spec-guard init`
+writes that entry for you. Start a new Codex session after init and run `/mcp`
+to confirm `spec-guard` is loaded.
+
 **2. Initialize Spec Guard in your project:**
 
 ```bash

@@ -57,10 +57,10 @@ async function ensureArtifactRootGitignored(projectRoot: string, artifactRoot: s
   return "created";
 }
 
-/** Additively merge one hook entry (event + matcher + command) into a host config (Claude settings.json / Codex
- *  hooks.json). Never clobbers an existing config or a pre-existing entry for the same command; only rewrites the
- *  file when adding ours. Deduped per command, so distinct events (pre-edit / subagent-start / subagent-stop) coexist. */
-async function ensureHookEntry(absPath: string, event: string, matcher: string, command: string): Promise<"created" | "preserved"> {
+/** Additively merge one hook entry (event + matcher + command) into a host JSON config (Claude settings.json).
+ *  Never clobbers an existing config or a pre-existing entry for the same command; only rewrites the file when
+ *  adding ours. Deduped per command, so distinct events coexist. */
+async function ensureJsonHookEntry(absPath: string, event: string, matcher: string, command: string): Promise<"created" | "preserved"> {
   let config: Record<string, unknown> = {};
   try {
     const parsed = JSON.parse(await readFile(absPath, "utf8")) as unknown;
@@ -75,6 +75,130 @@ async function ensureHookEntry(absPath: string, event: string, matcher: string, 
   await mkdir(path.dirname(absPath), { recursive: true });
   await writeFile(absPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
   return "created";
+}
+
+interface CodexHookEntry {
+  event: string;
+  matcher: string;
+  command: string;
+  statusMessage: string;
+}
+
+function tomlString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function renderCodexInlineHook(entry: CodexHookEntry): string {
+  return [
+    `[[hooks.${entry.event}]]`,
+    `matcher = ${tomlString(entry.matcher)}`,
+    "",
+    `[[hooks.${entry.event}.hooks]]`,
+    'type = "command"',
+    `command = ${tomlString(entry.command)}`,
+    `statusMessage = ${tomlString(entry.statusMessage)}`,
+    ""
+  ].join("\n");
+}
+
+function appendTomlBlock(existing: string, block: string): string {
+  const prefix = existing.length === 0 ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
+  return `${existing}${prefix}${block.endsWith("\n") ? block : `${block}\n`}`;
+}
+
+/** Additively append a Codex inline hook into .codex/config.toml. Codex supports hooks.json too, but inline
+ *  project config keeps the hooks beside .codex/agents/*.toml and avoids a parallel Codex-specific hook file. */
+async function ensureCodexInlineHookEntry(absPath: string, entry: CodexHookEntry): Promise<"created" | "preserved"> {
+  let existing = "";
+  try {
+    existing = await readFile(absPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (existing.includes(entry.command)) return "preserved";
+  await mkdir(path.dirname(absPath), { recursive: true });
+  await writeFile(absPath, appendTomlBlock(existing, renderCodexInlineHook(entry)), "utf8");
+  return "created";
+}
+
+function hasCodexSpecGuardMcpServer(existing: string): boolean {
+  return existing.split(/\r?\n/).some((line) => /^\[mcp_servers\.(?:"spec-guard"|'spec-guard'|spec-guard)\]\s*$/.test(line.trim()));
+}
+
+function renderCodexMcpServerEntry(): string {
+  return [
+    '[mcp_servers."spec-guard"]',
+    'command = "npx"',
+    'args = ["spec-guard-mcp"]',
+    "startup_timeout_sec = 20",
+    "tool_timeout_sec = 120",
+    ""
+  ].join("\n");
+}
+
+function removeStaleGeneratedCodexMcpCwd(existing: string): { text: string; changed: boolean } {
+  const lines = existing.split(/\r?\n/);
+  let inSpecGuardMcp = false;
+  let blockStart = -1;
+  let hasGeneratedCommand = false;
+  let hasGeneratedArgs = false;
+  let staleCwdIndex = -1;
+  const staleCwdIndexes = new Set<number>();
+
+  const finishBlock = (): void => {
+    if (blockStart !== -1 && hasGeneratedCommand && hasGeneratedArgs && staleCwdIndex !== -1) staleCwdIndexes.add(staleCwdIndex);
+    inSpecGuardMcp = false;
+    blockStart = -1;
+    hasGeneratedCommand = false;
+    hasGeneratedArgs = false;
+    staleCwdIndex = -1;
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.trim() ?? "";
+    if (/^\[.+\]\s*$/.test(trimmed)) {
+      finishBlock();
+      inSpecGuardMcp = /^\[mcp_servers\.(?:"spec-guard"|'spec-guard'|spec-guard)\]\s*$/.test(trimmed);
+      if (inSpecGuardMcp) blockStart = index;
+      continue;
+    }
+    if (!inSpecGuardMcp) continue;
+    if (/^command\s*=\s*"npx"\s*$/.test(trimmed)) hasGeneratedCommand = true;
+    if (/^args\s*=\s*\[\s*"spec-guard-mcp"\s*\]\s*$/.test(trimmed)) hasGeneratedArgs = true;
+    if (/^cwd\s*=\s*"\.\."\s*$/.test(trimmed)) staleCwdIndex = index;
+  }
+  finishBlock();
+
+  if (staleCwdIndexes.size === 0) return { text: existing, changed: false };
+  return { text: lines.filter((_, index) => !staleCwdIndexes.has(index)).join("\n"), changed: true };
+}
+
+async function ensureCodexMcpServerEntry(absPath: string): Promise<"created" | "preserved"> {
+  let existing = "";
+  try {
+    existing = await readFile(absPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const repaired = removeStaleGeneratedCodexMcpCwd(existing);
+  if (repaired.changed) {
+    await writeFile(absPath, repaired.text, "utf8");
+    existing = repaired.text;
+  }
+  if (hasCodexSpecGuardMcpServer(existing)) return repaired.changed ? "created" : "preserved";
+  await mkdir(path.dirname(absPath), { recursive: true });
+  await writeFile(absPath, appendTomlBlock(existing, renderCodexMcpServerEntry()), "utf8");
+  return "created";
+}
+
+async function fileExists(absPath: string): Promise<boolean> {
+  try {
+    await access(absPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 export async function initAction(input: InitInput = {}, context: ActionExecutionContext = {}): Promise<ActionResult<InitData>> {
@@ -129,19 +253,26 @@ export async function initAction(input: InitInput = {}, context: ActionExecution
     // that PreToolUse reads to identify the actor. Either way a coordinator/main-session edit (no agent_type AND no
     // lease) is denied. One CLI (`spec-guard hook ...`) serves both hosts.
     const claudeSettings = path.join(projectRoot, ".claude", "settings.json");
-    generatedFiles.push({ path: ".claude/settings.json", status: await ensureHookEntry(claudeSettings, "PreToolUse", "Write|Edit|MultiEdit|NotebookEdit", "npx spec-guard hook pre-edit") });
+    generatedFiles.push({ path: ".claude/settings.json", status: await ensureJsonHookEntry(claudeSettings, "PreToolUse", "Write|Edit|MultiEdit|NotebookEdit", "npx spec-guard hook pre-edit") });
 
-    const codexHooks = path.join(projectRoot, ".codex", "hooks.json");
+    const codexConfig = path.join(projectRoot, ".codex", "config.toml");
+    const codexLegacyHooks = path.join(projectRoot, ".codex", "hooks.json");
     const editCapableMatcher = "spec-guard-(implementer|fixer)";
+    let codexConfigStatus: "created" | "preserved" = await ensureCodexMcpServerEntry(codexConfig);
     let codexStatus: "created" | "preserved" = "preserved";
-    for (const [event, matcher, command] of [
-      ["PreToolUse", "apply_patch", "npx spec-guard hook pre-edit"],
-      ["SubagentStart", editCapableMatcher, "npx spec-guard hook subagent-start"],
-      ["SubagentStop", editCapableMatcher, "npx spec-guard hook subagent-stop"]
-    ] as const) {
-      if (await ensureHookEntry(codexHooks, event, matcher, command) === "created") codexStatus = "created";
+    const codexHookEntries = [
+      { event: "PreToolUse", matcher: "^apply_patch$", command: "npx spec-guard hook pre-edit", statusMessage: "Spec Guard edit gate" },
+      { event: "SubagentStart", matcher: `^${editCapableMatcher}$`, command: "npx spec-guard hook subagent-start", statusMessage: "Spec Guard edit lease start" },
+      { event: "SubagentStop", matcher: `^${editCapableMatcher}$`, command: "npx spec-guard hook subagent-stop", statusMessage: "Spec Guard edit lease stop" }
+    ] satisfies CodexHookEntry[];
+    if (await fileExists(codexLegacyHooks)) {
+      for (const entry of codexHookEntries) if (await ensureJsonHookEntry(codexLegacyHooks, entry.event, entry.matcher, entry.command) === "created") codexStatus = "created";
+      generatedFiles.push({ path: ".codex/hooks.json", status: codexStatus });
+      generatedFiles.push({ path: ".codex/config.toml", status: codexConfigStatus });
+    } else {
+      for (const entry of codexHookEntries) if (await ensureCodexInlineHookEntry(codexConfig, entry) === "created") codexConfigStatus = "created";
+      generatedFiles.push({ path: ".codex/config.toml", status: codexConfigStatus });
     }
-    generatedFiles.push({ path: ".codex/hooks.json", status: codexStatus });
 
     const gitignoreStatus = await ensureArtifactRootGitignored(projectRoot, artifactRoot);
     generatedFiles.push({ path: ".gitignore", status: gitignoreStatus });
@@ -149,8 +280,9 @@ export async function initAction(input: InitInput = {}, context: ActionExecution
     const nextSteps = [
       "Reload or restart Pi so .pi/extensions/spec-guard.ts is discovered.",
       "Reload MCP clients after reviewing generated MCP/client config files.",
+      "For Codex, start a new session or restart after init so .codex/config.toml is loaded; `/mcp` should list the spec-guard MCP server once the project config is trusted.",
       "Review the named subagent files in .claude/agents/ and .codex/agents/ (each role's model + read-only), then run spec_guard_config_check.",
-      "Edit gate: review the PreToolUse hook merged into .claude/settings.json + .codex/hooks.json (runs `npx spec-guard hook pre-edit`). It denies coordinator/main-session edits to product code under a Spec's scope — confirm the spec-guard CLI is invocable in this project so the hook engages.",
+      "Edit gate: review the PreToolUse hook merged into .claude/settings.json and the Codex hooks merged into .codex/config.toml (or an existing .codex/hooks.json) (runs `npx spec-guard hook pre-edit`). In Codex, use `/hooks` to review/trust the new project hooks. The gate denies coordinator/main-session edits to product code under a Spec's scope - confirm the spec-guard CLI is invocable in this project so the hook engages.",
       "First call spec_guard_mcp_status or spec_guard_mcp_quickstart.",
       "Use CLI for bootstrap/init; use Spec Guard tools directly for workflow actions."
     ];

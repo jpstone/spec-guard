@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { ConfigSchema, RuntimeBaselineSchema, SourceArtifactSchema, WorkPacketSchema } from "../schemas/artifacts.ts";
+import { ArchitectureCharterSchema, ConfigSchema, RuntimeBaselineSchema, SourceArtifactSchema, WorkPacketSchema } from "../schemas/artifacts.ts";
 import { CommandResultSchema, DiagnosticSchema, HumanDecisionSchema, type Diagnostic } from "../schemas/embedded.ts";
 import { architectureRequirementDefaultsForUnknownClassification } from "../work/architecture-requirement.ts";
 import { DEFAULT_TARGET_ID } from "../schemas/enums.ts";
 
 const knownArtifactSchemas = {
   config: ConfigSchema,
+  architecture_charter: ArchitectureCharterSchema,
   runtime_baseline: RuntimeBaselineSchema,
   work_packet: WorkPacketSchema,
   source_artifact: SourceArtifactSchema

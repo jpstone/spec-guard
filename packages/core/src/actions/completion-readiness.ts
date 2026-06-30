@@ -6,6 +6,7 @@ import { bootstrapAcsRequired } from "../work/bootstrap-acs.ts";
 import { runCommandDeterministically } from "../commands/runner.ts";
 import { readRuntimeBaselineCurrent } from "../baseline/target-store.ts";
 import { DEFAULT_TARGET_ID } from "../schemas/enums.ts";
+import { activeArchitectureOrdinanceDiagnostics } from "./architecture.ts";
 
 async function acceptedRuntimeBaseline(context: ActionExecutionContext, targetId: string = DEFAULT_TARGET_ID): Promise<RuntimeBaseline | null> {
   try {
@@ -37,11 +38,12 @@ export async function completionReadinessDiagnostics(work: WorkPacket, context: 
  * separate, narrower mechanism (deferred) — not a global suite run at the gate. A null/undeclared build is skipped.
  */
 export async function completionValidationDiagnostics(work: WorkPacket, context: ActionExecutionContext): Promise<Diagnostic[]> {
-  if (work.target_id === null) return []; // runtime-less work: nothing to build/validate
+  const diagnostics = await activeArchitectureOrdinanceDiagnostics(context);
+  if (work.target_id === null) return diagnostics; // runtime-less work: no target build, but active ordinances still apply
   const baseline = await acceptedRuntimeBaseline(context, work.target_id);
-  if (baseline === null || baseline.commands.build === null) return [];
+  if (baseline === null || baseline.commands.build === null) return diagnostics;
   const projectRoot = context.projectRoot ?? process.cwd();
   const result = await runCommandDeterministically({ commandSpec: baseline.commands.build, purpose: "build", projectRoot, artifactRoot: storeForContext(context).root });
-  if (result.status !== "failed") return [];
-  return [diagnostic("COMPLETION_VALIDATION_FAILED", "End-state validation: the build did not pass. The final code must COMPILE before completion — this is where a consumer that doesn't conform to a producer's contract is caught. (Tests are not run here: the whole suite would couple completion to unrelated/integration failures.)", "error", "/runtime_baseline_ref")];
+  if (result.status === "failed") diagnostics.push(diagnostic("COMPLETION_VALIDATION_FAILED", "End-state validation: the build did not pass. The final code must COMPILE before completion — this is where a consumer that doesn't conform to a producer's contract is caught. (Tests are not run here: the whole suite would couple completion to unrelated/integration failures.)", "error", "/runtime_baseline_ref"));
+  return diagnostics;
 }

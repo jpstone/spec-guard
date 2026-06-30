@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { leanAgentResult } from "../src/index.ts";
+import { buildMcpToolDefinitions, leanAgentResult } from "../src/index.ts";
 import { buildAggregate } from "./helpers/aggregate-fixture.ts";
 
 describe("leanAgentResult (#1: lean agent-facing mutation responses)", () => {
@@ -16,11 +16,19 @@ describe("leanAgentResult (#1: lean agent-facing mutation responses)", () => {
     expect(data.decision).toEqual({ foo: 1 }); // other data fields preserved
   });
 
-  it("keeps the FULL work_packet on work.get (the explicit read)", () => {
+  it("trims work_packet on work.get too; agents never receive the full aggregate document", () => {
     const wp = buildAggregate("WP1");
     const lean = leanAgentResult(make("work.get", wp) as never);
-    expect((lean.data as Record<string, unknown>).work_packet).toBeDefined();
-    expect((lean.data as Record<string, unknown>).work_packet_summary).toBeUndefined();
+    const data = lean.data as Record<string, unknown>;
+    expect(data.work_packet).toBeUndefined();
+    expect((data.work_packet_summary as { id: string }).id).toBe("WP1");
+    expect(typeof data.approval_token).toBe("string");
+  });
+
+  it("does not advertise full work.get reads through MCP/Pi", () => {
+    const workGet = buildMcpToolDefinitions().find((tool) => tool.action_id === "work.get");
+    const schema = workGet?.input_schema as { properties?: { view?: { enum?: unknown[] } } } | undefined;
+    expect(schema?.properties?.view?.enum).toEqual(["summary", "intent", "spec", "review", "coherence"]);
   });
 
   it("leaves a result with no work_packet untouched (e.g. a baseline/command action)", () => {
